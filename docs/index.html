@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kronos Next Candle</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.js"></script>
+<style>
+  :root { --bg:#0e1013; --card:#161a20; --line:#262c35; --text:#e6e9ee; --mute:#8b94a3; --up:#26a69a; --down:#ef5350; --pred:#f5a623; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  main { max-width:1000px; margin:0 auto; padding:20px 16px 40px; }
+  h1 { font-size:20px; margin:0 0 2px; }
+  .sub { color:var(--mute); font-size:13px; margin-bottom:16px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; }
+  .card .k { color:var(--mute); font-size:12px; }
+  .card .v { font-size:20px; font-weight:600; margin-top:2px; }
+  .up { color:var(--up); } .down { color:var(--down); }
+  #chart { height:460px; background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  .legend { color:var(--mute); font-size:12px; margin-top:10px; }
+  .legend b { color:var(--pred); }
+  #err { color:var(--down); }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Kronos next-candle forecast</h1>
+  <div class="sub" id="sub">Loading…</div>
+  <div class="grid" id="stats"></div>
+  <div id="chart"></div>
+  <div class="legend">Orange candle = <b>Kronos prediction</b> for the next trading day (mean of Monte-Carlo samples). Educational only, not financial advice.</div>
+  <div id="err"></div>
+</main>
+<script>
+(async () => {
+  try {
+    const d = await (await fetch('data.json?' + Date.now())).json();
+    const p = d.prediction, last = d.last_close;
+    const chg = p.close - last, pct = chg / last * 100, cls = chg >= 0 ? 'up' : 'down';
+    document.getElementById('title').textContent = d.symbol + ' · next candle (Kronos)';
+    document.getElementById('sub').textContent = `${d.ticker} · daily · updated ${new Date(d.updated).toLocaleString()}`;
+    const f = n => n.toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
+    const stats = [
+      ['Last close', f(last), ''],
+      [`Predicted close (${p.time})`, f(p.close), cls],
+      ['Expected change', `${chg >= 0 ? '+' : ''}${f(chg)} (${pct.toFixed(2)}%)`, cls],
+      ['Close range (P10–P90)', `${f(p.close_p10)} – ${f(p.close_p90)}`, ''],
+      ['Probability up', (p.prob_up * 100).toFixed(0) + '%', p.prob_up >= 0.5 ? 'up' : 'down'],
+      ['Pred. high / low', `${f(p.high)} / ${f(p.low)}`, ''],
+    ];
+    document.getElementById('stats').innerHTML = stats.map(s =>
+      `<div class="card"><div class="k">${s[0]}</div><div class="v ${s[2]}">${s[1]}</div></div>`).join('');
+
+    const el = document.getElementById('chart');
+    const chart = LightweightCharts.createChart(el, {
+      autoSize: true,
+      layout: { background: { color: '#161a20' }, textColor: '#8b94a3' },
+      grid: { vertLines: { color: '#20262e' }, horzLines: { color: '#20262e' } },
+      rightPriceScale: { borderColor: '#262c35' },
+      timeScale: { borderColor: '#262c35', rightOffset: 4 },
+      crosshair: { mode: 0 },
+    });
+    const series = chart.addCandlestickSeries({
+      upColor: '#26a69a', downColor: '#ef5350', wickUpColor: '#26a69a', wickDownColor: '#ef5350', borderVisible: false,
+    });
+    series.setData(d.candles);
+    const pred = chart.addCandlestickSeries({
+      upColor: '#f5a623', downColor: '#f5a623', wickUpColor: '#f5a623', wickDownColor: '#f5a623',
+      borderColor: '#f5a623', priceLineVisible: false, lastValueVisible: false,
+    });
+    pred.setData([{ time: p.time, open: p.open, high: p.high, low: p.low, close: p.close }]);
+    series.createPriceLine({ price: last, color: '#8b94a3', lineStyle: 2, lineWidth: 1, title: 'last close' });
+    chart.timeScale().fitContent();
+  } catch (e) {
+    document.getElementById('sub').textContent = '';
+    document.getElementById('err').textContent = 'No data yet — run the "Predict next candle" workflow. (' + e.message + ')';
+  }
+})();
+</script>
+</body>
+</html>

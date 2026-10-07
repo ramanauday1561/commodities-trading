@@ -1,0 +1,51 @@
+name: Predict next candle
+
+on:
+  schedule:
+    - cron: "15 10 * * 1-5"   # 15:45 IST, after NSE close (10:15 UTC), Mon-Fri
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["scripts/**", "docs/index.html", ".github/workflows/predict.yml"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  predict-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: scripts/requirements.txt
+      - name: Install dependencies (CPU torch)
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r scripts/requirements.txt
+      - name: Get Kronos
+        run: git clone --depth 1 https://github.com/shiyu-coder/Kronos.git Kronos
+      - name: Cache Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-kronos-small
+      - name: Run prediction
+        run: python scripts/predict.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+      - id: deploy
+        uses: actions/deploy-pages@v4
