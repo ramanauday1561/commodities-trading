@@ -1,0 +1,17 @@
+[
+  {"key":"nifty",     "name":"NIFTY 50",    "group":"Index",  "ticker":"^NSEI", "unit":"pts",     "tz":"Asia/Kolkata",     "close":"15:30"},
+  {"key":"gold",      "name":"Gold",        "group":"Metals", "ticker":"GC=F",  "unit":"USD/oz",  "tz":"America/New_York", "close":"17:00"},
+  {"key":"silver",    "name":"Silver",      "group":"Metals", "ticker":"SI=F",  "unit":"USD/oz",  "tz":"America/New_York", "close":"17:00"},
+  {"key":"copper",    "name":"Copper",      "group":"Metals", "ticker":"HG=F",  "unit":"USD/lb",  "tz":"America/New_York", "close":"17:00"},
+  {"key":"platinum",  "name":"Platinum",    "group":"Metals", "ticker":"PL=F",  "unit":"USD/oz",  "tz":"America/New_York", "close":"17:00"},
+  {"key":"palladium", "name":"Palladium",   "group":"Metals", "ticker":"PA=F",  "unit":"USD/oz",  "tz":"America/New_York", "close":"17:00"},
+  {"key":"crude",     "name":"Crude Oil",   "group":"Energy", "ticker":"CL=F",  "unit":"USD/bbl", "tz":"America/New_York", "close":"17:00"},
+  {"key":"brent",     "name":"Brent",       "group":"Energy", "ticker":"BZ=F",  "unit":"USD/bbl", "tz":"America/New_York", "close":"17:00"},
+  {"key":"natgas",    "name":"Natural Gas", "group":"Energy", "ticker":"NG=F",  "unit":"USD/MMBtu","tz":"America/New_York","close":"17:00"},
+  {"key":"wheat",     "name":"Wheat",       "group":"Agri",   "ticker":"ZW=F",  "unit":"USc/bu",  "tz":"America/Chicago",  "close":"14:20"},
+  {"key":"corn",      "name":"Corn",        "group":"Agri",   "ticker":"ZC=F",  "unit":"USc/bu",  "tz":"America/Chicago",  "close":"14:20"},
+  {"key":"soybeans",  "name":"Soybeans",    "group":"Agri",   "ticker":"ZS=F",  "unit":"USc/bu",  "tz":"America/Chicago",  "close":"14:20"},
+  {"key":"sugar",     "name":"Sugar",       "group":"Agri",   "ticker":"SB=F",  "unit":"USc/lb",  "tz":"America/New_York", "close":"13:00"},
+  {"key":"coffee",    "name":"Coffee",      "group":"Agri",   "ticker":"KC=F",  "unit":"USc/lb",  "tz":"America/New_York", "close":"13:30"},
+  {"key":"cotton",    "name":"Cotton",      "group":"Agri",   "ticker":"CT=F",  "unit":"USc/lb",  "tz":"America/New_York", "close":"14:20"}
+]

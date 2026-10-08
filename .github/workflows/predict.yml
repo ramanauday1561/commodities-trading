@@ -1,9 +1,10 @@
-name: Predict next candle
+name: Predict next candles
 
 on:
   schedule:
-    - cron: "15 3 * * 1-5"    # 08:45 IST, before NSE opens -> forecast starts with today
-    - cron: "15 10 * * 1-5"   # 15:45 IST, after NSE close -> forecast starts with tomorrow
+    - cron: "15 3 * * 1-5"    # 08:45 IST, before NSE opens -> forecasts start with today
+    - cron: "15 10 * * 1-5"   # 15:45 IST, after NSE close
+    - cron: "30 22 * * 1-5"   # 04:00 IST (next day), after the US futures close
   workflow_dispatch:
   push:
     branches: [main]
@@ -19,11 +20,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  predict-and-deploy:
+  setup:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+    outputs:
+      keys: ${{ steps.m.outputs.keys }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: echo "keys=$(python3 -c "import json;print(json.dumps([i['key'] for i in json.load(open('scripts/instruments.json'))]))")" >> "$GITHUB_OUTPUT"
+
+  predict:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        key: ${{ fromJson(needs.setup.outputs.keys) }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -43,7 +55,27 @@ jobs:
           path: ~/.cache/huggingface
           key: hf-kronos-base
       - name: Run prediction
-        run: python scripts/predict.py
+        run: mkdir -p docs/data && python scripts/predict.py ${{ matrix.key }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: data-${{ matrix.key }}
+          path: docs/data/${{ matrix.key }}.json
+
+  deploy:
+    needs: predict
+    if: ${{ !cancelled() }}   # deploy whatever succeeded, even if one instrument failed
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: data-*
+          path: docs/data
+          merge-multiple: true
+      - run: python3 scripts/build_manifest.py
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
