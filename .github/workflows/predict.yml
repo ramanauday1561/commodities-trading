@@ -40,7 +40,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/huggingface
-          key: hf-kronos-small
+          key: hf-kronos-base
       - name: Run prediction
         run: python scripts/predict.py
       - uses: actions/configure-pages@v5
