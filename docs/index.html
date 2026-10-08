@@ -70,8 +70,11 @@ const sg = n => (n >= 0 ? '+' : '') + f(n);
 const cls = n => n >= 0 ? 'up' : 'down';
 const showErr = m => { $('err').textContent = m; };
 
-// Cross-origin "Script error." events (browser extensions, in-app browsers) carry no details; ignore them.
-window.addEventListener('error', e => { if (e.message && !/^script error\.?$/i.test(e.message)) showErr('Error: ' + e.message); });
+// Browser extensions (wallets, translators…) inject scripts that can throw errors unrelated to this page.
+// Only surface errors that originate from this site's own files; real failures are caught by the try/catch below.
+window.addEventListener('error', e => {
+  if (e.filename && e.filename.startsWith(location.origin)) showErr('Error: ' + e.message);
+});
 
 (async () => {
   try {
