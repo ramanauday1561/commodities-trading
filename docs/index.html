@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kronos Next Candle</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.js"></script>
+<script src="lightweight-charts.js"></script>
 <style>
   :root { --bg:#0e1013; --card:#161a20; --line:#262c35; --text:#e6e9ee; --mute:#8b94a3; --up:#26a69a; --down:#ef5350; --pred:#f5a623; }
   * { box-sizing:border-box; }
@@ -33,6 +33,7 @@
   <div id="err"></div>
 </main>
 <script>
+window.addEventListener('error', e => { document.getElementById('err').textContent = 'Error: ' + e.message; });
 (async () => {
   try {
     const d = await (await fetch('data.json?' + Date.now())).json();
@@ -71,10 +72,11 @@
     });
     pred.setData([{ time: p.time, open: p.open, high: p.high, low: p.low, close: p.close }]);
     series.createPriceLine({ price: last, color: '#8b94a3', lineStyle: 2, lineWidth: 1, title: 'last close' });
-    chart.timeScale().fitContent();
+    const n = d.candles.length;
+    chart.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 70), to: n + 3 });
   } catch (e) {
     document.getElementById('sub').textContent = '';
-    document.getElementById('err').textContent = 'No data yet — run the "Predict next candle" workflow. (' + e.message + ')';
+    document.getElementById('err').textContent = 'Could not render: ' + e.message;
   }
 })();
 </script>
