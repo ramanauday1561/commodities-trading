@@ -2,7 +2,7 @@
 walk-forward backtest the model on recent history."""
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pandas as pd
@@ -27,6 +27,16 @@ raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
 raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
 raw.index = pd.to_datetime(raw.index).tz_localize(None)
 full = raw.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].fillna(0.0)
+# Forecast should start from *today*: while the NSE session is still open (before 15:30 IST) today's
+# candle is incomplete, so keep it out of the model input and predict it instead.
+now_ist = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+today_actual = None
+if full.index[-1].date() >= now_ist.date() and (now_ist.hour, now_ist.minute) < (15, 30):
+    row = full.iloc[-1]
+    today_actual = {"time": full.index[-1].strftime("%Y-%m-%d"), "open": round(float(row.open), 2),
+                    "high": round(float(row.high), 2), "low": round(float(row.low), 2),
+                    "close": round(float(row.close), 2)}
+    full = full.iloc[:-1]
 print(f"history: {len(full)} candles, {full.index[0].date()} -> {full.index[-1].date()}")
 
 tokenizer = KronosTokenizer.from_pretrained("NeoQuasar/Kronos-Tokenizer-base")
@@ -103,7 +113,7 @@ out = {
     "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
     "last_close": round(last_close, 2), "last_date": full.index[-1].strftime("%Y-%m-%d"),
     "history_start": full.index[0].strftime("%Y-%m-%d"), "context": len(df), "samples": SAMPLES,
-    "candles": candles, "forecast": forecast, "backtest": bt,
+    "candles": candles, "forecast": forecast, "today_live": today_actual, "backtest": bt,
 }
 with open(OUT, "w") as f:
     json.dump(out, f, separators=(",", ":"))

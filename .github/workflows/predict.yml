@@ -2,7 +2,8 @@ name: Predict next candle
 
 on:
   schedule:
-    - cron: "15 10 * * 1-5"   # 15:45 IST, after NSE close (10:15 UTC), Mon-Fri
+    - cron: "15 3 * * 1-5"    # 08:45 IST, before NSE opens -> forecast starts with today
+    - cron: "15 10 * * 1-5"   # 15:45 IST, after NSE close -> forecast starts with tomorrow
   workflow_dispatch:
   push:
     branches: [main]
