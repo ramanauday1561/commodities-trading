@@ -112,6 +112,11 @@ async function select(key) {
     if (!res.ok) throw new Error(`data/${key}.json not found`);
     const d = await res.json();
     if (my !== token) return;          // user switched again while loading
+    if (!d.models && d.forecast) {     // legacy single-model data file
+      d.models = { base: { label: d.model || 'Kronos', context: d.context, forecast: d.forecast } };
+      d.backtest = {};
+    }
+    if (!d.models || !Object.keys(d.models).length) throw new Error('data format not recognised — hard-refresh the page');
     render(d);
   } catch (e) {
     if (my !== token) return;
