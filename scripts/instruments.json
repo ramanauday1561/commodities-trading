@@ -1,17 +1,152 @@
 [
-  {"key":"nifty",     "name":"NIFTY 50",    "group":"Index",  "ticker":"^NSEI", "unit":"pts",     "tz":"Asia/Kolkata",     "close":"15:30"},
-  {"key":"gold",      "name":"Gold",        "group":"Metals", "ticker":"GC=F",  "unit":"USD/oz",  "tz":"America/New_York", "close":"17:00"},
-  {"key":"silver",    "name":"Silver",      "group":"Metals", "ticker":"SI=F",  "unit":"USD/oz",  "tz":"America/New_York", "close":"17:00"},
-  {"key":"copper",    "name":"Copper",      "group":"Metals", "ticker":"HG=F",  "unit":"USD/lb",  "tz":"America/New_York", "close":"17:00"},
-  {"key":"platinum",  "name":"Platinum",    "group":"Metals", "ticker":"PL=F",  "unit":"USD/oz",  "tz":"America/New_York", "close":"17:00"},
-  {"key":"palladium", "name":"Palladium",   "group":"Metals", "ticker":"PA=F",  "unit":"USD/oz",  "tz":"America/New_York", "close":"17:00"},
-  {"key":"crude",     "name":"Crude Oil",   "group":"Energy", "ticker":"CL=F",  "unit":"USD/bbl", "tz":"America/New_York", "close":"17:00"},
-  {"key":"brent",     "name":"Brent",       "group":"Energy", "ticker":"BZ=F",  "unit":"USD/bbl", "tz":"America/New_York", "close":"17:00"},
-  {"key":"natgas",    "name":"Natural Gas", "group":"Energy", "ticker":"NG=F",  "unit":"USD/MMBtu","tz":"America/New_York","close":"17:00"},
-  {"key":"wheat",     "name":"Wheat",       "group":"Agri",   "ticker":"ZW=F",  "unit":"USc/bu",  "tz":"America/Chicago",  "close":"14:20"},
-  {"key":"corn",      "name":"Corn",        "group":"Agri",   "ticker":"ZC=F",  "unit":"USc/bu",  "tz":"America/Chicago",  "close":"14:20"},
-  {"key":"soybeans",  "name":"Soybeans",    "group":"Agri",   "ticker":"ZS=F",  "unit":"USc/bu",  "tz":"America/Chicago",  "close":"14:20"},
-  {"key":"sugar",     "name":"Sugar",       "group":"Agri",   "ticker":"SB=F",  "unit":"USc/lb",  "tz":"America/New_York", "close":"13:00"},
-  {"key":"coffee",    "name":"Coffee",      "group":"Agri",   "ticker":"KC=F",  "unit":"USc/lb",  "tz":"America/New_York", "close":"13:30"},
-  {"key":"cotton",    "name":"Cotton",      "group":"Agri",   "ticker":"CT=F",  "unit":"USc/lb",  "tz":"America/New_York", "close":"14:20"}
+ {
+  "key": "nifty",
+  "name": "NIFTY 50",
+  "group": "Index",
+  "ticker": "^NSEI",
+  "unit": "pts",
+  "tz": "Asia/Kolkata",
+  "close": "15:30",
+  "about": "India's benchmark stock index: the 50 largest companies on the National Stock Exchange (NSE). Prices are in index points, not rupees. The market is open 9:15 to 15:30 IST on weekdays."
+ },
+ {
+  "key": "gold",
+  "name": "Gold",
+  "group": "Metals",
+  "ticker": "GC=F",
+  "unit": "USD/oz",
+  "tz": "America/New_York",
+  "close": "17:00",
+  "about": "COMEX gold futures: the international gold price in US dollars per troy ounce (about 31.1 g). Indian MCX gold is quoted in rupees per 10 g and includes import duty, so its numbers look very different."
+ },
+ {
+  "key": "silver",
+  "name": "Silver",
+  "group": "Metals",
+  "ticker": "SI=F",
+  "unit": "USD/oz",
+  "tz": "America/New_York",
+  "close": "17:00",
+  "about": "COMEX silver futures, in US dollars per troy ounce. Indian MCX silver is quoted in rupees per kg."
+ },
+ {
+  "key": "copper",
+  "name": "Copper",
+  "group": "Metals",
+  "ticker": "HG=F",
+  "unit": "USD/lb",
+  "tz": "America/New_York",
+  "close": "17:00",
+  "about": "COMEX copper futures, in US dollars per pound. Often watched as a signal of global industrial demand."
+ },
+ {
+  "key": "platinum",
+  "name": "Platinum",
+  "group": "Metals",
+  "ticker": "PL=F",
+  "unit": "USD/oz",
+  "tz": "America/New_York",
+  "close": "17:00",
+  "about": "NYMEX platinum futures, in US dollars per troy ounce. Used in car exhaust systems, jewellery and industry."
+ },
+ {
+  "key": "palladium",
+  "name": "Palladium",
+  "group": "Metals",
+  "ticker": "PA=F",
+  "unit": "USD/oz",
+  "tz": "America/New_York",
+  "close": "17:00",
+  "about": "NYMEX palladium futures, in US dollars per troy ounce. Mostly used in car exhaust systems."
+ },
+ {
+  "key": "crude",
+  "name": "Crude Oil",
+  "group": "Energy",
+  "ticker": "CL=F",
+  "unit": "USD/bbl",
+  "tz": "America/New_York",
+  "close": "17:00",
+  "about": "WTI crude oil futures (the US benchmark), in US dollars per barrel."
+ },
+ {
+  "key": "brent",
+  "name": "Brent",
+  "group": "Energy",
+  "ticker": "BZ=F",
+  "unit": "USD/bbl",
+  "tz": "America/New_York",
+  "close": "17:00",
+  "about": "Brent crude oil futures (the international benchmark), in US dollars per barrel."
+ },
+ {
+  "key": "natgas",
+  "name": "Natural Gas",
+  "group": "Energy",
+  "ticker": "NG=F",
+  "unit": "USD/MMBtu",
+  "tz": "America/New_York",
+  "close": "17:00",
+  "about": "Henry Hub natural gas futures, in US dollars per million BTU. Very volatile and seasonal (heating demand)."
+ },
+ {
+  "key": "wheat",
+  "name": "Wheat",
+  "group": "Agri",
+  "ticker": "ZW=F",
+  "unit": "USc/bu",
+  "tz": "America/Chicago",
+  "close": "14:20",
+  "about": "CBOT wheat futures, quoted in US cents per bushel."
+ },
+ {
+  "key": "corn",
+  "name": "Corn",
+  "group": "Agri",
+  "ticker": "ZC=F",
+  "unit": "USc/bu",
+  "tz": "America/Chicago",
+  "close": "14:20",
+  "about": "CBOT corn futures, quoted in US cents per bushel."
+ },
+ {
+  "key": "soybeans",
+  "name": "Soybeans",
+  "group": "Agri",
+  "ticker": "ZS=F",
+  "unit": "USc/bu",
+  "tz": "America/Chicago",
+  "close": "14:20",
+  "about": "CBOT soybean futures, quoted in US cents per bushel."
+ },
+ {
+  "key": "sugar",
+  "name": "Sugar",
+  "group": "Agri",
+  "ticker": "SB=F",
+  "unit": "USc/lb",
+  "tz": "America/New_York",
+  "close": "13:00",
+  "about": "ICE raw sugar futures, quoted in US cents per pound."
+ },
+ {
+  "key": "coffee",
+  "name": "Coffee",
+  "group": "Agri",
+  "ticker": "KC=F",
+  "unit": "USc/lb",
+  "tz": "America/New_York",
+  "close": "13:30",
+  "about": "ICE arabica coffee futures, quoted in US cents per pound."
+ },
+ {
+  "key": "cotton",
+  "name": "Cotton",
+  "group": "Agri",
+  "ticker": "CT=F",
+  "unit": "USc/lb",
+  "tz": "America/New_York",
+  "close": "14:20",
+  "about": "ICE cotton futures, quoted in US cents per pound."
+ }
 ]
