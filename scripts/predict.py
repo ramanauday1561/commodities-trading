@@ -27,10 +27,11 @@ MODELS = {
 }
 HORIZON = 4               # working days to forecast
 SAMPLES = 30              # Monte-Carlo paths for the forecast band
-BT_SPREAD = 100           # backtest days spread evenly across the whole history
-BT_RECENT = 50            # plus the most recent days
 BT_SAMPLES = 3            # samples averaged per backtest prediction
 BT_BATCH = 8
+from evalutil import backtest_indices, full_stats  # noqa: E402
+from gbm import run_gbm  # noqa: E402
+
 COLS = ["open", "high", "low", "close"]
 
 
@@ -73,30 +74,9 @@ def backtest(predictor, full, context, indices):
     return np.array(rows)
 
 
-def summarize(r):
-    prev, actual, pred = r[:, 1], r[:, 2], r[:, 3]
-    return {
-        "days": int(len(r)),
-        "direction_accuracy": round(float(((pred > prev) == (actual > prev)).mean()), 3),
-        "up_rate": round(float((actual > prev).mean()), 3),                       # baseline: always guess "up"
-        "mape_pct": round(float((np.abs(pred - actual) / actual).mean() * 100), 3),
-        "naive_mape_pct": round(float((np.abs(prev - actual) / actual).mean() * 100), 3),  # "same as yesterday"
-    }
-
-
-def run_backtest(predictor, full, context):
-    n = len(full)
-    if n - BT_RECENT - 1 <= context:
-        return {"days": 0}, None
-    recent = list(range(n - BT_RECENT, n))
-    spread = np.linspace(context, n - BT_RECENT - 1, BT_SPREAD).astype(int).tolist()
-    idx = sorted(set(spread + recent))
-    r = backtest(predictor, full, context, idx)
-    err = r[:, 2] / r[:, 3] - 1                                                 # actual vs predicted close
-    stats = {"all": summarize(r), "recent": summarize(r[r[:, 0] >= n - BT_RECENT]),
-             "span": [full.index[idx[0]].strftime("%Y-%m-%d"), full.index[idx[-1]].strftime("%Y-%m-%d")]}
-    stats["days"] = stats["all"]["days"]
-    return stats, (float(np.percentile(err, 10)), float(np.percentile(err, 90)))
+def run_backtest(predictor, full, context, indices):
+    r = backtest(predictor, full, context, indices)
+    return full_stats(r, len(full), full.index)
 
 
 def build_forecast(paths, future, last_close, cal):
@@ -139,15 +119,26 @@ def main(key):
         ctx_len = min(m["context"], len(full))
         predictor = KronosPredictor(Kronos.from_pretrained(m["model"]), KronosTokenizer.from_pretrained(m["tokenizer"]),
                                     device="cpu", max_context=m["context"])
+        idx = backtest_indices(len(full), m["context"])
+        bt, cal = {"days": 0}, None
         try:
-            bt, cal = run_backtest(predictor, full, m["context"])
+            if idx:
+                bt, cal = run_backtest(predictor, full, m["context"], idx)
         except Exception as e:  # backtest is a bonus; never block the forecast
             print(f"{mkey} backtest failed:", repr(e))
-            bt, cal = {"days": 0}, None
         paths, used = forecast(predictor, full, ctx_len, future)
         models[mkey] = {"label": m["label"], "context": used, "forecast": build_forecast(paths, future, last_close, cal)}
         backtests[mkey] = bt
         print(mkey, json.dumps(bt))
+
+    # LightGBM: trained on the complete history, scored on the same days as Kronos-base.
+    try:
+        gbm_fc, gbm_bt, gbm_rows = run_gbm(full, future, last_close, backtest_indices(len(full), MODELS["base"]["context"]))
+        models["gbm"] = {"label": "LightGBM", "context": gbm_rows, "ctx_text": f"all {gbm_rows:,} days", "forecast": gbm_fc}
+        backtests["gbm"] = gbm_bt
+        print("gbm", json.dumps(gbm_bt))
+    except Exception as e:  # never block the Kronos forecasts
+        print("gbm failed:", repr(e))
 
     candles = [{"time": d.strftime("%Y-%m-%d"), **{c: round(float(r[c]), 2) for c in COLS}}
                for d, (_, r) in zip(full.index, full.iterrows())]

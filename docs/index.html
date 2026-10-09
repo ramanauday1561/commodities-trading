@@ -139,10 +139,10 @@ function pickForecast(d) {
       NUM.forEach(k => { if (keys.every(m => ms[m].forecast[i][k] != null)) o[k] = keys.reduce((a, m) => a + ms[m].forecast[i][k], 0) / keys.length; });
       return o;
     });
-    return { fc, label: 'Average of ' + keys.map(k => ms[k].label).join(' + '), context: keys.map(k => ms[k].context).join(' / ') };
+    return { fc, label: 'Average of ' + keys.map(k => ms[k].label).join(' + '), context: keys.map(k => ms[k].ctx_text || ms[k].context).join(' / ') };
   }
   const m = ms[modelKey] || ms[keys[0]];
-  return { fc: m.forecast, label: m.label, context: m.context };
+  return { fc: m.forecast, label: m.label, context: m.ctx_text || m.context };
 }
 
 function backtestCard(d) {
@@ -171,14 +171,14 @@ function render(d) {
 
   $('title').textContent = `${d.symbol} · ${fc.length}-day forecast`;
   $('sub').textContent = `${d.ticker} · daily · last completed close ${d.last_date} · updated ${new Date(d.updated).toLocaleString()}`;
-  $('badge').innerHTML = `<b>${sel.label}</b> · ${sel.context} candles context · ${d.samples} paths`;
+  $('badge').innerHTML = `<b>${sel.label}</b> · ${sel.context}${typeof sel.context === 'number' ? ' candles context' : ''}`;
 
   const chg1 = first.close - last, chgN = end.close - last;
   const upPct = Math.round(first.prob_up * 100);
 
   const backtest = backtestCard(d);
   const models = Object.keys(d.models);
-  const toggle = models.length > 1 ? `<div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].context}c</button>`).join('')}<button data-m="avg">Average</button></div>` : '';
+  const toggle = models.length > 1 ? `<div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].ctx_text || d.models[k].context + 'c'}</button>`).join('')}<button data-m="avg">Average</button></div>` : '';
 
   $('app').innerHTML = `
     ${toggle}
@@ -227,7 +227,7 @@ function render(d) {
     <div class="card" style="margin-bottom:12px">${backtest}</div>
     <div class="two">
       <div class="card"><div class="k">About</div>
-        <div class="sub" style="margin-top:8px">Kronos is a pretrained foundation model for candlesticks. <b>Kronos-base</b> reads the latest 512 daily candles and <b>Kronos-mini</b> reads the latest 2,048 (about 8 years); each samples ${d.samples} possible futures and the orange candles are their average. The full ${d.candles.length.toLocaleString()}-candle history is used for the chart and for the backtest, whose errors set the calibrated ranges.</div></div>
+        <div class="sub" style="margin-top:8px">Kronos is a pretrained foundation model for candlesticks. <b>Kronos-base</b> reads the latest 512 daily candles and <b>Kronos-mini</b> reads the latest 2,048 (about 8 years); each samples ${d.samples} possible futures. <b>LightGBM</b> is a gradient-boosted tree model trained from scratch on the instrument's complete history using price features (returns, volatility, trend, RSI, ranges). The orange candles show the selected model, or the average of all. The full ${d.candles.length.toLocaleString()}-candle history is used for the chart and for the backtest, whose errors set the calibrated ranges.</div></div>
       </div>
     </div>
     <div class="foot">The forecast starts with today's session when generated before the NSE close. Days skip weekends only (NSE holidays are not excluded). Educational use only — not financial advice.</div>`;
