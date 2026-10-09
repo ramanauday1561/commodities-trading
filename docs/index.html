@@ -6,29 +6,30 @@
 <title>Kronos Forecast</title>
 <style>
   :root { --bg:#0b0d10; --card:#14181e; --card2:#181d24; --line:#232a33; --text:#e8ebf0; --mute:#8791a0;
-          --up:#26a69a; --down:#ef5350; --pred:#f5a623; --accent:#5b9dff; }
+          --up:#26a69a; --down:#ef5350; --pred:#f5a623; --accent:#5b9dff; --warn:#e0a63a; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   main { max-width:1040px; margin:0 auto; padding:18px 14px 40px; }
   header { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
   h1 { font-size:20px; margin:0; letter-spacing:.2px; }
   .sub { color:var(--mute); font-size:12.5px; margin-top:2px; }
   .badge { font-size:12px; padding:4px 10px; border:1px solid var(--line); border-radius:999px; color:var(--mute); background:var(--card); white-space:nowrap; }
   .badge b { color:var(--pred); font-weight:600; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
-  .hero { display:grid; grid-template-columns:1.2fr 1fr; gap:12px; margin-bottom:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  .hero { display:grid; grid-template-columns:1.2fr 1fr; gap:12px; }
+  .hero .card { margin-bottom:0; } .hero { margin-bottom:12px; }
   @media (max-width:720px) { .hero { grid-template-columns:1fr; } }
   .k { color:var(--mute); font-size:12px; text-transform:uppercase; letter-spacing:.6px; }
   .big { font-size:30px; font-weight:700; margin:2px 0; }
-  .up { color:var(--up); } .down { color:var(--down); }
+  .up { color:var(--up); } .down { color:var(--down); } .warn { color:var(--warn); }
   .row { display:flex; gap:18px; flex-wrap:wrap; margin-top:8px; }
   .row div span { display:block; }
   .row .v { font-size:15px; font-weight:600; }
   .meter { height:8px; border-radius:6px; background:var(--down); overflow:hidden; margin-top:8px; }
   .meter i { display:block; height:100%; background:var(--up); }
-  .chartwrap { padding:10px; margin-bottom:12px; position:relative; }
+  .chartwrap { padding:10px; position:relative; }
   .tools { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:2px 4px 10px; }
-  .btns { display:flex; gap:6px; }
+  .btns { display:flex; gap:6px; flex-wrap:wrap; }
   button { background:var(--card2); color:var(--mute); border:1px solid var(--line); border-radius:8px; padding:5px 11px; font:inherit; font-size:13px; cursor:pointer; }
   button:hover { color:var(--text); } button.on { color:var(--text); border-color:var(--accent); background:#1a2433; }
   #readout { font-size:12.5px; color:var(--mute); min-height:19px; font-variant-numeric:tabular-nums; }
@@ -39,11 +40,10 @@
   td { white-space:nowrap; text-align:right; padding:9px 8px; border-bottom:1px solid var(--line); }
   th:first-child, td:first-child { text-align:left; }
   tr:last-child td { border-bottom:0; }
-  .tablewrap { overflow-x:auto; margin-bottom:12px; }
+  .tablewrap { overflow-x:auto; }
   .two { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   @media (max-width:720px) { .two { grid-template-columns:1fr; } }
   .foot { color:var(--mute); font-size:12px; margin-top:14px; line-height:1.6; }
-  .dot { display:inline-block; width:10px; height:10px; border-radius:2px; background:var(--pred); margin-right:6px; vertical-align:middle; }
   #err { color:var(--down); margin-top:10px; font-size:13px; }
   nav { display:flex; gap:14px; overflow-x:auto; padding:2px 0 10px; margin-bottom:6px; scrollbar-width:thin; }
   .grp { display:flex; flex-direction:column; gap:4px; flex:none; }
@@ -53,6 +53,34 @@
   .chip small { font-size:11.5px; font-variant-numeric:tabular-nums; }
   .chip.on { color:var(--text); border-color:var(--accent); background:#1a2433; }
   .skeleton { color:var(--mute); padding:30px; text-align:center; }
+
+  /* explanatory layer */
+  .tip { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; margin-left:5px; border:1px solid var(--mute); border-radius:50%;
+         color:var(--mute); font:italic 700 10px/1 Georgia,serif; text-transform:none; letter-spacing:0; cursor:help; vertical-align:1px; }
+  .tip:hover, .tip:focus { color:var(--text); border-color:var(--text); outline:none; }
+  #tooltip { position:fixed; z-index:20; max-width:270px; background:#1d232c; color:var(--text); border:1px solid #33404f; border-radius:8px; padding:9px 11px;
+             font-size:12.5px; line-height:1.45; box-shadow:0 6px 24px rgba(0,0,0,.5); display:none; pointer-events:none; }
+  .summary { border-color:#2c3a4d; background:linear-gradient(180deg,#15202c,#14181e 70%); }
+  .summary p { margin:6px 0; font-size:15.5px; }
+  .summary .lvl { display:inline-block; font-size:12px; padding:3px 10px; border-radius:999px; border:1px solid var(--warn); color:var(--warn); margin-bottom:4px; }
+  .summary .lvl.good { border-color:var(--up); color:var(--up); } .summary .lvl.none { border-color:var(--mute); color:var(--mute); }
+  .summary .note { color:var(--mute); font-size:13px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; color:var(--mute); font-size:12px; padding:8px 4px 0; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
+  .legend i.dash { height:0; width:16px; border-top:2px dashed var(--pred); border-radius:0; vertical-align:3px; }
+  .legend i.dot { height:0; width:16px; border-top:2px dotted #8791a0; border-radius:0; vertical-align:3px; }
+  .agree td:first-child { font-weight:600; } td .mini { color:var(--mute); font-size:12px; }
+  .pbar { display:inline-block; width:54px; height:6px; border-radius:4px; background:var(--down); vertical-align:middle; margin-right:6px; overflow:hidden; }
+  .pbar i { display:block; height:100%; background:var(--up); }
+  details { border-top:1px solid var(--line); padding:10px 0; } details:first-of-type { border-top:0; }
+  summary { cursor:pointer; font-weight:600; font-size:14.5px; } summary::marker { color:var(--mute); }
+  details p, details li { color:#c6ccd6; font-size:14px; margin:8px 0; } details ul { padding-left:20px; margin:6px 0; }
+  details svg { max-width:100%; height:auto; display:block; margin:8px 0; }
+  .intro { border-color:#2f4560; }
+  .intro ol { margin:8px 0 10px; padding-left:20px; } .intro li { margin:4px 0; }
+  .intro .btns { margin-top:6px; }
+  .about { font-size:14px; color:#c6ccd6; margin:6px 0 0; }
+  a { color:var(--accent); }
 </style>
 </head>
 <body>
@@ -62,20 +90,23 @@
       <h1 id="title">Kronos forecast</h1>
       <div class="sub" id="sub">Loading…</div>
     </div>
-    <div class="badge" id="badge"></div>
+    <div class="btns"><div class="badge" id="badge"></div><button id="helpBtn" title="How to read this page">? Guide</button></div>
   </header>
 
+  <div id="introSlot"></div>
   <nav id="chips"></nav>
 
   <div id="app"><div class="skeleton">Loading forecast…</div></div>
   <div id="err"></div>
 </main>
+<div id="tooltip" role="tooltip"></div>
 
 <script src="lightweight-charts.js?v=2"></script>
 <script>
 const $ = id => document.getElementById(id);
 const f = n => Number(n).toLocaleString('en-IN', {minimumFractionDigits:2, maximumFractionDigits:2});
 const sg = n => (n >= 0 ? '+' : '') + f(n);
+const pc = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 const cls = n => n >= 0 ? 'up' : 'down';
 const showErr = m => { $('err').textContent = m; };
 
@@ -85,6 +116,130 @@ window.addEventListener('error', e => {
   if (e.filename && e.filename.startsWith(location.origin)) showErr('Error: ' + e.message);
 });
 
+/* ---------------- plain-language helpers ---------------- */
+const TIPS = {
+  close: 'The price at the end of the trading day. This is the number most people quote.',
+  range: 'A realistic range for the closing price. We expect the real close to land inside it about 8 times out of 10. It is based on how far off the model was in past tests, so it is a fair picture of the uncertainty.',
+  pup: 'How likely the next close is above the last completed close. 50% means a coin flip. Far from 50% means the model leans one way, but see the track record before trusting it.',
+  change: 'How much the forecast close differs from the last completed close, in percent.',
+  agree: 'Different models can disagree. When they all point the same way the signal is a bit more meaningful; when they split, treat it as no signal.',
+  hit: 'How often the model got the direction (up or down) right in past tests. Compare it with the baseline shown next to it (simply always guessing up).',
+  err: 'On average, how far off the predicted close was, in percent. Smaller is better. Compare it with the baseline: assuming tomorrow equals today.',
+  base: 'A baseline is a lazy strategy. If a model cannot beat it, the model adds nothing.',
+  typical: 'The average size of a daily move over the last 20 days. If the forecast move is much smaller than this, it is lost in everyday noise.',
+  model: 'Choose which forecasting model to show. Average blends all of them.',
+};
+const tip = k => `<span class="tip" tabindex="0" data-tip="${TIPS[k]}">i</span>`;
+
+(() => {   // tiny tooltip: hover, keyboard focus, or tap
+  const box = $('tooltip');
+  const show = el => {
+    box.textContent = el.dataset.tip; box.style.display = 'block';
+    const r = el.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+    let x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+    let y = r.top - h - 8; if (y < 8) y = r.bottom + 8;
+    box.style.left = x + 'px'; box.style.top = y + 'px';
+  };
+  const hide = () => { box.style.display = 'none'; };
+  document.addEventListener('mouseover', e => { const t = e.target.closest('.tip'); t ? show(t) : hide(); });
+  document.addEventListener('focusin', e => { const t = e.target.closest('.tip'); t ? show(t) : hide(); });
+  document.addEventListener('click', e => { const t = e.target.closest('.tip'); t ? show(t) : hide(); });
+  document.addEventListener('scroll', hide, true);
+})();
+
+// Average absolute daily move (%) over the last 20 candles: how big an "ordinary" day is.
+function typicalMove(d) {
+  const c = d.candles.slice(-21);
+  let s = 0; for (let i = 1; i < c.length; i++) s += Math.abs(c[i].close / c[i - 1].close - 1);
+  return s / (c.length - 1) * 100;
+}
+
+// Did the model beat the lazy baselines in past tests?
+function track(d, keys) {
+  const rs = keys.map(k => d.backtest[k] && d.backtest[k].days ? d.backtest[k].all : null).filter(Boolean);
+  if (!rs.length) return { level: 'na', text: 'Track record not available' };
+  const dirEdge = rs.reduce((a, x) => a + x.direction_accuracy - x.up_rate, 0) / rs.length;
+  const errBetter = rs.some(x => x.mape_pct < x.naive_mape_pct * 0.98);
+  if (dirEdge >= 0.08 && errBetter) return { level: 'good', text: 'Some evidence it works', dirEdge, errBetter };
+  return { level: 'none', text: 'No proven edge in past tests', dirEdge, errBetter };
+}
+
+function summaryHTML(d, sel, keys) {
+  const fc = sel.fc, first = fc[0], last = d.last_close, name = d.symbol, unit = d.unit;
+  const chg = (first.close / last - 1) * 100, typ = typicalMove(d), ratio = Math.abs(chg) / typ;
+  const lo = first.cal_p10 ?? first.close_p10, hi = first.cal_p90 ?? first.close_p90;
+  const when = d.starts_today ? 'today' : first.time;
+  const size = ratio < 0.3 ? 'tiny' : ratio < 0.7 ? 'small' : ratio < 1.3 ? 'about the size of a normal day' : 'bigger than a normal day';
+  const pup = Math.round(first.prob_up * 100);
+  const lean = pup >= 60 ? 'leans higher' : pup <= 40 ? 'leans lower' : 'is close to a coin flip';
+  const tr = track(d, keys);
+  const ups = Object.keys(d.models).filter(k => d.models[k].forecast[0].close > last).length, n = Object.keys(d.models).length;
+  const trText = tr.level === 'good'
+    ? 'In past tests this model guessed direction better than a simple baseline, but the sample is small, so treat that with caution.'
+    : tr.level === 'none'
+      ? 'In past tests it did not guess direction better than a simple baseline, so treat the direction as a rough guess, not a signal.'
+      : 'We have no past-test results for this one yet.';
+  return `<div class="card summary">
+    <span class="lvl ${tr.level === 'good' ? 'good' : tr.level === 'none' ? '' : 'none'}">Track record: ${tr.text}</span>
+    <div class="k">In plain English</div>
+    <p><b>${name}</b> last closed at <b>${f(last)}</b> ${unit}. For ${when}, <b>${sel.label}</b> expects a close around <b class="${cls(chg)}">${f(first.close)}</b>
+      (${pc(chg)}), and a close anywhere between ${f(lo)} and ${f(hi)} would not be surprising.</p>
+    <p>That expected move is <b>${size}</b> compared with a typical day (${typ.toFixed(2)}% up or down)${tip('typical')}. The model's view ${lean} (${pup}% chance of closing higher${tip('pup')}), and ${ups} of ${n} models expect a higher close.${(chg > 0) !== (pup >= 50) && Math.abs(pup - 50) > 5 ? ' The expected move and the probability point in different directions, which is another sign this is a weak signal.' : ''}</p>
+    <p class="note">${trText} This page is for learning, not advice.</p></div>`;
+}
+
+function agreeHTML(d) {
+  const last = d.last_close, keys = Object.keys(d.models);
+  const rows = keys.map(k => {
+    const m = d.models[k], r = m.forecast[0], chg = (r.close / last - 1) * 100, b = d.backtest[k], a = b && b.days ? b.all : null;
+    const past = a ? `${(a.direction_accuracy * 100).toFixed(0)}% <span class="mini">vs ${(a.up_rate * 100).toFixed(0)}%</span> ${a.direction_accuracy > a.up_rate ? '<span class="up">✓</span>' : '<span class="down">✗</span>'}` : '—';
+    return `<tr><td>${m.label}</td><td>${f(r.close)}</td><td class="${cls(chg)}">${pc(chg)}</td>
+      <td><span class="pbar"><i style="width:${Math.round(r.prob_up * 100)}%"></i></span>${Math.round(r.prob_up * 100)}%</td><td>${past}</td></tr>`;
+  }).join('');
+  return `<div class="card tablewrap agree"><div class="k">Do the models agree? ${tip('agree')}</div>
+    <table style="margin-top:6px"><thead><tr><th>Model</th><th>Next close</th><th>vs last ${tip('change')}</th><th>Chance higher ${tip('pup')}</th><th>Past direction hit-rate ${tip('hit')}</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <div class="sub" style="margin-top:8px">✓ = beat the "always guess up" baseline in past tests, ✗ = did not.</div></div>`;
+}
+
+const CANDLE_SVG = `<svg viewBox="0 0 330 146" width="330" role="img" aria-label="Candlestick anatomy">
+  <g font-size="11" fill="#8791a0" font-family="system-ui,sans-serif">
+    <line x1="60" y1="12" x2="60" y2="118" stroke="#26a69a" stroke-width="2"/><rect x="45" y="40" width="30" height="48" fill="#26a69a"/>
+    <text x="84" y="16">high</text><text x="84" y="44">close (top of body)</text><text x="84" y="92">open (bottom of body)</text><text x="84" y="122">low</text>
+    <text x="22" y="140" fill="#26a69a">Green: price rose</text>
+    <line x1="250" y1="12" x2="250" y2="118" stroke="#ef5350" stroke-width="2"/><rect x="235" y="40" width="30" height="48" fill="#ef5350"/>
+    <text x="272" y="44">open</text><text x="272" y="92">close</text><text x="214" y="140" fill="#ef5350">Red: price fell</text>
+  </g></svg>`;
+
+function guideHTML(d) {
+  return `<div class="card" id="guide"><div class="k">Guide for non-traders</div>
+    <details><summary>What is a candlestick?</summary>
+      <p>One candle summarises one day of trading. The thick body runs from where the price <b>opened</b> to where it <b>closed</b>. The thin lines (wicks) reach the day's <b>highest</b> and <b>lowest</b> prices. Green means the price ended higher than it started; red means lower.</p>${CANDLE_SVG}</details>
+    <details><summary>What am I looking at on the chart?</summary>
+      <ul><li>Green and red candles are real past days.</li><li>The <b style="color:var(--pred)">orange candles</b> on the right are the forecast for the next days, one candle per day.</li>
+      <li>The dashed orange lines are the realistic range for the close. The wider they spread, the less certain the forecast.</li><li>The dotted grey line marks the last completed close.</li>
+      <li>Use 1M / 3M / 6M / 1Y / 5Y / All to zoom out and see the complete history.</li></ul></details>
+    <details><summary>What do the forecast numbers mean?</summary>
+      <ul><li><b>Next close</b>: the model's best single guess for the closing price.</li><li><b>Range</b>: where the close will probably land (about 8 times out of 10). It is built from how wrong the model was in past tests.</li>
+      <li><b>Chance higher</b>: the model's probability that the close ends above the last completed close.</li><li><b>vs last</b>: the expected change in percent.</li>
+      <li><b>Typical day</b>: how much this market normally moves in a day. A forecast move smaller than that is hard to tell from random noise.</li></ul></details>
+    <details><summary>What do the models do?</summary>
+      <ul><li><b>Kronos-base</b> and <b>Kronos-mini</b> are AI models pretrained on millions of candlesticks from many markets. They read the most recent 512 (base) or 2,048 (mini) days and imagine ${d.samples} possible futures; the forecast is their average.</li>
+      <li><b>LightGBM</b> is a classic machine-learning model (decision trees). It is trained from scratch on this market's complete history using simple clues such as recent returns, volatility, trend and RSI.</li>
+      <li><b>Average</b> blends all of them.</li></ul></details>
+    <details><summary>How good are the forecasts? (the backtest)</summary>
+      <p>We replay history. For many past days we ask each model to predict the next day using only what was known at the time, then compare with what really happened. Two lazy baselines set the bar:</p>
+      <ul><li><b>Always guess "up"</b>: right whenever the market rose.</li><li><b>"Same as yesterday"</b>: predict that the price stays where it is.</li></ul>
+      <p>A model is only useful if it clearly beats these. Daily prices are very noisy, so most models do not, and that is an honest, normal result. Treat a hit-rate near the baseline as "no skill".</p></details>
+    <details><summary>Limits and risks</summary>
+      <ul><li>Models only see past prices. They know nothing about news, central-bank decisions, wars or weather.</li>
+      <li>Commodity prices here are <b>futures</b> contracts joined into one continuous line, so small jumps can appear when a contract expires and the next one takes over.</li>
+      <li>Data comes from Yahoo Finance and may be delayed. Forecast days skip weekends only, not exchange holidays.</li>
+      <li>This site is an educational experiment, not financial advice. Never risk money you cannot afford to lose.</li></ul></details>
+  </div>`;
+}
+
+/* ---------------- navigation ---------------- */
 let chart = null, current = null, token = 0, manifest = [];
 const GROUPS = ['Index', 'Metals', 'Energy', 'Agri'];
 
@@ -126,6 +281,7 @@ async function select(key) {
   }
 }
 
+/* ---------------- model selection ---------------- */
 let modelKey = 'base', currentData = null;
 try { modelKey = localStorage.getItem('model') || 'base'; } catch (e) {}
 const NUM = ['open', 'high', 'low', 'close', 'close_p10', 'close_p90', 'prob_up', 'cal_p10', 'cal_p90'];
@@ -139,10 +295,10 @@ function pickForecast(d) {
       NUM.forEach(k => { if (keys.every(m => ms[m].forecast[i][k] != null)) o[k] = keys.reduce((a, m) => a + ms[m].forecast[i][k], 0) / keys.length; });
       return o;
     });
-    return { fc, label: 'Average of ' + keys.map(k => ms[k].label).join(' + '), context: keys.map(k => ms[k].ctx_text || ms[k].context).join(' / ') };
+    return { fc, keys, label: 'the average of all models', context: keys.map(k => ms[k].ctx_text || ms[k].context).join(' / ') };
   }
-  const m = ms[modelKey] || ms[keys[0]];
-  return { fc: m.forecast, label: m.label, context: m.ctx_text || m.context };
+  const k = ms[modelKey] ? modelKey : keys[0], m = ms[k];
+  return { fc: m.forecast, keys: [k], label: m.label, context: m.ctx_text || m.context };
 }
 
 function backtestCard(d) {
@@ -152,15 +308,17 @@ function backtestCard(d) {
     const err = x => `<span class="${x.mape_pct < x.naive_mape_pct ? 'up' : 'down'}">${x.mape_pct.toFixed(2)}%</span> <span class="k">vs ${x.naive_mape_pct.toFixed(2)}%</span>`;
     return `<tr><td>${d.models[k].label}</td><td>${hit(a)} <span class="k">vs ${(a.up_rate * 100).toFixed(0)}%</span></td><td>${err(a)}</td><td>${hit(r)} <span class="k">vs ${(r.up_rate * 100).toFixed(0)}%</span></td><td>${err(r)}</td></tr>`;
   });
-  if (!rows.length) return '<div class="k">Backtest</div><div style="color:var(--mute);margin-top:8px">Not available</div>';
+  if (!rows.length) return '<div class="k">Past tests (backtest)</div><div style="color:var(--mute);margin-top:8px">Not available</div>';
   const any = d.backtest[Object.keys(d.models).find(k => d.backtest[k].days)];
-  return `<div class="k">Walk-forward backtest · ${any.all.days} days spread over ${any.span[0].slice(0, 4)}–${any.span[1].slice(0, 4)}</div>
+  return `<div class="k">Past tests (backtest) · ${any.all.days} days spread over ${any.span[0].slice(0, 4)}–${any.span[1].slice(0, 4)}</div>
+    <p class="about">We replayed history: for each of those days the model predicted the next day using only what was known at the time, and we compared it with what really happened. Green means it beat the lazy baseline shown after "vs".</p>
     <div style="overflow-x:auto"><table style="margin-top:6px">
-      <thead><tr><th>Model</th><th>Direction (all)</th><th>Close error (all)</th><th>Direction (last ${any.recent.days})</th><th>Close error (last ${any.recent.days})</th></tr></thead>
+      <thead><tr><th>Model</th><th>Direction right (all) ${tip('hit')}</th><th>Average miss (all) ${tip('err')}</th><th>Direction right (last ${any.recent.days})</th><th>Average miss (last ${any.recent.days})</th></tr></thead>
       <tbody>${rows.join('')}</tbody></table></div>
-    <div class="sub" style="margin-top:10px">Direction: how often the predicted move up/down was right, against always guessing "up". Close error: average miss, against assuming "same as yesterday". Green means the model beat the baseline.</div>`;
+    <div class="sub" style="margin-top:10px">Direction baseline: always guessing "up". Miss baseline: assuming "same as yesterday" ${tip('base')}. A model that does not beat these has no real skill.</div>`;
 }
 
+/* ---------------- render ---------------- */
 function render(d) {
   currentData = d;
   if (chart) { chart.remove(); chart = null; }
@@ -168,20 +326,20 @@ function render(d) {
   const first = fc[0], end = fc[fc.length - 1];
   const cal = first.cal_p10 != null;
   const lo = r => cal ? r.cal_p10 : r.close_p10, hi = r => cal ? r.cal_p90 : r.close_p90;
+  const about = (manifest.find(m => m.key === d.key) || {}).about;
 
   $('title').textContent = `${d.symbol} · ${fc.length}-day forecast`;
   $('sub').textContent = `${d.ticker} · daily · last completed close ${d.last_date} · updated ${new Date(d.updated).toLocaleString()}`;
-  $('badge').innerHTML = `<b>${sel.label}</b> · ${sel.context}${typeof sel.context === 'number' ? ' candles context' : ''}`;
+  $('badge').innerHTML = `<b>${sel.label}</b>${sel.context ? ' · ' + sel.context + (typeof sel.context === 'number' ? ' candles context' : '') : ''}`;
 
   const chg1 = first.close - last, chgN = end.close - last;
   const upPct = Math.round(first.prob_up * 100);
-
-  const backtest = backtestCard(d);
   const models = Object.keys(d.models);
-  const toggle = models.length > 1 ? `<div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].ctx_text || d.models[k].context + 'c'}</button>`).join('')}<button data-m="avg">Average</button></div>` : '';
+  const toggle = models.length > 1 ? `<div class="k" style="margin-bottom:6px">Model ${tip('model')}</div><div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].ctx_text || d.models[k].context + 'c'}</button>`).join('')}<button data-m="avg">Average</button></div>` : '';
 
   $('app').innerHTML = `
     ${toggle}
+    ${summaryHTML(d, sel, sel.keys)}
     <div class="hero">
       <div class="card">
         <div class="k">${d.starts_today ? 'Today' : 'Next candle'} · ${first.time}</div>
@@ -192,29 +350,34 @@ function render(d) {
           <div><span class="v">${f(first.open)}</span><span class="k">open</span></div>
           <div><span class="v">${f(first.high)}</span><span class="k">high</span></div>
           <div><span class="v">${f(first.low)}</span><span class="k">low</span></div>
-          <div><span class="v">${f(lo(first))} – ${f(hi(first))}</span><span class="k">${cal ? '80% range (calibrated)' : 'close range P10–P90'}</span></div>
+          <div><span class="v">${f(lo(first))} – ${f(hi(first))}</span><span class="k">likely close range ${tip('range')}</span></div>
         </div>
       </div>
       <div class="card">
-        <div class="k">Probability next close is higher</div>
+        <div class="k">Chance the next close is higher ${tip('pup')}</div>
         <div class="big ${upPct >= 50 ? 'up' : 'down'}">${upPct}%</div>
         <div class="meter"><i style="width:${upPct}%"></i></div>
         <div class="sub" style="margin-top:8px">${fc.length}-day target (${end.time}): <b class="${cls(chgN)}">${f(end.close)}</b> (${sg(chgN / last * 100)}%)</div>
       </div>
     </div>
 
+    ${models.length > 1 ? agreeHTML(d) : ''}
+
     <div class="card chartwrap">
       <div class="tools">
         <div class="btns" id="ranges"></div>
-        <div id="readout">Hover a candle for details</div>
+        <div id="readout">Hover or tap a candle for details</div>
       </div>
       <div id="chart"></div>
-      <div class="sub" style="padding:8px 4px 0"><span class="dot"></span>Kronos forecast · dashed = 80% range of the close${cal ? ' (calibrated on backtest errors)' : ''} · history from ${d.history_start} · ${d.unit}</div>
+      <div class="legend"><span><i style="background:var(--up)"></i>price rose</span><span><i style="background:var(--down)"></i>price fell</span>
+        <span><i style="background:var(--pred)"></i>forecast</span><span><i class="dash"></i>likely range</span><span><i class="dot"></i>last close</span>
+        <span>history from ${d.history_start} · ${d.unit}</span></div>
     </div>
 
     <div class="card tablewrap">
+      <div class="k" style="margin-bottom:4px">Day-by-day forecast (${sel.label})</div>
       <table>
-        <thead><tr><th>Day</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>vs last</th><th>${cal ? '80% range' : 'P10–P90'}</th><th>P(up)</th></tr></thead>
+        <thead><tr><th>Day</th><th>Open</th><th>High</th><th>Low</th><th>Close ${tip('close')}</th><th>vs last ${tip('change')}</th><th>Likely range ${tip('range')}</th><th>Chance up ${tip('pup')}</th></tr></thead>
         <tbody>${fc.map(r => `<tr>
           <td>${r.time}</td><td>${f(r.open)}</td><td>${f(r.high)}</td><td>${f(r.low)}</td>
           <td><b>${f(r.close)}</b></td>
@@ -224,13 +387,10 @@ function render(d) {
       </table>
     </div>
 
-    <div class="card" style="margin-bottom:12px">${backtest}</div>
-    <div class="two">
-      <div class="card"><div class="k">About</div>
-        <div class="sub" style="margin-top:8px">Kronos is a pretrained foundation model for candlesticks. <b>Kronos-base</b> reads the latest 512 daily candles and <b>Kronos-mini</b> reads the latest 2,048 (about 8 years); each samples ${d.samples} possible futures. <b>LightGBM</b> is a gradient-boosted tree model trained from scratch on the instrument's complete history using price features (returns, volatility, trend, RSI, ranges). The orange candles show the selected model, or the average of all. The full ${d.candles.length.toLocaleString()}-candle history is used for the chart and for the backtest, whose errors set the calibrated ranges.</div></div>
-      </div>
-    </div>
-    <div class="foot">The forecast starts with today's session when generated before the NSE close. Days skip weekends only (NSE holidays are not excluded). Educational use only — not financial advice.</div>`;
+    <div class="card">${backtestCard(d)}</div>
+    ${about ? `<div class="card"><div class="k">About ${d.symbol}</div><p class="about">${about}</p></div>` : ''}
+    ${guideHTML(d)}
+    <div class="foot">The forecast starts with today's session when generated before the exchange close. Days skip weekends only (holidays are not excluded). Educational use only — not financial advice.</div>`;
 
   // ---------- chart ----------
   chart = LightweightCharts.createChart($('chart'), {
@@ -265,8 +425,8 @@ function render(d) {
       : `${p.time.year}-${String(p.time.month).padStart(2, '0')}-${String(p.time.day).padStart(2, '0')}`);
     const c = t && byTime.get(t);
     $('readout').innerHTML = c
-      ? `${c.time}${c.forecast ? ' <b style="color:var(--pred)">forecast</b>' : ''} · O ${f(c.open)} H ${f(c.high)} L ${f(c.low)} C <b class="${cls(c.close - c.open)}">${f(c.close)}</b>`
-      : 'Hover a candle for details';
+      ? `${c.time}${c.forecast ? ' <b style="color:var(--pred)">forecast</b>' : ''} · open ${f(c.open)} · high ${f(c.high)} · low ${f(c.low)} · close <b class="${cls(c.close - c.open)}">${f(c.close)}</b>`
+      : 'Hover or tap a candle for details';
   });
 
   const total = d.candles.length + fc.length;
@@ -283,6 +443,26 @@ function render(d) {
     b.onclick = () => { modelKey = b.dataset.m; try { localStorage.setItem('model', modelKey); } catch (e) {} render(currentData); };
   });
 }
+
+/* ---------------- first-visit intro + guide button ---------------- */
+function showIntro() {
+  $('introSlot').innerHTML = `<div class="card intro"><div class="k">New here? 30-second guide</div>
+    <ol><li>Pick a market at the top (a stock index or a commodity such as gold or crude oil).</li>
+    <li>Read the <b>In plain English</b> box. It says what the model expects and how much to trust it.</li>
+    <li>Look at the chart: the <b style="color:var(--pred)">orange candles</b> are the forecast for the next few days.</li>
+    <li>Check <b>Past tests</b>. If a model cannot beat the simple baselines there, its forecast is a guess.</li></ol>
+    <div class="btns"><button id="introOk">Got it</button><button id="introGuide">Open the full guide</button></div></div>`;
+  $('introOk').onclick = () => { $('introSlot').innerHTML = ''; try { localStorage.setItem('introSeen', '1'); } catch (e) {} };
+  $('introGuide').onclick = () => { $('introOk').click(); openGuide(); };
+}
+function openGuide() {
+  const g = $('guide'); if (!g) return;
+  g.querySelectorAll('details').forEach((x, i) => { x.open = i === 0; });
+  g.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+$('helpBtn').onclick = openGuide;
+let seen = false; try { seen = !!localStorage.getItem('introSeen'); } catch (e) {}
+if (!seen) showIntro();
 
 (async () => {
   try {
