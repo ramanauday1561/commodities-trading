@@ -6,6 +6,11 @@ on:
     - cron: "15 10 * * 1-5"   # 15:45 IST, after NSE close
     - cron: "30 22 * * 1-5"   # 04:00 IST (next day), after the US futures close
   workflow_dispatch:
+    inputs:
+      keys:
+        description: "Comma-separated instrument keys to run (empty = all), e.g. nifty,gold"
+        required: false
+        default: ""
   push:
     branches: [main]
     paths: ["scripts/**", "docs/index.html", ".github/workflows/predict.yml"]
@@ -27,7 +32,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: m
-        run: echo "keys=$(python3 -c "import json;print(json.dumps([i['key'] for i in json.load(open('scripts/instruments.json'))]))")" >> "$GITHUB_OUTPUT"
+        env:
+          ONLY: ${{ github.event.inputs.keys }}
+        run: |
+          python3 - >> "$GITHUB_OUTPUT" <<'PY'
+          import json, os
+          keys = [i['key'] for i in json.load(open('scripts/instruments.json'))]
+          only = [k.strip() for k in os.environ.get('ONLY', '').split(',') if k.strip()]
+          print('keys=' + json.dumps([k for k in keys if k in only] if only else keys))
+          PY
 
   predict:
     needs: setup
@@ -63,7 +76,8 @@ jobs:
 
   deploy:
     needs: predict
-    if: ${{ !cancelled() }}   # deploy whatever succeeded, even if one instrument failed
+    # deploy whatever succeeded, even if one instrument failed; never deploy a partial manual run
+    if: ${{ !cancelled() && github.event.inputs.keys == '' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

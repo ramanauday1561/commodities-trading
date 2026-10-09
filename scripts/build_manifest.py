@@ -9,7 +9,7 @@ for inst in json.load(open("scripts/instruments.json")):
         print("missing:", inst["key"])
         continue
     d = json.load(open(path))
-    first = d["forecast"][0]
+    first = d["models"]["base"]["forecast"][0]
     out.append({"key": inst["key"], "name": inst["name"], "group": inst["group"], "unit": inst["unit"],
                 "change_pct": round((first["close"] - d["last_close"]) / d["last_close"] * 100, 2),
                 "prob_up": first["prob_up"], "updated": d["updated"]})

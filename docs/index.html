@@ -121,31 +121,62 @@ async function select(key) {
   }
 }
 
+let modelKey = 'base', currentData = null;
+try { modelKey = localStorage.getItem('model') || 'base'; } catch (e) {}
+const NUM = ['open', 'high', 'low', 'close', 'close_p10', 'close_p90', 'prob_up', 'cal_p10', 'cal_p90'];
+
+// Forecast of the selected model, or the average of all models.
+function pickForecast(d) {
+  const ms = d.models, keys = Object.keys(ms);
+  if (modelKey === 'avg' && keys.length > 1) {
+    const fc = ms[keys[0]].forecast.map((r, i) => {
+      const o = { time: r.time };
+      NUM.forEach(k => { if (keys.every(m => ms[m].forecast[i][k] != null)) o[k] = keys.reduce((a, m) => a + ms[m].forecast[i][k], 0) / keys.length; });
+      return o;
+    });
+    return { fc, label: 'Average of ' + keys.map(k => ms[k].label).join(' + '), context: keys.map(k => ms[k].context).join(' / ') };
+  }
+  const m = ms[modelKey] || ms[keys[0]];
+  return { fc: m.forecast, label: m.label, context: m.context };
+}
+
+function backtestCard(d) {
+  const rows = Object.keys(d.models).filter(k => d.backtest[k] && d.backtest[k].days).map(k => {
+    const b = d.backtest[k], a = b.all, r = b.recent;
+    const hit = x => `<span class="${x.direction_accuracy > x.up_rate ? 'up' : 'down'}">${(x.direction_accuracy * 100).toFixed(0)}%</span>`;
+    const err = x => `<span class="${x.mape_pct < x.naive_mape_pct ? 'up' : 'down'}">${x.mape_pct.toFixed(2)}%</span> <span class="k">vs ${x.naive_mape_pct.toFixed(2)}%</span>`;
+    return `<tr><td>${d.models[k].label}</td><td>${hit(a)} <span class="k">vs ${(a.up_rate * 100).toFixed(0)}%</span></td><td>${err(a)}</td><td>${hit(r)} <span class="k">vs ${(r.up_rate * 100).toFixed(0)}%</span></td><td>${err(r)}</td></tr>`;
+  });
+  if (!rows.length) return '<div class="k">Backtest</div><div style="color:var(--mute);margin-top:8px">Not available</div>';
+  const any = d.backtest[Object.keys(d.models).find(k => d.backtest[k].days)];
+  return `<div class="k">Walk-forward backtest · ${any.all.days} days spread over ${any.span[0].slice(0, 4)}–${any.span[1].slice(0, 4)}</div>
+    <div style="overflow-x:auto"><table style="margin-top:6px">
+      <thead><tr><th>Model</th><th>Direction (all)</th><th>Close error (all)</th><th>Direction (last ${any.recent.days})</th><th>Close error (last ${any.recent.days})</th></tr></thead>
+      <tbody>${rows.join('')}</tbody></table></div>
+    <div class="sub" style="margin-top:10px">Direction: how often the predicted move up/down was right, against always guessing "up". Close error: average miss, against assuming "same as yesterday". Green means the model beat the baseline.</div>`;
+}
+
 function render(d) {
+  currentData = d;
   if (chart) { chart.remove(); chart = null; }
-  const fc = d.forecast, last = d.last_close, bt = d.backtest || {};
+  const sel = pickForecast(d), fc = sel.fc, last = d.last_close;
   const first = fc[0], end = fc[fc.length - 1];
+  const cal = first.cal_p10 != null;
+  const lo = r => cal ? r.cal_p10 : r.close_p10, hi = r => cal ? r.cal_p90 : r.close_p90;
 
   $('title').textContent = `${d.symbol} · ${fc.length}-day forecast`;
   $('sub').textContent = `${d.ticker} · daily · last completed close ${d.last_date} · updated ${new Date(d.updated).toLocaleString()}`;
-  $('badge').innerHTML = `Model <b>${d.model}</b> · ${d.context} candles context · ${d.samples} paths`;
+  $('badge').innerHTML = `<b>${sel.label}</b> · ${sel.context} candles context · ${d.samples} paths`;
 
   const chg1 = first.close - last, chgN = end.close - last;
   const upPct = Math.round(first.prob_up * 100);
 
-  let backtest = '<div class="k">Backtest (1-day ahead)</div><div style="color:var(--mute);margin-top:8px">Not available</div>';
-  if (bt.days) {
-    const better = bt.mape_pct < bt.naive_mape_pct;
-    backtest = `<div class="k">Walk-forward backtest · last ${bt.days} days</div>
-      <div class="row">
-        <div><span class="v ${bt.direction_accuracy >= 0.5 ? 'up' : 'down'}">${(bt.direction_accuracy * 100).toFixed(0)}%</span><span class="k">direction hit-rate</span></div>
-        <div><span class="v">${bt.mape_pct.toFixed(2)}%</span><span class="k">avg close error</span></div>
-        <div><span class="v ${better ? 'up' : 'down'}">${bt.naive_mape_pct.toFixed(2)}%</span><span class="k">"same as today" error</span></div>
-      </div>
-      <div class="sub" style="margin-top:10px">Honest check of how this model did on days it had not seen. Around 50% hit-rate means no edge.</div>`;
-  }
+  const backtest = backtestCard(d);
+  const models = Object.keys(d.models);
+  const toggle = models.length > 1 ? `<div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].context}c</button>`).join('')}<button data-m="avg">Average</button></div>` : '';
 
   $('app').innerHTML = `
+    ${toggle}
     <div class="hero">
       <div class="card">
         <div class="k">${d.starts_today ? 'Today' : 'Next candle'} · ${first.time}</div>
@@ -156,7 +187,7 @@ function render(d) {
           <div><span class="v">${f(first.open)}</span><span class="k">open</span></div>
           <div><span class="v">${f(first.high)}</span><span class="k">high</span></div>
           <div><span class="v">${f(first.low)}</span><span class="k">low</span></div>
-          <div><span class="v">${f(first.close_p10)} – ${f(first.close_p90)}</span><span class="k">close range P10–P90</span></div>
+          <div><span class="v">${f(lo(first))} – ${f(hi(first))}</span><span class="k">${cal ? '80% range (calibrated)' : 'close range P10–P90'}</span></div>
         </div>
       </div>
       <div class="card">
@@ -173,25 +204,25 @@ function render(d) {
         <div id="readout">Hover a candle for details</div>
       </div>
       <div id="chart"></div>
-      <div class="sub" style="padding:8px 4px 0"><span class="dot"></span>Kronos forecast · dashed = P10 / P90 of the close · history from ${d.history_start} · ${d.unit}</div>
+      <div class="sub" style="padding:8px 4px 0"><span class="dot"></span>Kronos forecast · dashed = 80% range of the close${cal ? ' (calibrated on backtest errors)' : ''} · history from ${d.history_start} · ${d.unit}</div>
     </div>
 
     <div class="card tablewrap">
       <table>
-        <thead><tr><th>Day</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>vs last</th><th>P10–P90</th><th>P(up)</th></tr></thead>
+        <thead><tr><th>Day</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>vs last</th><th>${cal ? '80% range' : 'P10–P90'}</th><th>P(up)</th></tr></thead>
         <tbody>${fc.map(r => `<tr>
           <td>${r.time}</td><td>${f(r.open)}</td><td>${f(r.high)}</td><td>${f(r.low)}</td>
           <td><b>${f(r.close)}</b></td>
           <td class="${cls(r.close - last)}">${sg((r.close - last) / last * 100)}%</td>
-          <td>${f(r.close_p10)} – ${f(r.close_p90)}</td>
+          <td>${f(lo(r))} – ${f(hi(r))}</td>
           <td>${Math.round(r.prob_up * 100)}%</td></tr>`).join('')}</tbody>
       </table>
     </div>
 
+    <div class="card" style="margin-bottom:12px">${backtest}</div>
     <div class="two">
-      <div class="card">${backtest}</div>
       <div class="card"><div class="k">About</div>
-        <div class="sub" style="margin-top:8px">Kronos is a pretrained foundation model for candlesticks. It reads the latest ${d.context} daily candles and samples ${d.samples} possible futures; the orange candles are their average. The model's context window is capped at 512 candles, so the full ${d.candles.length.toLocaleString()}-candle history is used for the chart and backtest, not as extra input.</div>
+        <div class="sub" style="margin-top:8px">Kronos is a pretrained foundation model for candlesticks. <b>Kronos-base</b> reads the latest 512 daily candles and <b>Kronos-mini</b> reads the latest 2,048 (about 8 years); each samples ${d.samples} possible futures and the orange candles are their average. The full ${d.candles.length.toLocaleString()}-candle history is used for the chart and for the backtest, whose errors set the calibrated ranges.</div></div>
       </div>
     </div>
     <div class="foot">The forecast starts with today's session when generated before the NSE close. Days skip weekends only (NSE holidays are not excluded). Educational use only — not financial advice.</div>`;
@@ -219,7 +250,7 @@ function render(d) {
       priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
     s.setData([{ time: d.last_date, value: last }, ...fc.map(r => ({ time: r.time, value: r[key] }))]);
   };
-  band('close_p10'); band('close_p90');
+  band(cal ? 'cal_p10' : 'close_p10'); band(cal ? 'cal_p90' : 'close_p90');
   hist.createPriceLine({ price: last, color: '#5c6675', lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
 
   const byTime = new Map(d.candles.map(c => [c.time, c]));
@@ -242,6 +273,10 @@ function render(d) {
   $('ranges').innerHTML = Object.keys(ranges).map(k => `<button data-k="${k}">${k}</button>`).join('');
   document.querySelectorAll('#ranges button').forEach(b => b.onclick = () => setRange(b.dataset.k));
   setRange('3M');
+  document.querySelectorAll('#models button').forEach(b => {
+    b.classList.toggle('on', b.dataset.m === modelKey || (!d.models[modelKey] && modelKey !== 'avg' && b.dataset.m === Object.keys(d.models)[0]));
+    b.onclick = () => { modelKey = b.dataset.m; try { localStorage.setItem('model', modelKey); } catch (e) {} render(currentData); };
+  });
 }
 
 (async () => {
