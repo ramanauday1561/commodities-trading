@@ -2,6 +2,7 @@ numpy
 pandas==2.2.2
 yfinance
 einops==0.8.1
+lightgbm
 huggingface_hub==0.33.1
 safetensors==0.6.2
 tqdm==4.67.1
