@@ -1,4 +1,5 @@
-"""Recent news per instrument from the GDELT DOC 2.0 API (https://www.gdeltproject.org, free, no key).
+"""Recent news per instrument: GDELT DOC 2.0 API (https://www.gdeltproject.org), with Google News RSS as fallback.
+Both are free and need no key.
 
 Writes docs/data/news-<key>.json (headlines shown on the page) and appends one row per day to a history file in the
 store, so that once enough days have accumulated the news signal can be backtested before it is ever used in a forecast.
@@ -17,9 +18,12 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 API = os.environ.get("NEWS_API_URL", "https://api.gdeltproject.org/api/v2/doc/doc")
+RSS = "https://news.google.com/rss/search"
 HOURS = 36
 SHOW = 8
 HISTORY_DAYS = 2000
@@ -33,7 +37,7 @@ NEG = {"fall", "falls", "drop", "drops", "slump", "slumps", "plunge", "plunges",
        "fears", "war", "attack", "strike", "strikes", "sanction", "sanctions", "tariff", "tariffs", "recession", "inflation",
        "hike", "hikes", "downgrade", "default", "crisis", "selloff", "sell-off", "tension", "tensions", "conflict"}
 
-_start, _last, _down = time.monotonic(), 0.0, False
+_start, _last, _down = time.monotonic(), 0.0, set()
 
 
 def _timeout(signum, frame):
@@ -43,32 +47,68 @@ def _timeout(signum, frame):
 signal.signal(signal.SIGALRM, _timeout)
 
 
-def get(params, tries=2):
-    """GET JSON from the API. If the network or server fails every attempt, the API is treated as down for the run."""
-    global _down, _last
-    url = f"{API}?{urllib.parse.urlencode(params)}"
+def fetch(url, tries=2):
+    """GET a URL as text. If the network or server fails every attempt, that host is treated as down for the run."""
+    global _last
+    host = urllib.parse.urlsplit(url).netloc
     for attempt in range(tries):
         left = BUDGET_S - (time.monotonic() - _start)
-        if _down or left < 5:
+        if host in _down or left < 5:
             return None
-        time.sleep(max(0.0, GAP_S - (time.monotonic() - _last)))
+        time.sleep(max(0.0, min(GAP_S - (time.monotonic() - _last), left - 5)))
         try:
-            req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "commodities-trading"})
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; commodities-trading)"})
             signal.alarm(int(min(30, left)))           # hard limit: urlopen's timeout is per read, not per request
             with urllib.request.urlopen(req, timeout=min(20, left)) as r:
-                body = r.read().decode("utf-8", "replace")
-            try:
-                return json.loads(body)
-            except ValueError:                         # GDELT answers bad queries and rate limits with plain text
-                print(f"news: non-JSON answer: {body[:200]!r}", flush=True)
-                return None
+                return r.read().decode("utf-8", "replace")
         except Exception as e:
-            print(f"news: {url} failed ({e}), attempt {attempt + 1}/{tries}", flush=True)
+            print(f"news: {host} failed ({e}), attempt {attempt + 1}/{tries}", flush=True)
         finally:
             signal.alarm(0)
             _last = time.monotonic()
-    _down = True
+    _down.add(host)
     return None
+
+
+def from_gdelt(query):
+    # one attempt: GDELT often rate-limits GitHub's shared runner addresses (429), and Google News is the fallback
+    body = fetch(f"{API}?" + urllib.parse.urlencode({"query": query, "mode": "artlist", "format": "json", "maxrecords": 75,
+                                                     "timespan": f"{HOURS}h", "sort": "datedesc"}), tries=1)
+    if body is None:
+        return []
+    try:
+        arts = json.loads(body).get("articles") or []
+    except (ValueError, AttributeError):
+        arts = []
+    if not arts:
+        print(f"news: GDELT gave no articles: {body[:200]!r}", flush=True)
+    return arts
+
+
+def from_google(query):
+    """Google News RSS search. Titles end in " - Outlet"; links point to Google's redirect to the article."""
+    q = re.sub(r"\s*sourcelang:\w+", "", query) + f" when:{max(1, HOURS // 24)}d"
+    body = fetch(f"{RSS}?" + urllib.parse.urlencode({"q": q, "hl": "en-IN", "gl": "IN", "ceid": "IN:en"}))
+    if body is None:
+        return []
+    try:
+        root = ET.fromstring(body)
+    except ET.ParseError:
+        print(f"news: Google News answer is not RSS: {body[:200]!r}", flush=True)
+        return []
+    out = []
+    for it in root.iter("item"):
+        src = it.find("source")
+        outlet = (src.text or "").strip() if src is not None else ""
+        title = (it.findtext("title") or "").strip()
+        if outlet and title.endswith(" - " + outlet):
+            title = title[: -len(outlet) - 3]
+        try:
+            seen = parsedate_to_datetime(it.findtext("pubDate")).astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        except (TypeError, ValueError):
+            seen = None
+        out.append({"title": title, "url": (it.findtext("link") or "").strip(), "domain": outlet, "seendate": seen})
+    return out
 
 
 def _norm(title):
@@ -118,17 +158,18 @@ def main(data_dir, store_dir):
     os.makedirs(hist_dir, exist_ok=True)
     now = datetime.now(timezone.utc)
     for inst in insts:
-        d = get({"query": inst["news"]["query"], "mode": "artlist", "format": "json", "maxrecords": 75,
-                 "timespan": f"{HOURS}h", "sort": "datedesc"})
-        if d is None:
-            print(f"news {inst['key']}: no data from the API, keeping the previous file", flush=True)
+        source, arts = "GDELT", from_gdelt(inst["news"]["query"])
+        if not arts:
+            source, arts = "Google News", from_google(inst["news"]["query"])
+        if not arts:
+            print(f"news {inst['key']}: nothing from either source, keeping the previous file", flush=True)
             continue
-        items, feat = summarize(d.get("articles") or [])
-        json.dump({"updated": now.isoformat(timespec="seconds"), "hours": HOURS, "source": "GDELT",
+        items, feat = summarize(arts)
+        json.dump({"updated": now.isoformat(timespec="seconds"), "hours": HOURS, "source": source,
                    "stats": feat, "items": items},
                   open(os.path.join(data_dir, f"news-{inst['key']}.json"), "w"), separators=(",", ":"))
-        append_history(os.path.join(hist_dir, f"{inst['key']}.json"), now.strftime("%Y-%m-%d"), feat)
-        print(f"news {inst['key']}: {feat['articles']} articles, {feat['stories']} stories, tone {feat['tone']:+.2f}", flush=True)
+        append_history(os.path.join(hist_dir, f"{inst['key']}.json"), now.strftime("%Y-%m-%d"), {**feat, "src": source})
+        print(f"news {inst['key']} ({source}): {feat['articles']} articles, {feat['stories']} stories, tone {feat['tone']:+.2f}", flush=True)
 
 
 if __name__ == "__main__":
