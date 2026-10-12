@@ -425,7 +425,10 @@ function render(d) {
   const models = Object.keys(d.models).sort((a, b) => (b === 'blend') - (a === 'blend'));
   const toggle = models.length > 1 ? `<div class="k" style="margin-bottom:6px">Model ${tip('model')}</div><div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].ctx_text || d.models[k].context + 'c'}</button>`).join('')}${d.models.blend ? '' : '<button data-m="avg">Average</button>'}</div>` : '';
 
+  const stale = d.data_check && d.data_check.stale
+    ? `<div class="card" style="border-color:#6b4e16;background:#241d10"><b class="warn">Data may be out of date.</b> When this forecast was generated, the latest finished session (${d.data_check.expected}) was not yet available from the data source, so it is based on the last close of ${d.data_check.last_date}. It refreshes automatically on the next run, and it is not added to the live scoreboard.</div>` : '';
   $('app').innerHTML = `
+    ${stale}
     ${toggle}
     ${summaryHTML(d, sel, sel.keys)}
     ${nowcastCard(d)}

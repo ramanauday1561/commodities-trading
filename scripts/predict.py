@@ -15,6 +15,7 @@ Environment knobs (used for A/B experiments in CI):
 import json
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
@@ -27,7 +28,7 @@ sys.path.append("Kronos")  # cloned by the workflow
 from model import Kronos, KronosPredictor, KronosTokenizer  # noqa: E402
 
 from blend import blend_forecast, fit_blend, platt_fit, platt_prob  # noqa: E402
-from evalutil import backtest_indices, full_stats  # noqa: E402
+from evalutil import backtest_indices, expected_last_session, full_stats  # noqa: E402
 from exo import load_exo  # noqa: E402
 from gbm import run_gbm  # noqa: E402
 
@@ -53,8 +54,17 @@ def _download(symbol):
     return raw
 
 
-def load_history(symbol):
-    return _download(symbol).rename(columns=str.lower)[COLS + ["volume"]].fillna(0.0)
+def load_history(symbol, expected, tries=3, wait=20):
+    """Daily candles. Yahoo occasionally omits the latest session, so retry until it appears; report if it never does."""
+    full = None
+    for attempt in range(tries):
+        full = _download(symbol).rename(columns=str.lower)[COLS + ["volume"]].fillna(0.0)
+        if full.index[-1].date() >= expected:
+            break
+        print(f"latest session {expected} missing from Yahoo (last candle {full.index[-1].date()}), retry {attempt + 1}/{tries}")
+        if attempt < tries - 1:
+            time.sleep(wait)
+    return full
 
 
 def forecast(predictor, full, context, future):
@@ -119,12 +129,16 @@ def calibrate_probabilities(models, rows_by_model, last_close):
 
 def main(key):
     inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
-    full = load_history(inst["ticker"])
+    now_ex = datetime.now(ZoneInfo(inst["tz"]))
+    close_h, close_m = map(int, inst["close"].split(":"))
+    expected = expected_last_session(now_ex, close_h, close_m)
+    full = load_history(inst["ticker"], expected)
+    stale = bool(full.index[-1].date() < expected)       # newest data is older than the last finished session
+    if stale:
+        print(f"WARNING: data is stale (last candle {full.index[-1].date()}, expected {expected})")
 
     # Forecast starts from *today* (exchange time): while the session is open, today's candle is incomplete,
     # so keep it out of the model input and predict it instead.
-    now_ex = datetime.now(ZoneInfo(inst["tz"]))
-    close_h, close_m = map(int, inst["close"].split(":"))
     today_live, last_d = None, full.index[-1].date()
     if last_d > now_ex.date() or (last_d == now_ex.date() and (now_ex.hour, now_ex.minute) < (close_h, close_m)):
         row = full.iloc[-1]
@@ -203,6 +217,7 @@ def main(key):
         "last_close": round(last_close, 2), "last_date": full.index[-1].strftime("%Y-%m-%d"),
         "history_start": full.index[0].strftime("%Y-%m-%d"), "samples": SAMPLES,
         "default_model": "blend" if "blend" in models else "base",
+        "data_check": {"stale": stale, "expected": expected.isoformat(), "last_date": full.index[-1].strftime("%Y-%m-%d")},
         "blend": blend_info, "expected_range_pct": None if exp_range is None else round(exp_range * 100, 3),
         "settings": {"kronos_t": TEMP, "n_exo": n_exo},
         "candles": candles, "models": models, "backtest": backtests, "today_live": today_live,
