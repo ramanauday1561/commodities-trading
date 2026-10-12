@@ -138,10 +138,16 @@ jobs:
           pattern: data-*
           path: docs/data
           merge-multiple: true
+      - name: Drop data of instruments that were removed from instruments.json
+        run: python scripts/prune_data.py docs/data
       - name: Live scoreboard (record forecasts, score the ones whose day has finished)
         run: |
           bash scripts/store.sh pull scoreboard store
           python scripts/scoreboard.py store docs/data
+      - name: News (NewsMCP headlines; history kept for later evaluation, not a model input)
+        continue-on-error: true
+        timeout-minutes: 4
+        run: python -u scripts/news.py docs/data store
       - run: python3 scripts/build_manifest.py
       - name: Save scoreboard and latest data (used by the intraday workflow)
         continue-on-error: true
