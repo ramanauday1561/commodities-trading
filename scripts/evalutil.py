@@ -18,7 +18,8 @@ def summarize(r):
     prev, actual, pred = r[:, 1], r[:, 2], r[:, 3]
     return {
         "days": int(len(r)),
-        "direction_accuracy": round(float(((pred > prev) == (actual > prev)).mean()), 3),
+        # a forecast of "no change" makes no directional call: score it as a coin flip (0.5)
+        "direction_accuracy": round(float(np.where(pred == prev, 0.5, (pred > prev) == (actual > prev)).mean()), 3),
         "up_rate": round(float((actual > prev).mean()), 3),                       # baseline: always guess "up"
         "mape_pct": round(float((np.abs(pred - actual) / actual).mean() * 100), 3),
         "naive_mape_pct": round(float((np.abs(prev - actual) / actual).mean() * 100), 3),  # "same as yesterday"

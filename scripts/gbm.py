@@ -20,7 +20,7 @@ PARAMS = dict(learning_rate=0.03, num_leaves=8, min_data_in_leaf=60, feature_fra
 ROUNDS = 120
 
 
-def features(df):
+def features(df, exo=None):
     """Scale-free features; row i only uses candles up to and including i."""
     c, o, h, l, v = df["close"], df["open"], df["high"], df["low"], df["volume"]
     r1 = np.log(c).diff()
@@ -48,6 +48,8 @@ def features(df):
         f["vol_z"] = np.log1p(v) - np.log1p(v).rolling(20).mean()
     f["dow"] = df.index.dayofweek
     f["month"] = df.index.month
+    if exo is not None:
+        f = pd.concat([f, exo.reindex(df.index)], axis=1)
     return f.replace([np.inf, -np.inf], np.nan)
 
 
@@ -63,8 +65,8 @@ def winsorize(y):
     return np.clip(y, lo, hi)
 
 
-def run_gbm(full, future, last_close, indices):
-    feats = features(full)
+def run_gbm(full, future, last_close, indices, exo=None):
+    feats = features(full, exo)
     logc = np.log(full["close"].values)
     n = len(full)
     X = feats.values
@@ -76,7 +78,7 @@ def run_gbm(full, future, last_close, indices):
         return t
 
     # ---- walk-forward backtest, 1 day ahead ----
-    bt, cal = {"days": 0}, None
+    bt, cal, bt_rows = {"days": 0}, None, None
     if indices:
         y1 = target(1)
         rows = []
@@ -88,7 +90,8 @@ def run_gbm(full, future, last_close, indices):
             pred = float(full["close"].iloc[t - 1] * np.exp(m.predict(X[[t - 1]])[0]))
             rows.append((t, float(full["close"].iloc[t - 1]), float(full["close"].iloc[t]), pred))
         if rows:
-            bt, cal = full_stats(np.array(rows), n, full.index)
+            bt_rows = np.array(rows)
+            bt, cal = full_stats(bt_rows, n, full.index)
 
     # ---- forecast: train on everything known now ----
     last = X[[n - 1]]
@@ -119,4 +122,5 @@ def run_gbm(full, future, last_close, indices):
             row["cal_p10"], row["cal_p90"] = round(c * (1 + cal[0] * w), 2), round(c * (1 + cal[1] * w), 2)
         out.append(row)
         prev_close = c
-    return out, bt, used
+    return {"forecast": out, "backtest": bt, "cal": cal, "rows": bt_rows, "rows_used": used, "exp_range": exp_range,
+            "n_features": int(X.shape[1])}

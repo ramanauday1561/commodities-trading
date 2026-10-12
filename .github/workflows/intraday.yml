@@ -1,0 +1,59 @@
+name: Intraday nowcast
+
+# During the NSE session: predict today's close from the 15-minute candles so far and republish the site
+# (the latest full forecasts are read from the `site-data` branch written by the main workflow).
+on:
+  schedule:
+    - cron: "30 4 * * 1-5"     # 10:00 IST
+    - cron: "0 6 * * 1-5"      # 11:30 IST
+    - cron: "30 7 * * 1-5"     # 13:00 IST
+    - cron: "0 9 * * 1-5"      # 14:30 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-main
+  cancel-in-progress: false
+
+jobs:
+  nowcast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      publish: ${{ steps.have.outputs.ok }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install yfinance pandas numpy
+      - name: Latest published data
+        run: bash scripts/store.sh pull site-data docs/data
+      - name: Nowcast
+        run: python scripts/intraday.py nifty
+      - id: have
+        run: |
+          if [ -f docs/data/index.json ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.have.outputs.ok == 'true'
+        uses: actions/configure-pages@v5
+      - if: steps.have.outputs.ok == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+  publish:
+    needs: nowcast
+    if: ${{ needs.nowcast.outputs.publish == 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
