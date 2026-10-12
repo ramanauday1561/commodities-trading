@@ -117,7 +117,11 @@ def run(inst, out_dir):
         print("not enough intraday history:", len(y))
         return out
     yhat = cross_validate(X, y, day_id)
-    out["backtest"] = {"days": int(len(np.unique(day_id))), "all": stat(np.ones(len(y), bool), price, vol, closes, yhat),
+    # Shrink toward "the day ends where it is now" by however much the out-of-sample forecasts actually helped
+    # (least-squares slope of the real remaining move on the forecast, kept within 0..1).
+    shrink = float(np.clip((y * yhat).sum() / max((yhat * yhat).sum(), 1e-12), 0.0, 1.0))
+    yhat = yhat * shrink
+    out["backtest"] = {"days": int(len(np.unique(day_id))), "shrink": round(shrink, 3), "all": stat(np.ones(len(y), bool), price, vol, closes, yhat),
                        "morning": stat(bar_idx < 8, price, vol, closes, yhat),
                        "midday": stat((bar_idx >= 8) & (bar_idx < 16), price, vol, closes, yhat),
                        "late": stat(bar_idx >= 16, price, vol, closes, yhat)}
@@ -139,7 +143,7 @@ def run(inst, out_dir):
         return out
     f, c = snapshot_features(today, max(j, FIRST_BAR), prev_close, v)
     model = ridge_fit(X, y)
-    yh = float(ridge_predict(model, np.array([f]))[0])
+    yh = float(ridge_predict(model, np.array([f]))[0]) * shrink
     pred = c * (1 + yh * v)
     q10, q90 = np.percentile(resid, [10, 90])
     sigma = float(resid.std()) or 1.0

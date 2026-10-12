@@ -261,8 +261,10 @@ function nowcastCard(d) {
   })() : '';
   if (n.status !== 'open' || n.date !== today) return '';
   const chgNow = (n.pred_close / n.price_now - 1) * 100;
+  const noSkill = n.backtest && n.backtest.shrink != null && n.backtest.shrink < 0.25;
+  const advice = noSkill ? '<p class="note" style="margin-top:8px">Past tests found no reliable pattern in how the rest of the day follows the morning, so this estimate is deliberately pulled almost all the way back to the current level. Treat it as "no view".</p>' : '';
   return `<div class="card live"><div class="k"><span class="pulse"></span>Live nowcast · as of ${n.asof} IST ${tip('nowcast')}</div>
-    <p style="margin:6px 0;font-size:15.5px">${d.symbol} is at <b>${f(n.price_now)}</b> (${pc((n.price_now / n.prev_close - 1) * 100)} on the day). From how today has traded so far, the model expects the day to end near <b class="${cls(chgNow)}">${f(n.pred_close)}</b> (${pc(chgNow)} from now), most likely between ${f(n.p10)} and ${f(n.p90)}, with a ${Math.round(n.prob_up_vs_now * 100)}% chance of closing above the current level.</p>${hist}</div>`;
+    <p style="margin:6px 0;font-size:15.5px">${d.symbol} is at <b>${f(n.price_now)}</b> (${pc((n.price_now / n.prev_close - 1) * 100)} on the day). From how today has traded so far, the model expects the day to end near <b class="${cls(chgNow)}">${f(n.pred_close)}</b> (${pc(chgNow)} from now), most likely between ${f(n.p10)} and ${f(n.p90)}, with a ${Math.round(n.prob_up_vs_now * 100)}% chance of closing above the current level.</p>${advice}${hist}</div>`;
 }
 
 function agreeHTML(d) {
