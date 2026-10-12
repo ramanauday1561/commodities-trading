@@ -9,6 +9,7 @@ Usage: python scripts/news.py <data_dir> <store_dir>      (standard library only
 import json
 import os
 import re
+import signal
 import sys
 import time
 import urllib.parse
@@ -28,17 +29,37 @@ NEG = {"fall", "falls", "drop", "drops", "slump", "slumps", "plunge", "plunges",
        "hike", "hikes", "downgrade", "default", "crisis", "selloff", "sell-off", "tension", "tensions", "conflict"}
 
 
-def get(path, params, tries=3):
+BUDGET_S = 120            # whole run; the page keeps the previous news if the API is slow or down
+_start, _down = time.monotonic(), False
+
+
+def get(path, params, tries=2):
+    """GET JSON from the API. After a request fails every attempt, the API is treated as down for the rest of the run."""
+    global _down
     url = f"{API}/{path}?{urllib.parse.urlencode(params)}"
     for attempt in range(tries):
+        left = BUDGET_S - (time.monotonic() - _start)
+        if _down or left < 5:
+            return None
         try:
             req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "commodities-trading"})
-            with urllib.request.urlopen(req, timeout=20) as r:
+            signal.alarm(int(min(30, left)))           # hard limit: urlopen's timeout is per read, not per request
+            with urllib.request.urlopen(req, timeout=min(20, left)) as r:
                 return json.load(r)
         except Exception as e:
-            print(f"news: {url} failed ({e}), attempt {attempt + 1}/{tries}")
-            time.sleep(3 * (attempt + 1))
+            print(f"news: {url} failed ({e}), attempt {attempt + 1}/{tries}", flush=True)
+            time.sleep(2)
+        finally:
+            signal.alarm(0)
+    _down = True
     return None
+
+
+def _timeout(signum, frame):
+    raise TimeoutError("request took too long")
+
+
+signal.signal(signal.SIGALRM, _timeout)
 
 
 def fetch_events(cfg):

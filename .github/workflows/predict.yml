@@ -146,7 +146,8 @@ jobs:
           python scripts/scoreboard.py store docs/data
       - name: News (NewsMCP headlines; history kept for later evaluation, not a model input)
         continue-on-error: true
-        run: python scripts/news.py docs/data store
+        timeout-minutes: 4
+        run: python -u scripts/news.py docs/data store
       - run: python3 scripts/build_manifest.py
       - name: Save scoreboard and latest data (used by the intraday workflow)
         continue-on-error: true
