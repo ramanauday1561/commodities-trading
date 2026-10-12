@@ -9,9 +9,8 @@ Every model is walk-forward backtested across the whole history; the backtest er
 probabilities, so the numbers shown on the page reflect how the models actually performed.
 
 Environment knobs (used for A/B experiments in CI):
-  KRONOS_T       sampling temperature (default 1.0)
+  KRONOS_T       sampling temperature (default 0.6)
   KRONOS_SAMPLES forecast paths per Kronos model (default 30)
-  VOLUME_MODE    auto | proxy | none  - use a liquid ETF's volume for instruments without volume (default auto)
 """
 import json
 import os
@@ -41,8 +40,7 @@ MODELS = {
 }
 HORIZON = 4               # working days to forecast
 SAMPLES = int(os.environ.get("KRONOS_SAMPLES") or 30)
-TEMP = float(os.environ.get("KRONOS_T") or 1.0)
-VOLUME_MODE = os.environ.get("VOLUME_MODE") or "auto"
+TEMP = float(os.environ.get("KRONOS_T") or 0.6)   # A/B on NIFTY: lower average miss than 1.0 (base -8%, mini -17%)
 BT_SAMPLES = 3            # samples averaged per backtest prediction
 BT_BATCH = 8
 
@@ -55,16 +53,8 @@ def _download(symbol):
     return raw
 
 
-def load_history(symbol, volume_ticker=None):
-    full = _download(symbol).rename(columns=str.lower)[COLS + ["volume"]].fillna(0.0)
-    if volume_ticker and VOLUME_MODE != "none" and (full["volume"] > 0).mean() < 0.5:
-        try:   # indices carry no volume: borrow a liquid tracker ETF's so Kronos sees realistic activity
-            vol = _download(volume_ticker)["Volume"].fillna(0.0)
-            full["volume"] = vol.reindex(full.index).fillna(0.0)
-            print(f"volume proxy {volume_ticker}: {(full['volume'] > 0).mean():.0%} of days covered")
-        except Exception as e:
-            print("volume proxy failed:", repr(e))
-    return full
+def load_history(symbol):
+    return _download(symbol).rename(columns=str.lower)[COLS + ["volume"]].fillna(0.0)
 
 
 def forecast(predictor, full, context, future):
@@ -129,7 +119,7 @@ def calibrate_probabilities(models, rows_by_model, last_close):
 
 def main(key):
     inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
-    full = load_history(inst["ticker"], inst.get("volume_ticker"))
+    full = load_history(inst["ticker"])
 
     # Forecast starts from *today* (exchange time): while the session is open, today's candle is incomplete,
     # so keep it out of the model input and predict it instead.
@@ -214,7 +204,7 @@ def main(key):
         "history_start": full.index[0].strftime("%Y-%m-%d"), "samples": SAMPLES,
         "default_model": "blend" if "blend" in models else "base",
         "blend": blend_info, "expected_range_pct": None if exp_range is None else round(exp_range * 100, 3),
-        "settings": {"kronos_t": TEMP, "volume_mode": VOLUME_MODE, "n_exo": n_exo},
+        "settings": {"kronos_t": TEMP, "n_exo": n_exo},
         "candles": candles, "models": models, "backtest": backtests, "today_live": today_live,
     }
     os.makedirs("docs/data", exist_ok=True)

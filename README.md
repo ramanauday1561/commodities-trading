@@ -42,7 +42,7 @@ close, 04:00 after the US futures close; nowcast at 10:00, 11:30, 13:00, 14:30.
 ## Experiments
 
 Run **Actions → Predict next candles → Run workflow** with `keys` (for example `nifty`) to run a subset without
-deploying. `kronos_t` (sampling temperature) and `volume_mode` (`auto` | `proxy` | `none`, an ETF volume proxy for
-indices that report no volume) let you A/B test Kronos settings; compare the backtest lines in the job logs.
+deploying. `kronos_t` (sampling temperature, default 0.6) lets you A/B test Kronos settings; compare the backtest lines in the
+job logs.
 
 Educational project, not financial advice.

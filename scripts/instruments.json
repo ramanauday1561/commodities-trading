@@ -8,7 +8,6 @@
   "tz": "Asia/Kolkata",
   "close": "15:30",
   "about": "India's benchmark stock index: the 50 largest companies on the National Stock Exchange (NSE). Prices are in index points, not rupees. The market is open 9:15 to 15:30 IST on weekdays.",
-  "volume_ticker": "NIFTYBEES.NS",
   "exo": [
    "^GSPC",
    "^IXIC",

@@ -17,11 +17,7 @@ on:
         required: false
         default: ""
       kronos_t:
-        description: "Experiment: Kronos sampling temperature (default 1.0)"
-        required: false
-        default: ""
-      volume_mode:
-        description: "Experiment: auto | proxy | none (ETF volume proxy for indices)"
+        description: "Experiment: Kronos sampling temperature (default 0.6)"
         required: false
         default: ""
   push:
@@ -109,7 +105,6 @@ jobs:
       - name: Run prediction
         env:
           KRONOS_T: ${{ github.event.inputs.kronos_t }}
-          VOLUME_MODE: ${{ github.event.inputs.volume_mode }}
         run: mkdir -p docs/data && python scripts/predict.py ${{ matrix.key }}
       - uses: actions/upload-artifact@v4
         with:
