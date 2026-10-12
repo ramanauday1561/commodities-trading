@@ -24,6 +24,29 @@
    "interval": "15m",
    "open": "09:15",
    "close": "15:30"
+  },
+  "news": {
+   "topics": [
+    "economy"
+   ],
+   "geo": [
+    "india"
+   ],
+   "keywords": [
+    "nifty",
+    "sensex",
+    "nse",
+    "bse",
+    "rbi",
+    "reserve bank of india",
+    "rupee",
+    "indian stocks",
+    "indian market",
+    "dalal street",
+    "fii",
+    "fpi",
+    "sebi"
+   ]
   }
  },
  {
@@ -40,7 +63,29 @@
    "DX-Y.NYB",
    "^VIX",
    "^TNX"
-  ]
+  ],
+  "news": {
+   "topics": [
+    "economy",
+    "military"
+   ],
+   "keywords": [
+    "gold",
+    "bullion",
+    "precious metal",
+    "precious metals",
+    "federal reserve",
+    "fed",
+    "interest rate",
+    "interest rates",
+    "inflation",
+    "safe haven",
+    "safe-haven",
+    "central bank",
+    "dollar",
+    "treasury yields"
+   ]
+  }
  },
  {
   "key": "silver",
@@ -56,55 +101,26 @@
    "DX-Y.NYB",
    "^VIX",
    "^TNX"
-  ]
- },
- {
-  "key": "copper",
-  "name": "Copper",
-  "group": "Metals",
-  "ticker": "HG=F",
-  "unit": "USD/lb",
-  "tz": "America/New_York",
-  "close": "17:00",
-  "about": "COMEX copper futures, in US dollars per pound. Often watched as a signal of global industrial demand.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "platinum",
-  "name": "Platinum",
-  "group": "Metals",
-  "ticker": "PL=F",
-  "unit": "USD/oz",
-  "tz": "America/New_York",
-  "close": "17:00",
-  "about": "NYMEX platinum futures, in US dollars per troy ounce. Used in car exhaust systems, jewellery and industry.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "palladium",
-  "name": "Palladium",
-  "group": "Metals",
-  "ticker": "PA=F",
-  "unit": "USD/oz",
-  "tz": "America/New_York",
-  "close": "17:00",
-  "about": "NYMEX palladium futures, in US dollars per troy ounce. Mostly used in car exhaust systems.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
+  ],
+  "news": {
+   "topics": [
+    "economy"
+   ],
+   "keywords": [
+    "silver",
+    "gold",
+    "bullion",
+    "precious metal",
+    "precious metals",
+    "federal reserve",
+    "fed",
+    "interest rate",
+    "inflation",
+    "solar",
+    "industrial metals",
+    "dollar"
+   ]
+  }
  },
  {
   "key": "crude",
@@ -120,134 +136,30 @@
    "DX-Y.NYB",
    "^VIX",
    "^TNX"
-  ]
- },
- {
-  "key": "brent",
-  "name": "Brent",
-  "group": "Energy",
-  "ticker": "BZ=F",
-  "unit": "USD/bbl",
-  "tz": "America/New_York",
-  "close": "17:00",
-  "about": "Brent crude oil futures (the international benchmark), in US dollars per barrel.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "natgas",
-  "name": "Natural Gas",
-  "group": "Energy",
-  "ticker": "NG=F",
-  "unit": "USD/MMBtu",
-  "tz": "America/New_York",
-  "close": "17:00",
-  "about": "Henry Hub natural gas futures, in US dollars per million BTU. Very volatile and seasonal (heating demand).",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "wheat",
-  "name": "Wheat",
-  "group": "Agri",
-  "ticker": "ZW=F",
-  "unit": "USc/bu",
-  "tz": "America/Chicago",
-  "close": "14:20",
-  "about": "CBOT wheat futures, quoted in US cents per bushel.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "corn",
-  "name": "Corn",
-  "group": "Agri",
-  "ticker": "ZC=F",
-  "unit": "USc/bu",
-  "tz": "America/Chicago",
-  "close": "14:20",
-  "about": "CBOT corn futures, quoted in US cents per bushel.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "soybeans",
-  "name": "Soybeans",
-  "group": "Agri",
-  "ticker": "ZS=F",
-  "unit": "USc/bu",
-  "tz": "America/Chicago",
-  "close": "14:20",
-  "about": "CBOT soybean futures, quoted in US cents per bushel.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "sugar",
-  "name": "Sugar",
-  "group": "Agri",
-  "ticker": "SB=F",
-  "unit": "USc/lb",
-  "tz": "America/New_York",
-  "close": "13:00",
-  "about": "ICE raw sugar futures, quoted in US cents per pound.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "coffee",
-  "name": "Coffee",
-  "group": "Agri",
-  "ticker": "KC=F",
-  "unit": "USc/lb",
-  "tz": "America/New_York",
-  "close": "13:30",
-  "about": "ICE arabica coffee futures, quoted in US cents per pound.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
- },
- {
-  "key": "cotton",
-  "name": "Cotton",
-  "group": "Agri",
-  "ticker": "CT=F",
-  "unit": "USc/lb",
-  "tz": "America/New_York",
-  "close": "14:20",
-  "about": "ICE cotton futures, quoted in US cents per pound.",
-  "exo": [
-   "^GSPC",
-   "DX-Y.NYB",
-   "^VIX",
-   "^TNX"
-  ]
+  ],
+  "news": {
+   "topics": [
+    "economy",
+    "military",
+    "politics"
+   ],
+   "keywords": [
+    "oil",
+    "crude",
+    "brent",
+    "wti",
+    "opec",
+    "opec+",
+    "petroleum",
+    "refinery",
+    "gasoline",
+    "barrel",
+    "strait of hormuz",
+    "iran",
+    "saudi",
+    "energy prices",
+    "fuel"
+   ]
+  }
  }
 ]

@@ -1,6 +1,6 @@
 # Commodities & NIFTY forecasts
 
-A static site (GitHub Pages) that forecasts the next 4 trading days for NIFTY 50 and 14 commodity futures, explains the
+A static site (GitHub Pages) that forecasts the next 4 trading days for NIFTY 50, gold, silver and WTI crude oil, explains the
 result in plain language and keeps an honest record of how the forecasts actually did.
 
 ## How it works
@@ -11,6 +11,7 @@ result in plain language and keeps an honest record of how the forecasts actuall
 | `scripts/gbm.py`, `scripts/exo.py` | LightGBM on the full history plus overnight/global context (US indices, VIX, India VIX, USD/INR, oil, gold, dollar, Asia) |
 | `scripts/blend.py` | Non-negative least-squares stacking, cross-validated; Platt scaling for probabilities |
 | `scripts/scoreboard.py` | **Live scoreboard**: saves every forecast, scores it once the real close is known |
+| `scripts/news.py` | **News** from [NewsMCP](https://github.com/pranciskus/newsmcp): related headlines per instrument, plus a daily news-signal history (see below) |
 | `scripts/intraday.py` | **Nowcast** (NIFTY): predicts today's close from the 15-minute candles so far |
 | `.github/workflows/predict.yml` | Scheduled forecasts (with backup slots + a duplicate gate) and Pages deploy |
 | `.github/workflows/intraday.yml` | Four nowcasts during the NSE session, republishing the site |
@@ -18,6 +19,32 @@ result in plain language and keeps an honest record of how the forecasts actuall
 
 Persistence uses two branches written by the workflows: `scoreboard` (small JSON records, normal commits) and
 `site-data` (latest generated data, a single squashed commit). Do not delete them.
+
+## Instruments
+
+`scripts/instruments.json` lists them (ticker, exchange time zone and close, extra context tickers, news filters).
+Add or remove an entry there; the workflow, page and scoreboard pick it up, and files of removed instruments are
+dropped on the next deploy.
+
+## News (NewsMCP)
+
+NewsMCP clusters articles from hundreds of sources into events and ranks them by impact. Its MCP server is a thin
+wrapper over a free REST API (`https://newsmcp.io/v1`, no key), so the pipeline calls the REST API directly:
+
+- `scripts/news.py` fetches the last 36 hours per instrument (topics/regions/keywords from `news` in
+  `instruments.json`) and writes `docs/data/news-<key>.json`, shown on the page as **In the news**. It runs in the
+  daily workflow and refreshes during the NSE session with the nowcast.
+- Each daily run also appends one row (related events, sources, top impact, headline tone) to `news/<key>.json` on
+  the `scoreboard` branch.
+- News is **not** a model input. NewsMCP has no archive, so it cannot be backtested on the past; once a few hundred
+  days have been recorded, the history can be tested as a LightGBM feature like everything else.
+
+To let an AI coding agent (Claude Code, Cursor, …) search the news while working on this repository, add the MCP
+server to the project, e.g. `claude mcp add --scope project newsmcp -- npx -y @newsmcp/server`, which writes:
+
+```json
+{ "mcpServers": { "newsmcp": { "command": "npx", "args": ["-y", "@newsmcp/server"] } } }
+```
 
 ## Reliable scheduling
 
