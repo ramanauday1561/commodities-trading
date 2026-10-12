@@ -18,3 +18,8 @@ jobs:
           python-version: "3.11"
       - run: pip install numpy pandas scipy
       - run: python -m unittest discover -s tests -v
+      - name: Yahoo diagnostics (TEMPORARY)
+        continue-on-error: true
+        run: |
+          pip install yfinance
+          python scripts/yf_diag.py
