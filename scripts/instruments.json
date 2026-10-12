@@ -7,7 +7,25 @@
   "unit": "pts",
   "tz": "Asia/Kolkata",
   "close": "15:30",
-  "about": "India's benchmark stock index: the 50 largest companies on the National Stock Exchange (NSE). Prices are in index points, not rupees. The market is open 9:15 to 15:30 IST on weekdays."
+  "about": "India's benchmark stock index: the 50 largest companies on the National Stock Exchange (NSE). Prices are in index points, not rupees. The market is open 9:15 to 15:30 IST on weekdays.",
+  "volume_ticker": "NIFTYBEES.NS",
+  "exo": [
+   "^GSPC",
+   "^IXIC",
+   "^VIX",
+   "^INDIAVIX",
+   "USDINR=X",
+   "BZ=F",
+   "GC=F",
+   "DX-Y.NYB",
+   "^N225",
+   "^HSI"
+  ],
+  "intraday": {
+   "interval": "15m",
+   "open": "09:15",
+   "close": "15:30"
+  }
  },
  {
   "key": "gold",
@@ -17,7 +35,13 @@
   "unit": "USD/oz",
   "tz": "America/New_York",
   "close": "17:00",
-  "about": "COMEX gold futures: the international gold price in US dollars per troy ounce (about 31.1 g). Indian MCX gold is quoted in rupees per 10 g and includes import duty, so its numbers look very different."
+  "about": "COMEX gold futures: the international gold price in US dollars per troy ounce (about 31.1 g). Indian MCX gold is quoted in rupees per 10 g and includes import duty, so its numbers look very different.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "silver",
@@ -27,7 +51,13 @@
   "unit": "USD/oz",
   "tz": "America/New_York",
   "close": "17:00",
-  "about": "COMEX silver futures, in US dollars per troy ounce. Indian MCX silver is quoted in rupees per kg."
+  "about": "COMEX silver futures, in US dollars per troy ounce. Indian MCX silver is quoted in rupees per kg.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "copper",
@@ -37,7 +67,13 @@
   "unit": "USD/lb",
   "tz": "America/New_York",
   "close": "17:00",
-  "about": "COMEX copper futures, in US dollars per pound. Often watched as a signal of global industrial demand."
+  "about": "COMEX copper futures, in US dollars per pound. Often watched as a signal of global industrial demand.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "platinum",
@@ -47,7 +83,13 @@
   "unit": "USD/oz",
   "tz": "America/New_York",
   "close": "17:00",
-  "about": "NYMEX platinum futures, in US dollars per troy ounce. Used in car exhaust systems, jewellery and industry."
+  "about": "NYMEX platinum futures, in US dollars per troy ounce. Used in car exhaust systems, jewellery and industry.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "palladium",
@@ -57,7 +99,13 @@
   "unit": "USD/oz",
   "tz": "America/New_York",
   "close": "17:00",
-  "about": "NYMEX palladium futures, in US dollars per troy ounce. Mostly used in car exhaust systems."
+  "about": "NYMEX palladium futures, in US dollars per troy ounce. Mostly used in car exhaust systems.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "crude",
@@ -67,7 +115,13 @@
   "unit": "USD/bbl",
   "tz": "America/New_York",
   "close": "17:00",
-  "about": "WTI crude oil futures (the US benchmark), in US dollars per barrel."
+  "about": "WTI crude oil futures (the US benchmark), in US dollars per barrel.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "brent",
@@ -77,7 +131,13 @@
   "unit": "USD/bbl",
   "tz": "America/New_York",
   "close": "17:00",
-  "about": "Brent crude oil futures (the international benchmark), in US dollars per barrel."
+  "about": "Brent crude oil futures (the international benchmark), in US dollars per barrel.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "natgas",
@@ -87,7 +147,13 @@
   "unit": "USD/MMBtu",
   "tz": "America/New_York",
   "close": "17:00",
-  "about": "Henry Hub natural gas futures, in US dollars per million BTU. Very volatile and seasonal (heating demand)."
+  "about": "Henry Hub natural gas futures, in US dollars per million BTU. Very volatile and seasonal (heating demand).",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "wheat",
@@ -97,7 +163,13 @@
   "unit": "USc/bu",
   "tz": "America/Chicago",
   "close": "14:20",
-  "about": "CBOT wheat futures, quoted in US cents per bushel."
+  "about": "CBOT wheat futures, quoted in US cents per bushel.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "corn",
@@ -107,7 +179,13 @@
   "unit": "USc/bu",
   "tz": "America/Chicago",
   "close": "14:20",
-  "about": "CBOT corn futures, quoted in US cents per bushel."
+  "about": "CBOT corn futures, quoted in US cents per bushel.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "soybeans",
@@ -117,7 +195,13 @@
   "unit": "USc/bu",
   "tz": "America/Chicago",
   "close": "14:20",
-  "about": "CBOT soybean futures, quoted in US cents per bushel."
+  "about": "CBOT soybean futures, quoted in US cents per bushel.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "sugar",
@@ -127,7 +211,13 @@
   "unit": "USc/lb",
   "tz": "America/New_York",
   "close": "13:00",
-  "about": "ICE raw sugar futures, quoted in US cents per pound."
+  "about": "ICE raw sugar futures, quoted in US cents per pound.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "coffee",
@@ -137,7 +227,13 @@
   "unit": "USc/lb",
   "tz": "America/New_York",
   "close": "13:30",
-  "about": "ICE arabica coffee futures, quoted in US cents per pound."
+  "about": "ICE arabica coffee futures, quoted in US cents per pound.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  },
  {
   "key": "cotton",
@@ -147,6 +243,12 @@
   "unit": "USc/lb",
   "tz": "America/New_York",
   "close": "14:20",
-  "about": "ICE cotton futures, quoted in US cents per pound."
+  "about": "ICE cotton futures, quoted in US cents per pound.",
+  "exo": [
+   "^GSPC",
+   "DX-Y.NYB",
+   "^VIX",
+   "^TNX"
+  ]
  }
 ]

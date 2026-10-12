@@ -2,13 +2,26 @@ name: Predict next candles
 
 on:
   schedule:
-    - cron: "15 3 * * 1-5"    # 08:45 IST, before NSE opens -> forecasts start with today
-    - cron: "15 10 * * 1-5"   # 15:45 IST, after NSE close
-    - cron: "30 22 * * 1-5"   # 04:00 IST (next day), after the US futures close
+    # GitHub sometimes skips or delays scheduled runs, so every slot has backups. The `gate` job drops the duplicates.
+    - cron: "0 3 * * 1-5"      # 08:30 IST, before NSE opens -> forecasts start with today
+    - cron: "20 3 * * 1-5"
+    - cron: "40 3 * * 1-5"
+    - cron: "15 10 * * 1-5"    # 15:45 IST, after NSE close
+    - cron: "45 10 * * 1-5"
+    - cron: "30 22 * * 1-5"    # 04:00 IST next day, after the US futures close
+    - cron: "0 23 * * 1-5"
   workflow_dispatch:
     inputs:
       keys:
-        description: "Comma-separated instrument keys to run (empty = all), e.g. nifty,gold"
+        description: "Comma-separated instrument keys to run (empty = all, and deploy), e.g. nifty,gold"
+        required: false
+        default: ""
+      kronos_t:
+        description: "Experiment: Kronos sampling temperature (default 1.0)"
+        required: false
+        default: ""
+      volume_mode:
+        description: "Experiment: auto | proxy | none (ETF volume proxy for indices)"
         required: false
         default: ""
   push:
@@ -21,11 +34,36 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  # deploying runs share one queue; partial manual runs (experiments) get their own so they can run side by side
+  group: pages-${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.keys != '') && github.run_id || 'main' }}
+  cancel-in-progress: false
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.g.outputs.skip }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          skip=false
+          if [ "$EVENT" = "schedule" ]; then
+            # another run on main already succeeded, or is running/queued, within the last 90 minutes -> this one is a duplicate
+            n=$(gh api "repos/${{ github.repository }}/actions/workflows/predict.yml/runs?per_page=20" \
+              --jq '[.workflow_runs[] | select(.id != ${{ github.run_id }}) | select(.head_branch == "main")
+                     | select(.status == "in_progress" or .status == "queued" or .conclusion == "success")
+                     | select((now - (.created_at | fromdateiso8601)) < 5400)] | length' 2>/dev/null || echo 0)
+            if [ "${n:-0}" -gt 0 ]; then skip=true; fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+          echo "skip=$skip"
+
   setup:
+    needs: gate
+    if: ${{ needs.gate.outputs.skip != 'true' }}
     runs-on: ubuntu-latest
     outputs:
       keys: ${{ steps.m.outputs.keys }}
@@ -45,6 +83,7 @@ jobs:
   predict:
     needs: setup
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -68,6 +107,9 @@ jobs:
           path: ~/.cache/huggingface
           key: hf-kronos-base
       - name: Run prediction
+        env:
+          KRONOS_T: ${{ github.event.inputs.kronos_t }}
+          VOLUME_MODE: ${{ github.event.inputs.volume_mode }}
         run: mkdir -p docs/data && python scripts/predict.py ${{ matrix.key }}
       - uses: actions/upload-artifact@v4
         with:
@@ -75,21 +117,43 @@ jobs:
           path: docs/data/${{ matrix.key }}.json
 
   deploy:
-    needs: predict
+    needs: [gate, predict]
     # deploy whatever succeeded, even if one instrument failed; never deploy a partial manual run
-    if: ${{ !cancelled() && github.event.inputs.keys == '' }}
+    if: ${{ !cancelled() && needs.gate.outputs.skip != 'true' && github.event.inputs.keys == '' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install numpy
+      - name: Last published data (fallback for any instrument that failed this time)
+        run: bash scripts/store.sh pull site-data docs/data
       - uses: actions/download-artifact@v4
         with:
           pattern: data-*
           path: docs/data
           merge-multiple: true
+      - name: Live scoreboard (record forecasts, score the ones whose day has finished)
+        run: |
+          bash scripts/store.sh pull scoreboard store
+          python scripts/scoreboard.py store docs/data
       - run: python3 scripts/build_manifest.py
+      - name: Save scoreboard and latest data (used by the intraday workflow)
+        continue-on-error: true
+        run: |
+          bash scripts/store.sh push scoreboard store
+          mkdir -p site-snap && cp docs/data/*.json site-snap/ && rm -f site-snap/intraday-*.json
+          bash scripts/store.sh push site-data site-snap --squash
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

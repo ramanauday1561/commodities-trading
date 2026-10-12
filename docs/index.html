@@ -81,6 +81,13 @@
   .intro .btns { margin-top:6px; }
   .about { font-size:14px; color:#c6ccd6; margin:6px 0 0; }
   a { color:var(--accent); }
+  .wbar { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:8px 0 4px; background:var(--line); }
+  .wbar i { display:block; height:100%; }
+  .wleg { display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:var(--mute); }
+  .wleg b { color:var(--text); font-weight:600; } .wleg span::before { content:''; display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; background:var(--c); vertical-align:-1px; }
+  .live { border-color:#3a5a45; background:linear-gradient(180deg,#14221c,#14181e 70%); }
+  .live .pulse { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--up); margin-right:6px; animation:pulse 1.6s infinite; }
+  @keyframes pulse { 0%{opacity:1} 50%{opacity:.3} 100%{opacity:1} }
 </style>
 </head>
 <body>
@@ -120,14 +127,15 @@ window.addEventListener('error', e => {
 const TIPS = {
   close: 'The price at the end of the trading day. This is the number most people quote.',
   range: 'A realistic range for the closing price. We expect the real close to land inside it about 8 times out of 10. It is based on how far off the model was in past tests, so it is a fair picture of the uncertainty.',
-  pup: 'How likely the next close is above the last completed close. 50% means a coin flip. Far from 50% means the model leans one way, but see the track record before trusting it.',
+  pup: 'How likely the next close is above the last completed close. It is calibrated against how often the model was actually right in past tests, so 50% means a coin flip and you should rarely see very high or low numbers.',
   change: 'How much the forecast close differs from the last completed close, in percent.',
   agree: 'Different models can disagree. When they all point the same way the signal is a bit more meaningful; when they split, treat it as no signal.',
   hit: 'How often the model got the direction (up or down) right in past tests. Compare it with the baseline shown next to it (simply always guessing up).',
   err: 'On average, how far off the predicted close was, in percent. Smaller is better. Compare it with the baseline: assuming tomorrow equals today.',
   base: 'A baseline is a lazy strategy. If a model cannot beat it, the model adds nothing.',
   typical: 'The average size of a daily move over the last 20 days. If the forecast move is much smaller than this, it is lost in everyday noise.',
-  model: 'Choose which forecasting model to show. Average blends all of them.',
+  model: 'Choose which forecasting model to show. Best estimate combines the others using their past-test results.',
+  nowcast: 'A quick model that looks at how today has traded so far (gap, move, position in the day range, last-hour momentum) and predicts where the day will end.',
 };
 const tip = k => `<span class="tip" tabindex="0" data-tip="${TIPS[k]}">i</span>`;
 
@@ -148,6 +156,33 @@ const tip = k => `<span class="tip" tabindex="0" data-tip="${TIPS[k]}">i</span>`
 })();
 
 // Average absolute daily move (%) over the last 20 candles: how big an "ordinary" day is.
+// Average high-to-low swing (%) over the last 20 candles.
+function typicalRange(d) {
+  const c = d.candles.slice(-20);
+  return c.length ? c.reduce((a, x) => a + (x.high - x.low) / x.close, 0) / c.length * 100 : null;
+}
+
+function blendParts(d) {
+  if (!d.blend) return null;
+  const parts = Object.keys(d.blend.weights).map(k => ({ k, label: d.models[k] ? d.models[k].label : k, w: d.blend.weights[k] }));
+  parts.push({ k: 'naive', label: '"Same as yesterday"', w: Math.max(d.blend.naive_weight, 0) });
+  return parts.filter(p => p.w > 0.005).sort((a, b) => b.w - a.w);
+}
+function blendSentence(d) {
+  const parts = blendParts(d);
+  if (!parts) return '';
+  return 'It is built from ' + parts.map(p => `${Math.round(p.w * 100)}% ${p.label}`).join(', ') + ', weighted by how each did in past tests.';
+}
+const COLORS = ['#5b9dff', '#f5a623', '#26a69a', '#b388ff', '#8791a0'];
+function blendCard(d) {
+  const parts = blendParts(d);
+  if (!parts) return '';
+  return `<div class="card"><div class="k">How the best estimate is built</div>
+    <div class="wbar">${parts.map((p, i) => `<i style="width:${p.w * 100}%;background:${COLORS[i % COLORS.length]}"></i>`).join('')}</div>
+    <div class="wleg">${parts.map((p, i) => `<span style="--c:${COLORS[i % COLORS.length]}"><b>${Math.round(p.w * 100)}%</b> ${p.label}</span>`).join('')}</div>
+    <p class="about">The weights come from a regression on ${d.blend.days} past test days: a model gets weight only if its forecasts actually helped. Whatever is left goes to "same as yesterday" (predict no change), which shrinks weak forecasts toward zero. Its ranges and probabilities are calibrated on the same past tests.</p></div>`;
+}
+
 function typicalMove(d) {
   const c = d.candles.slice(-21);
   let s = 0; for (let i = 1; i < c.length; i++) s += Math.abs(c[i].close / c[i - 1].close - 1);
@@ -173,19 +208,61 @@ function summaryHTML(d, sel, keys) {
   const pup = Math.round(first.prob_up * 100);
   const lean = pup >= 60 ? 'leans higher' : pup <= 40 ? 'leans lower' : 'is close to a coin flip';
   const tr = track(d, keys);
-  const ups = Object.keys(d.models).filter(k => d.models[k].forecast[0].close > last).length, n = Object.keys(d.models).length;
+  const voters = Object.keys(d.models).filter(k => k !== 'blend');
+  const ups = voters.filter(k => d.models[k].forecast[0].close > last).length, n = voters.length;
+  const typRange = typicalRange(d), expRange = d.expected_range_pct;
+  const rangeText = typRange ? ` A normal day's high-to-low swing here is about <b>${typRange.toFixed(2)}%</b>${expRange ? `; the model expects about <b>${expRange.toFixed(2)}%</b> today` : ''}${tip('typical')}.` : '';
   const trText = tr.level === 'good'
     ? 'In past tests this model guessed direction better than a simple baseline, but the sample is small, so treat that with caution.'
     : tr.level === 'none'
       ? 'In past tests it did not guess direction better than a simple baseline, so treat the direction as a rough guess, not a signal.'
       : 'We have no past-test results for this one yet.';
+  const blendNote = sel.label === 'Best estimate' ? ` ${blendSentence(d)}` : '';
   return `<div class="card summary">
     <span class="lvl ${tr.level === 'good' ? 'good' : tr.level === 'none' ? '' : 'none'}">Track record: ${tr.text}</span>
     <div class="k">In plain English</div>
     <p><b>${name}</b> last closed at <b>${f(last)}</b> ${unit}. For ${when}, <b>${sel.label}</b> expects a close around <b class="${cls(chg)}">${f(first.close)}</b>
       (${pc(chg)}), and a close anywhere between ${f(lo)} and ${f(hi)} would not be surprising.</p>
-    <p>That expected move is <b>${size}</b> compared with a typical day (${typ.toFixed(2)}% up or down)${tip('typical')}. The model's view ${lean} (${pup}% chance of closing higher${tip('pup')}), and ${ups} of ${n} models expect a higher close.${(chg > 0) !== (pup >= 50) && Math.abs(pup - 50) > 5 ? ' The expected move and the probability point in different directions, which is another sign this is a weak signal.' : ''}</p>
-    <p class="note">${trText} This page is for learning, not advice.</p></div>`;
+    <p>That expected move is <b>${size}</b> compared with a typical day (${typ.toFixed(2)}% up or down)${tip('typical')}. The model's view ${lean} (${pup}% chance of closing higher${tip('pup')}), and ${ups} of ${n} models expect a higher close.${rangeText}${(chg > 0) !== (pup >= 50) && Math.abs(pup - 50) > 5 ? ' The expected move and the probability point in different directions, which is another sign this is a weak signal.' : ''}</p>
+    <p class="note">${trText}${blendNote} This page is for learning, not advice.</p></div>`;
+}
+
+function scoreboardCard(d) {
+  const sc = d._score;
+  if (!sc || !sc.models) return '';
+  const order = ['blend', 'base', 'mini', 'gbm'].filter(k => sc.models[k]);
+  const rows = order.map(k => {
+    const a = sc.models[k].all;
+    if (!a || !a.days) return `<tr><td>${(d.models[k] || {}).label || k}</td><td colspan="4" class="mini">collecting results…</td></tr>`;
+    const r = sc.models[k].recent;
+    const hit = x => `<span class="${x.direction_accuracy > x.up_rate ? 'up' : 'down'}">${(x.direction_accuracy * 100).toFixed(0)}%</span> <span class="k">vs ${(x.up_rate * 100).toFixed(0)}%</span>`;
+    const err = x => `<span class="${x.mape_pct < x.naive_mape_pct ? 'up' : 'down'}">${x.mape_pct.toFixed(2)}%</span> <span class="k">vs ${x.naive_mape_pct.toFixed(2)}%</span>`;
+    return `<tr><td>${(d.models[k] || {}).label || k}</td><td>${a.days}</td><td>${hit(a)}</td><td>${err(a)}</td><td>${r && r.days ? err(r) : '—'}</td></tr>`;
+  }).join('');
+  const lead = d.models.blend ? 'blend' : 'base';
+  const last = (sc.rows || []).filter(r => r.a != null && r.p[lead] != null).slice(0, 8).map(r => {
+    const e = (r.p[lead] / r.a - 1) * 100, mv = (r.a / r.l - 1) * 100;
+    return `<tr><td>${r.d}</td><td>${f(r.l)}</td><td class="${cls(mv)}">${f(r.a)} <span class="mini">(${pc(mv)})</span></td><td>${f(r.p[lead])}</td><td class="${Math.abs(e) < Math.abs(mv) ? 'up' : 'down'}">${pc(e)}</td></tr>`;
+  }).join('');
+  return `<div class="card"><div class="k">Live scoreboard · real forecasts vs what happened</div>
+    <p class="about">Every forecast this page publishes is saved and scored once the real close is known. Unlike the backtest, none of this could be peeked at. Green means better than the lazy baseline shown after "vs".</p>
+    <div style="overflow-x:auto"><table style="margin-top:6px"><thead><tr><th>Model</th><th>Days scored</th><th>Direction right</th><th>Average miss</th><th>Miss (last 20)</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${last ? `<div class="k" style="margin-top:12px">Latest results · ${(d.models[lead] || {}).label}</div><div style="overflow-x:auto"><table style="margin-top:4px"><thead><tr><th>Day</th><th>Previous close</th><th>Actual close</th><th>We said</th><th>Miss</th></tr></thead><tbody>${last}</tbody></table></div>` : ''}</div>`;
+}
+
+function nowcastCard(d) {
+  const n = d._intraday;
+  if (!n) return '';
+  const today = new Date(Date.now() + 19800000).toISOString().slice(0, 10);   // exchange date (IST)
+  const bt = n.backtest && n.backtest.all && n.backtest.all.snapshots ? n.backtest : null;
+  const hist = bt ? (() => {
+    const a = bt.all, beat = a.mape_pct < a.naive_mape_pct;
+    return `<p class="note" style="margin-top:8px">Past ${bt.days} days, tested leave-one-day-out: it called the direction of the rest of the day right <b class="${a.direction_accuracy > a.up_rate ? 'up' : 'down'}">${(a.direction_accuracy * 100).toFixed(0)}%</b> of the time (baseline ${(a.up_rate * 100).toFixed(0)}%) and its close error was <b class="${beat ? 'up' : 'down'}">${a.mape_pct.toFixed(2)}%</b> against ${a.naive_mape_pct.toFixed(2)}% for "the day ends where it is now".</p>`;
+  })() : '';
+  if (n.status !== 'open' || n.date !== today) return '';
+  const chgNow = (n.pred_close / n.price_now - 1) * 100;
+  return `<div class="card live"><div class="k"><span class="pulse"></span>Live nowcast · as of ${n.asof} IST ${tip('nowcast')}</div>
+    <p style="margin:6px 0;font-size:15.5px">${d.symbol} is at <b>${f(n.price_now)}</b> (${pc((n.price_now / n.prev_close - 1) * 100)} on the day). From how today has traded so far, the model expects the day to end near <b class="${cls(chgNow)}">${f(n.pred_close)}</b> (${pc(chgNow)} from now), most likely between ${f(n.p10)} and ${f(n.p90)}, with a ${Math.round(n.prob_up_vs_now * 100)}% chance of closing above the current level.</p>${hist}</div>`;
 }
 
 function agreeHTML(d) {
@@ -226,7 +303,12 @@ function guideHTML(d) {
     <details><summary>What do the models do?</summary>
       <ul><li><b>Kronos-base</b> and <b>Kronos-mini</b> are AI models pretrained on millions of candlesticks from many markets. They read the most recent 512 (base) or 2,048 (mini) days and imagine ${d.samples} possible futures; the forecast is their average.</li>
       <li><b>LightGBM</b> is a classic machine-learning model (decision trees). It is trained from scratch on this market's complete history using simple clues such as recent returns, volatility, trend and RSI.</li>
-      <li><b>Average</b> blends all of them.</li></ul></details>
+      <li><b>Best estimate</b> combines them. It looks at how each model did in the past tests and only listens to the ones that actually helped. Whatever is left goes to "same as yesterday" (no change), so weak signals are shrunk toward zero. This is the default view.</li></ul>
+      <p>The models also see overnight context (US markets, volatility indices, the dollar, oil and gold) so that news from after the local close can be reflected.</p></details>
+    <details><summary>What is the live scoreboard and the nowcast?</summary>
+      <ul><li><b>Live scoreboard</b>: every forecast this page publishes is saved, then scored once the real close is known. Unlike a backtest it cannot be tuned after the fact, so it is the most honest record.</li>
+      <li><b>Nowcast</b> (NIFTY, during the market session): a small model that looks at how today has traded so far and estimates where the day will end. It is refreshed a few times during the day.</li>
+      <li><b>Chance higher</b> is calibrated: it is mapped from how often the model was actually right in the past, so you will rarely see extreme numbers.</li></ul></details>
     <details><summary>How good are the forecasts? (the backtest)</summary>
       <p>We replay history. For many past days we ask each model to predict the next day using only what was known at the time, then compare with what really happened. Two lazy baselines set the bar:</p>
       <ul><li><b>Always guess "up"</b>: right whenever the market rose.</li><li><b>"Same as yesterday"</b>: predict that the price stays where it is.</li></ul>
@@ -272,6 +354,9 @@ async function select(key) {
       d.backtest = {};
     }
     if (!d.models || !Object.keys(d.models).length) throw new Error('data format not recognised — hard-refresh the page');
+    const side = async name => { try { const r = await fetch(`data/${name}-${key}.json?t=` + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
+    [d._score, d._intraday] = await Promise.all([side('scoreboard'), side('intraday')]);
+    if (my !== token) return;
     render(d);
   } catch (e) {
     if (my !== token) return;
@@ -282,14 +367,14 @@ async function select(key) {
 }
 
 /* ---------------- model selection ---------------- */
-let modelKey = 'base', currentData = null;
-try { modelKey = localStorage.getItem('model') || 'base'; } catch (e) {}
+let modelKey = 'default', currentData = null;
+try { modelKey = localStorage.getItem('model2') || 'default'; } catch (e) {}
 const NUM = ['open', 'high', 'low', 'close', 'close_p10', 'close_p90', 'prob_up', 'cal_p10', 'cal_p90'];
 
 // Forecast of the selected model, or the average of all models.
 function pickForecast(d) {
   const ms = d.models, keys = Object.keys(ms);
-  if (modelKey === 'avg' && keys.length > 1) {
+  if (modelKey === 'avg' && keys.length > 1 && !ms.blend) {
     const fc = ms[keys[0]].forecast.map((r, i) => {
       const o = { time: r.time };
       NUM.forEach(k => { if (keys.every(m => ms[m].forecast[i][k] != null)) o[k] = keys.reduce((a, m) => a + ms[m].forecast[i][k], 0) / keys.length; });
@@ -297,7 +382,8 @@ function pickForecast(d) {
     });
     return { fc, keys, label: 'the average of all models', context: keys.map(k => ms[k].ctx_text || ms[k].context).join(' / ') };
   }
-  const k = ms[modelKey] ? modelKey : keys[0], m = ms[k];
+  const pref = modelKey === 'default' ? (d.default_model || 'base') : modelKey;
+  const k = ms[pref] ? pref : keys[0], m = ms[k];
   return { fc: m.forecast, keys: [k], label: m.label, context: m.ctx_text || m.context };
 }
 
@@ -334,12 +420,13 @@ function render(d) {
 
   const chg1 = first.close - last, chgN = end.close - last;
   const upPct = Math.round(first.prob_up * 100);
-  const models = Object.keys(d.models);
-  const toggle = models.length > 1 ? `<div class="k" style="margin-bottom:6px">Model ${tip('model')}</div><div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].ctx_text || d.models[k].context + 'c'}</button>`).join('')}<button data-m="avg">Average</button></div>` : '';
+  const models = Object.keys(d.models).sort((a, b) => (b === 'blend') - (a === 'blend'));
+  const toggle = models.length > 1 ? `<div class="k" style="margin-bottom:6px">Model ${tip('model')}</div><div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].ctx_text || d.models[k].context + 'c'}</button>`).join('')}${d.models.blend ? '' : '<button data-m="avg">Average</button>'}</div>` : '';
 
   $('app').innerHTML = `
     ${toggle}
     ${summaryHTML(d, sel, sel.keys)}
+    ${nowcastCard(d)}
     <div class="hero">
       <div class="card">
         <div class="k">${d.starts_today ? 'Today' : 'Next candle'} · ${first.time}</div>
@@ -388,6 +475,8 @@ function render(d) {
     </div>
 
     <div class="card">${backtestCard(d)}</div>
+    ${blendCard(d)}
+    ${scoreboardCard(d)}
     ${about ? `<div class="card"><div class="k">About ${d.symbol}</div><p class="about">${about}</p></div>` : ''}
     ${guideHTML(d)}
     <div class="foot">The forecast starts with today's session when generated before the exchange close. Days skip weekends only (holidays are not excluded). Educational use only — not financial advice.</div>`;
@@ -439,8 +528,9 @@ function render(d) {
   document.querySelectorAll('#ranges button').forEach(b => b.onclick = () => setRange(b.dataset.k));
   setRange('3M');
   document.querySelectorAll('#models button').forEach(b => {
-    b.classList.toggle('on', b.dataset.m === modelKey || (!d.models[modelKey] && modelKey !== 'avg' && b.dataset.m === Object.keys(d.models)[0]));
-    b.onclick = () => { modelKey = b.dataset.m; try { localStorage.setItem('model', modelKey); } catch (e) {} render(currentData); };
+    const active = modelKey === 'default' ? (d.default_model || 'base') : modelKey;
+    b.classList.toggle('on', b.dataset.m === active || (!d.models[active] && active !== 'avg' && b.dataset.m === Object.keys(d.models)[0]));
+    b.onclick = () => { modelKey = b.dataset.m; try { localStorage.setItem('model2', modelKey); } catch (e) {} render(currentData); };
   });
 }
 
