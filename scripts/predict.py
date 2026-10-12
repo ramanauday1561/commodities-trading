@@ -49,8 +49,20 @@ BT_BATCH = 8
 def _download(symbol):
     raw = yf.download(symbol, period="max", interval="1d", auto_adjust=False, progress=False)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
-    raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
+    # Just after a session ends Yahoo can list it with Open/High/Low but a NaN Close; take the close from the last intraday bar
+    last = raw.iloc[-1]
+    if pd.isna(last["Close"]) and last[["Open", "High", "Low"]].notna().all():
+        try:
+            intra = yf.download(symbol, period="5d", interval="15m", auto_adjust=False, progress=False)
+            intra.columns = [c[0] if isinstance(c, tuple) else c for c in intra.columns]
+            intra = intra.dropna(subset=["Close"])
+            if len(intra) and pd.Timestamp(intra.index[-1]).tz_localize(None).normalize() == raw.index[-1].normalize():
+                raw.iloc[-1, raw.columns.get_loc("Close")] = float(intra["Close"].iloc[-1])
+                print(f"{symbol}: latest close filled from last 15m bar")
+        except Exception as e:
+            print(f"{symbol}: could not fill latest close ({e})")
+    raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
     return raw
 
 
