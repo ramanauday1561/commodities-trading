@@ -12,6 +12,7 @@ import re
 import signal
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -47,7 +48,13 @@ def get(path, params, tries=2):
             with urllib.request.urlopen(req, timeout=min(20, left)) as r:
                 return json.load(r)
         except Exception as e:
-            print(f"news: {url} failed ({e}), attempt {attempt + 1}/{tries}", flush=True)
+            body = ""
+            if isinstance(e, urllib.error.HTTPError):
+                try:
+                    body = " " + e.read(400).decode("utf-8", "replace").replace("\n", " ")
+                except Exception:
+                    pass
+            print(f"news: {url} failed ({e}){body}, attempt {attempt + 1}/{tries}", flush=True)
             time.sleep(2)
         finally:
             signal.alarm(0)
