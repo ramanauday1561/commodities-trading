@@ -16,9 +16,23 @@ MIN_COMMON = 40           # minimum backtest days shared by all models to fit a 
 FOLDS = 5
 
 
-def _nnls_capped(X, y):
-    w = nnls(X, y)[0]
+BAGS = 200
+
+
+def _cap(w):
     return w / w.sum() if w.sum() > 1 else w          # weights never exceed 100% in total
+
+
+def _nnls_capped(X, y):
+    """Bagged NNLS: the average of NNLS fits on bootstrap resamples. A single fit on ~150 noisy days swings a lot
+    between runs; averaging keeps the weights stable and shrinks marginal models toward zero."""
+    rng = np.random.default_rng(0)
+    n = len(y)
+    ws = []
+    for _ in range(BAGS):
+        i = rng.integers(0, n, n)
+        ws.append(nnls(X[i], y[i])[0])
+    return _cap(np.mean(ws, axis=0))
 
 
 def platt_fit(s, y):

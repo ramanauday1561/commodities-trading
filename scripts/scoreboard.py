@@ -22,7 +22,8 @@ def update_records(records, d):
     """Merge the new first-day forecast of every model, then fill in actual closes that are now known."""
     made = d["updated"]
     by_key = {(r["m"], r["d"]): r for r in records}
-    for m, info in d["models"].items():
+    stale = (d.get("data_check") or {}).get("stale")
+    for m, info in ({} if stale else d["models"]).items():     # a forecast built on out-of-date data is not a real forecast
         f0 = info["forecast"][0]
         by_key[(m, f0["time"])] = {"m": m, "d": f0["time"], "f": made, "l": d["last_close"], "p": f0["close"]}
     actual = {c["time"]: c["close"] for c in d["candles"]}

@@ -35,6 +35,20 @@ class EvalUtil(unittest.TestCase):
         self.assertIsNone(evalutil.backtest_indices(300, 512))
 
 
+class FreshnessAndStale(unittest.TestCase):
+    def test_expected_last_session(self):
+        from datetime import datetime
+        # Monday 12 Oct 2026, after the 15:30 close -> Monday itself; before the close -> the previous Friday
+        self.assertEqual(evalutil.expected_last_session(datetime(2026, 10, 12, 16, 0), 15, 30).isoformat(), "2026-10-12")
+        self.assertEqual(evalutil.expected_last_session(datetime(2026, 10, 12, 9, 0), 15, 30).isoformat(), "2026-10-09")
+        self.assertEqual(evalutil.expected_last_session(datetime(2026, 10, 10, 12, 0), 15, 30).isoformat(), "2026-10-09")  # Saturday
+
+    def test_stale_data_is_not_scored(self):
+        d = {"updated": "2026-10-13T00:12:00+00:00", "last_close": 100.0, "candles": [],
+             "data_check": {"stale": True}, "models": {"base": {"forecast": [{"time": "2026-10-12", "close": 101.0}]}}}
+        self.assertEqual(scoreboard.update_records([], d), [])
+
+
 class Blend(unittest.TestCase):
     index = pd.bdate_range("2012-01-01", periods=3000)
 
@@ -61,6 +75,16 @@ class Blend(unittest.TestCase):
         rows = make_rows(rng, 150, {"a": lambda p, t, r: p * (1 + 0.2 * t), "b": lambda p, t, r: p * (1 + 0.2 * t)})
         fit = blend.fit_blend(rows, 3000, self.index)
         self.assertLessEqual(sum(fit["weights"].values()), 1.0 + 1e-9)
+
+    def test_bagged_weights_are_stable_across_samples(self):
+        rng = np.random.default_rng(7)
+        pop = make_rows(rng, 600, {"weak": lambda p, t, r: p * (1 + 0.15 * t + r.normal(0, 0.006, len(p))),
+                                   "noise": lambda p, t, r: p * (1 + r.normal(0, 0.02, len(p)))})
+        ws = []
+        for lo in (0, 150, 300, 450):                        # four disjoint samples of the same population
+            sub = {k: v[lo:lo + 150] for k, v in pop.items()}
+            ws.append(blend.fit_blend(sub, 3000, self.index)["weights"]["weak"])
+        self.assertLess(max(ws) - min(ws), 0.35)
 
     def test_too_little_overlap_returns_none(self):
         rng = np.random.default_rng(3)
