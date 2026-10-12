@@ -1,8 +1,10 @@
-"""Recent news per instrument from NewsMCP (https://github.com/pranciskus/newsmcp, REST API https://newsmcp.io/v1).
+"""Recent news per instrument from the GDELT DOC 2.0 API (https://www.gdeltproject.org, free, no key).
 
 Writes docs/data/news-<key>.json (headlines shown on the page) and appends one row per day to a history file in the
 store, so that once enough days have accumulated the news signal can be backtested before it is ever used in a forecast.
-NewsMCP has no historical archive, so it cannot be tested on the past and is deliberately NOT a model input yet.
+News is deliberately NOT a model input yet.
+
+(NewsMCP was the first choice, but its service was shut down in October 2026: every request returns HTTP 410.)
 
 Usage: python scripts/news.py <data_dir> <store_dir>      (standard library only; failures never break the pipeline)
 """
@@ -17,10 +19,12 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
-API = os.environ.get("NEWS_API_BASE_URL", "https://newsmcp.io/v1").rstrip("/")
+API = os.environ.get("NEWS_API_URL", "https://api.gdeltproject.org/api/v2/doc/doc")
 HOURS = 36
 SHOW = 8
 HISTORY_DAYS = 2000
+BUDGET_S = 120            # whole run; the page keeps the previous news if the API is slow or down
+GAP_S = 6                 # GDELT asks for at most one request every 5 seconds
 
 # Small finance lexicon for a rough headline tone (+ / -). Recorded for later evaluation, not used in forecasts.
 POS = {"surge", "surges", "rally", "rallies", "gain", "gains", "rise", "rises", "jump", "jumps", "record", "high", "boost",
@@ -29,37 +33,7 @@ NEG = {"fall", "falls", "drop", "drops", "slump", "slumps", "plunge", "plunges",
        "fears", "war", "attack", "strike", "strikes", "sanction", "sanctions", "tariff", "tariffs", "recession", "inflation",
        "hike", "hikes", "downgrade", "default", "crisis", "selloff", "sell-off", "tension", "tensions", "conflict"}
 
-
-BUDGET_S = 120            # whole run; the page keeps the previous news if the API is slow or down
-_start, _down = time.monotonic(), False
-
-
-def get(path, params, tries=2):
-    """GET JSON from the API. After a request fails every attempt, the API is treated as down for the rest of the run."""
-    global _down
-    url = f"{API}/{path}?{urllib.parse.urlencode(params)}"
-    for attempt in range(tries):
-        left = BUDGET_S - (time.monotonic() - _start)
-        if _down or left < 5:
-            return None
-        try:
-            req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "commodities-trading"})
-            signal.alarm(int(min(30, left)))           # hard limit: urlopen's timeout is per read, not per request
-            with urllib.request.urlopen(req, timeout=min(20, left)) as r:
-                return json.load(r)
-        except Exception as e:
-            body = ""
-            if isinstance(e, urllib.error.HTTPError):
-                try:
-                    body = " " + e.read(400).decode("utf-8", "replace").replace("\n", " ")
-                except Exception:
-                    pass
-            print(f"news: {url} failed ({e}){body}, attempt {attempt + 1}/{tries}", flush=True)
-            time.sleep(2)
-        finally:
-            signal.alarm(0)
-    _down = True
-    return None
+_start, _last, _down = time.monotonic(), 0.0, False
 
 
 def _timeout(signum, frame):
@@ -69,51 +43,66 @@ def _timeout(signum, frame):
 signal.signal(signal.SIGALRM, _timeout)
 
 
-def fetch_events(cfg):
-    """Events for the configured topics/regions, merged and de-duplicated by id."""
-    events = {}
-    queries = [{"topics": t} for t in cfg.get("topics", ["economy"])] + [{"geo": g} for g in cfg.get("geo", [])]
-    for q in queries:
-        d = get("news/", {**q, "hours": HOURS, "per_page": 50, "order_by": "-impact_score"})
-        for ev in (d or {}).get("events", []):
-            events.setdefault(ev.get("id"), ev)
-    return list(events.values())
+def get(params, tries=2):
+    """GET JSON from the API. If the network or server fails every attempt, the API is treated as down for the run."""
+    global _down, _last
+    url = f"{API}?{urllib.parse.urlencode(params)}"
+    for attempt in range(tries):
+        left = BUDGET_S - (time.monotonic() - _start)
+        if _down or left < 5:
+            return None
+        time.sleep(max(0.0, GAP_S - (time.monotonic() - _last)))
+        try:
+            req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "commodities-trading"})
+            signal.alarm(int(min(30, left)))           # hard limit: urlopen's timeout is per read, not per request
+            with urllib.request.urlopen(req, timeout=min(20, left)) as r:
+                body = r.read().decode("utf-8", "replace")
+            try:
+                return json.loads(body)
+            except ValueError:                         # GDELT answers bad queries and rate limits with plain text
+                print(f"news: non-JSON answer: {body[:200]!r}", flush=True)
+                return None
+        except Exception as e:
+            print(f"news: {url} failed ({e}), attempt {attempt + 1}/{tries}", flush=True)
+        finally:
+            signal.alarm(0)
+            _last = time.monotonic()
+    _down = True
+    return None
 
 
-def text_of(ev):
-    titles = " ".join((e.get("title") or "") for e in ev.get("entries") or [])
-    return f"{ev.get('summary') or ''} {titles}".lower()
+def _norm(title):
+    return re.sub(r"[^a-z0-9 ]", "", (title or "").lower()).strip()
 
 
-def relevant(ev, cfg):
-    """An event counts if it mentions an instrument keyword, or (for regional instruments) is tagged with the region."""
-    txt = text_of(ev)
-    if any(re.search(r"\b" + re.escape(k.lower()) + r"\b", txt) for k in cfg.get("keywords", [])):
-        return True
-    geo = {g.lower() for g in ev.get("geo") or []}
-    return bool(geo & {g.lower().replace("-", " ") for g in cfg.get("geo", [])}) and "economy" in (ev.get("topics") or [])
-
-
-def tone(ev):
-    words = re.findall(r"[a-z\-]+", text_of(ev))
+def tone(text):
+    words = re.findall(r"[a-z\-]+", (text or "").lower())
     p, n = sum(w in POS for w in words), sum(w in NEG for w in words)
     return 0.0 if p + n == 0 else round((p - n) / (p + n), 3)
 
 
-def summarize(events, cfg):
-    rel = [ev for ev in events if relevant(ev, cfg)]
-    rel.sort(key=lambda e: (e.get("impact_score") or 0, e.get("sources_count") or 0), reverse=True)
-    items = []
-    for ev in rel[:SHOW]:
-        entries = [e for e in ev.get("entries") or [] if (e.get("url") or "").startswith(("https://", "http://"))]
-        items.append({"summary": (ev.get("summary") or "").strip()[:400], "impact": ev.get("impact_score"),
-                      "sources": ev.get("sources_count"), "topics": ev.get("topics") or [],
-                      "last_seen": ev.get("last_seen_at"), "tone": tone(ev),
-                      "links": [{"title": (e.get("title") or e["domain"])[:160], "url": e["url"], "domain": e.get("domain", "")}
-                                for e in entries[:3]]})
-    w = [(ev.get("sources_count") or 1) for ev in rel]
-    feat = {"events": len(rel), "sources": sum(w), "max_impact": max([ev.get("impact_score") or 0 for ev in rel], default=0),
-            "tone": round(sum(tone(ev) * x for ev, x in zip(rel, w)) / sum(w), 3) if rel else 0.0}
+def _iso(seen):
+    try:
+        return datetime.strptime(seen, "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc).isoformat(timespec="seconds")
+    except (TypeError, ValueError):
+        return None
+
+
+def summarize(articles):
+    """Group syndicated copies of the same headline; more outlets = more prominent story."""
+    stories = {}
+    for a in articles:
+        url, key = a.get("url") or "", _norm(a.get("title"))
+        if not key or not url.startswith(("https://", "http://")):
+            continue
+        s = stories.setdefault(key, {"title": a["title"].strip()[:200], "url": url, "domain": a.get("domain", ""),
+                                     "seen": _iso(a.get("seendate")), "outlets": set(), "tone": tone(a["title"])})
+        s["outlets"].add(a.get("domain") or url)
+    ranked = sorted(stories.values(), key=lambda s: (len(s["outlets"]), s["seen"] or ""), reverse=True)
+    items = [{**{k: v for k, v in s.items() if k != "outlets"}, "sources": len(s["outlets"])} for s in ranked[:SHOW]]
+    w = [len(s["outlets"]) for s in ranked]
+    feat = {"articles": len(articles), "stories": len(ranked), "sources": sum(w),
+            "tone": round(sum(s["tone"] * x for s, x in zip(ranked, w)) / sum(w), 3) if ranked else 0.0}
     return items, feat
 
 
@@ -129,16 +118,17 @@ def main(data_dir, store_dir):
     os.makedirs(hist_dir, exist_ok=True)
     now = datetime.now(timezone.utc)
     for inst in insts:
-        events = fetch_events(inst["news"])
-        if not events:
-            print(f"news {inst['key']}: no data from the API, keeping the previous file")
+        d = get({"query": inst["news"]["query"], "mode": "artlist", "format": "json", "maxrecords": 75,
+                 "timespan": f"{HOURS}h", "sort": "datedesc"})
+        if d is None:
+            print(f"news {inst['key']}: no data from the API, keeping the previous file", flush=True)
             continue
-        items, feat = summarize(events, inst["news"])
-        json.dump({"updated": now.isoformat(timespec="seconds"), "hours": HOURS, "source": "NewsMCP (newsmcp.io)",
+        items, feat = summarize(d.get("articles") or [])
+        json.dump({"updated": now.isoformat(timespec="seconds"), "hours": HOURS, "source": "GDELT",
                    "stats": feat, "items": items},
                   open(os.path.join(data_dir, f"news-{inst['key']}.json"), "w"), separators=(",", ":"))
         append_history(os.path.join(hist_dir, f"{inst['key']}.json"), now.strftime("%Y-%m-%d"), feat)
-        print(f"news {inst['key']}: {len(events)} events fetched, {feat['events']} relevant, tone {feat['tone']:+.2f}")
+        print(f"news {inst['key']}: {feat['articles']} articles, {feat['stories']} stories, tone {feat['tone']:+.2f}", flush=True)
 
 
 if __name__ == "__main__":

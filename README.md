@@ -11,7 +11,7 @@ result in plain language and keeps an honest record of how the forecasts actuall
 | `scripts/gbm.py`, `scripts/exo.py` | LightGBM on the full history plus overnight/global context (US indices, VIX, India VIX, USD/INR, oil, gold, dollar, Asia) |
 | `scripts/blend.py` | Non-negative least-squares stacking, cross-validated; Platt scaling for probabilities |
 | `scripts/scoreboard.py` | **Live scoreboard**: saves every forecast, scores it once the real close is known |
-| `scripts/news.py` | **News** from [NewsMCP](https://github.com/pranciskus/newsmcp): related headlines per instrument, plus a daily news-signal history (see below) |
+| `scripts/news.py` | **News**: related headlines per instrument from GDELT, plus a daily news-signal history (see below) |
 | `scripts/intraday.py` | **Nowcast** (NIFTY): predicts today's close from the 15-minute candles so far |
 | `.github/workflows/predict.yml` | Scheduled forecasts (with backup slots + a duplicate gate) and Pages deploy |
 | `.github/workflows/intraday.yml` | Four nowcasts during the NSE session, republishing the site |
@@ -22,29 +22,27 @@ Persistence uses two branches written by the workflows: `scoreboard` (small JSON
 
 ## Instruments
 
-`scripts/instruments.json` lists them (ticker, exchange time zone and close, extra context tickers, news filters).
+`scripts/instruments.json` lists them (ticker, exchange time zone and close, extra context tickers, news query).
 Add or remove an entry there; the workflow, page and scoreboard pick it up, and files of removed instruments are
 dropped on the next deploy.
 
-## News (NewsMCP)
+## News
 
-NewsMCP clusters articles from hundreds of sources into events and ranks them by impact. Its MCP server is a thin
-wrapper over a free REST API (`https://newsmcp.io/v1`, no key), so the pipeline calls the REST API directly:
+`scripts/news.py` fetches related headlines from the last 36 hours per instrument from the free
+[GDELT DOC 2.0 API](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/) (no key; one search query per instrument,
+set in `news.query` in `instruments.json`). Copies of the same headline from different outlets are grouped, and the
+most widely carried stories are listed first.
 
-- `scripts/news.py` fetches the last 36 hours per instrument (topics/regions/keywords from `news` in
-  `instruments.json`) and writes `docs/data/news-<key>.json`, shown on the page as **In the news**. It runs in the
-  daily workflow and refreshes during the NSE session with the nowcast.
-- Each daily run also appends one row (related events, sources, top impact, headline tone) to `news/<key>.json` on
-  the `scoreboard` branch.
-- News is **not** a model input. NewsMCP has no archive, so it cannot be backtested on the past; once a few hundred
-  days have been recorded, the history can be tested as a LightGBM feature like everything else.
+- The page shows them as **In the news** (`docs/data/news-<key>.json`). The daily workflow fetches them, and the
+  nowcast workflow refreshes them during the NSE session.
+- Each daily run appends one row (articles, distinct headlines, outlets, headline tone) to `news/<key>.json` on the
+  `scoreboard` branch.
+- News is **not** a model input. Once a few hundred days are recorded, the history can be tested as a LightGBM feature
+  the same way every other input was.
+- If the API is slow or down, the step gives up within two minutes and the page keeps the previous headlines.
 
-To let an AI coding agent (Claude Code, Cursor, …) search the news while working on this repository, add the MCP
-server to the project, e.g. `claude mcp add --scope project newsmcp -- npx -y @newsmcp/server`, which writes:
-
-```json
-{ "mcpServers": { "newsmcp": { "command": "npx", "args": ["-y", "@newsmcp/server"] } } }
-```
+[NewsMCP](https://github.com/pranciskus/newsmcp) was the first choice, but the service was shut down in October 2026
+(its API answers every request with HTTP 410), so its MCP server no longer works either.
 
 ## Reliable scheduling
 

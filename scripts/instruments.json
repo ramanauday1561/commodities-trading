@@ -26,27 +26,7 @@
    "close": "15:30"
   },
   "news": {
-   "topics": [
-    "economy"
-   ],
-   "geo": [
-    "india"
-   ],
-   "keywords": [
-    "nifty",
-    "sensex",
-    "nse",
-    "bse",
-    "rbi",
-    "reserve bank of india",
-    "rupee",
-    "indian stocks",
-    "indian market",
-    "dalal street",
-    "fii",
-    "fpi",
-    "sebi"
-   ]
+   "query": "(nifty OR sensex OR \"indian stocks\" OR \"indian shares\" OR \"indian equities\" OR \"reserve bank of india\" OR \"dalal street\") sourcelang:english"
   }
  },
  {
@@ -65,26 +45,7 @@
    "^TNX"
   ],
   "news": {
-   "topics": [
-    "economy",
-    "military"
-   ],
-   "keywords": [
-    "gold",
-    "bullion",
-    "precious metal",
-    "precious metals",
-    "federal reserve",
-    "fed",
-    "interest rate",
-    "interest rates",
-    "inflation",
-    "safe haven",
-    "safe-haven",
-    "central bank",
-    "dollar",
-    "treasury yields"
-   ]
+   "query": "(\"gold price\" OR \"gold prices\" OR \"gold futures\" OR \"spot gold\" OR bullion) sourcelang:english"
   }
  },
  {
@@ -103,23 +64,7 @@
    "^TNX"
   ],
   "news": {
-   "topics": [
-    "economy"
-   ],
-   "keywords": [
-    "silver",
-    "gold",
-    "bullion",
-    "precious metal",
-    "precious metals",
-    "federal reserve",
-    "fed",
-    "interest rate",
-    "inflation",
-    "solar",
-    "industrial metals",
-    "dollar"
-   ]
+   "query": "(\"silver price\" OR \"silver prices\" OR \"silver futures\" OR \"spot silver\") sourcelang:english"
   }
  },
  {
@@ -138,28 +83,7 @@
    "^TNX"
   ],
   "news": {
-   "topics": [
-    "economy",
-    "military",
-    "politics"
-   ],
-   "keywords": [
-    "oil",
-    "crude",
-    "brent",
-    "wti",
-    "opec",
-    "opec+",
-    "petroleum",
-    "refinery",
-    "gasoline",
-    "barrel",
-    "strait of hormuz",
-    "iran",
-    "saudi",
-    "energy prices",
-    "fuel"
-   ]
+   "query": "(\"oil price\" OR \"oil prices\" OR \"crude oil\" OR \"brent crude\" OR \"wti crude\" OR opec) sourcelang:english"
   }
  }
 ]

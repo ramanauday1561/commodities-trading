@@ -15,7 +15,7 @@
   .sub { color:var(--mute); font-size:12.5px; margin-top:2px; }
   .badge { font-size:12px; padding:4px 10px; border:1px solid var(--line); border-radius:999px; color:var(--mute); background:var(--card); white-space:nowrap; }
   .badge b { color:var(--pred); font-weight:600; }
-  ul.news { margin:8px 0; padding-left:18px; } ul.news li { margin-bottom:10px; line-height:1.45; } ul.news a { color:var(--mute); }
+  ul.news { margin:8px 0; padding-left:18px; } ul.news li { margin-bottom:10px; line-height:1.45; } ul.news a { color:var(--text); text-decoration:none; } ul.news a:hover { text-decoration:underline; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
   .hero { display:grid; grid-template-columns:1.2fr 1fr; gap:12px; }
   .hero .card { margin-bottom:0; } .hero { margin-bottom:12px; }
@@ -138,7 +138,7 @@ const TIPS = {
   base: 'A baseline is a lazy strategy. If a model cannot beat it, the model adds nothing.',
   typical: 'The average size of a daily move over the last 20 days. If the forecast move is much smaller than this, it is lost in everyday noise.',
   model: 'Choose which forecasting model to show. Best estimate combines the others using their past-test results.',
-  news: 'Recent world news events related to this market, grouped from hundreds of sources by NewsMCP and ranked by impact (1-10). Shown for context only: news is not used in the forecast until it has been tested over enough days.',
+  news: 'Recent headlines about this market from news sites worldwide (GDELT), most widely carried first. Shown for context only: news is not used in the forecast until it has been tested over enough days.',
   nowcast: 'A quick model that looks at how today has traded so far (gap, move, position in the day range, last-hour momentum) and predicts where the day will end.',
 };
 const tip = k => `<span class="tip" tabindex="0" data-tip="${TIPS[k]}">i</span>`;
@@ -279,16 +279,13 @@ function newsCard(d) {
   const n = d._news;
   if (!n || !n.items) return '';
   const st = n.stats || {};
-  const mood = st.events ? (st.tone > 0.15 ? 'mostly upbeat' : st.tone < -0.15 ? 'mostly worried' : 'mixed') : '';
-  const items = n.items.map(it => {
-    const links = (it.links || []).map(l => `<a href="${safeUrl(l.url)}" target="_blank" rel="noopener noreferrer">${esc(l.domain || l.title)}</a>`).join(' · ');
-    return `<li><div>${esc(it.summary)}</div>
-      <div class="sub">impact ${esc(it.impact ?? '–')}/10 · ${esc(it.sources ?? '?')} sources${it.last_seen ? ' · ' + ago(it.last_seen) : ''}${links ? ' · ' + links : ''}</div></li>`;
-  }).join('');
+  const mood = st.stories ? (st.tone > 0.15 ? 'mostly upbeat' : st.tone < -0.15 ? 'mostly worried' : 'mixed') : '';
+  const items = n.items.map(it => `<li><a href="${safeUrl(it.url)}" target="_blank" rel="noopener noreferrer">${esc(it.title)}</a>
+      <div class="sub">${esc(it.domain)}${it.sources > 1 ? ` · carried by ${esc(it.sources)} outlets` : ''}${it.seen ? ' · ' + ago(it.seen) : ''}</div></li>`).join('');
   return `<div class="card"><div class="k">In the news · last ${esc(n.hours)} hours ${tip('news')}</div>
-    ${items ? `<p class="about">${esc(st.events)} related ${st.events === 1 ? 'story' : 'stories'}; headline tone ${mood}. This is background, not a signal: the forecast above does not use it.</p><ul class="news">${items}</ul>`
-            : '<p class="about">No major related stories in this period.</p>'}
-    <div class="sub">Source: <a href="https://newsmcp.io" target="_blank" rel="noopener noreferrer">NewsMCP</a> · updated ${ago(n.updated)}</div></div>`;
+    ${items ? `<p class="about">${esc(st.articles)} related articles (${esc(st.stories)} different headlines); tone of the headlines ${mood}. This is background, not a signal: the forecast above does not use it.</p><ul class="news">${items}</ul>`
+            : '<p class="about">No related headlines in this period.</p>'}
+    <div class="sub">Source: <a href="https://www.gdeltproject.org" target="_blank" rel="noopener noreferrer">GDELT</a> · updated ${ago(n.updated)}</div></div>`;
 }
 
 function agreeHTML(d) {
