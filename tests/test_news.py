@@ -42,10 +42,41 @@ class News(unittest.TestCase):
         self.assertLess(news.tone("Markets plunge on war fears"), 0)
         self.assertEqual(news.tone("Meeting scheduled"), 0.0)
 
+    def test_gdelt_answer_parsing(self):
+        with mock.patch.object(news, "fetch", return_value=json.dumps({"articles": [art("Gold climbs", "a.com")]})):
+            self.assertEqual(len(news.from_gdelt("gold")), 1)
+        for body in ("{}", "Please limit requests to one every 5 seconds", None):
+            with mock.patch.object(news, "fetch", return_value=body):
+                self.assertEqual(news.from_gdelt("gold"), [])
+
+    def test_google_rss_parsing(self):
+        rss = """<?xml version="1.0"?><rss><channel>
+          <item><title>Gold hits record high - Reuters</title><link>https://news.google.com/rss/articles/abc</link>
+            <pubDate>Mon, 12 Oct 2026 10:00:00 GMT</pubDate><source url="https://www.reuters.com">Reuters</source></item>
+          <item><title>No source tag</title><link>https://x.com/1</link><pubDate>bad date</pubDate></item>
+        </channel></rss>"""
+        with mock.patch.object(news, "fetch", return_value=rss) as f:
+            arts = news.from_google('("gold price" OR bullion) sourcelang:english')
+        self.assertNotIn("sourcelang", f.call_args[0][0])
+        self.assertEqual(arts[0], {"title": "Gold hits record high", "url": "https://news.google.com/rss/articles/abc",
+                                   "domain": "Reuters", "seendate": "20261012T100000Z"})
+        self.assertIsNone(arts[1]["seendate"])
+        with mock.patch.object(news, "fetch", return_value="<html>blocked"):
+            self.assertEqual(news.from_google("gold"), [])
+
+    def test_falls_back_to_google_and_records_the_source(self):
+        insts = [{"key": "gold", "news": {"query": "gold"}}]
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(news, "from_gdelt", return_value=[]), \
+                mock.patch.object(news, "from_google", return_value=[art("Gold climbs", "a.com")]), \
+                mock.patch("builtins.open", side_effect=fake_open(insts)):
+            news.main(tmp, tmp)
+            self.assertEqual(json.load(_real_open(os.path.join(tmp, "news-gold.json")))["source"], "Google News")
+            self.assertEqual(json.load(_real_open(os.path.join(tmp, "news", "gold.json")))[0]["src"], "Google News")
+
     def test_main_writes_page_file_and_one_history_row_per_day(self):
         insts = [{"key": "gold", "news": {"query": "gold"}}, {"key": "plain"}]
         with tempfile.TemporaryDirectory() as tmp, \
-                mock.patch.object(news, "get", return_value={"articles": [art("Gold climbs", "a.com")]}), \
+                mock.patch.object(news, "from_gdelt", return_value=[art("Gold climbs", "a.com")]), \
                 mock.patch("builtins.open", side_effect=fake_open(insts)):
             data, store = os.path.join(tmp, "data"), os.path.join(tmp, "store")
             os.makedirs(data)
@@ -57,8 +88,9 @@ class News(unittest.TestCase):
             self.assertEqual(len(hist), 1)
             self.assertFalse(os.path.exists(os.path.join(data, "news-plain.json")))
 
-    def test_api_failure_keeps_previous_file(self):
-        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(news, "get", return_value=None), \
+    def test_no_news_from_either_source_keeps_previous_file(self):
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(news, "from_gdelt", return_value=[]), \
+                mock.patch.object(news, "from_google", return_value=[]), \
                 mock.patch("builtins.open", side_effect=fake_open([{"key": "gold", "news": {"query": "gold"}}])):
             news.main(tmp, tmp)
             self.assertFalse(os.path.exists(os.path.join(tmp, "news-gold.json")))

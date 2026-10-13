@@ -138,7 +138,7 @@ const TIPS = {
   base: 'A baseline is a lazy strategy. If a model cannot beat it, the model adds nothing.',
   typical: 'The average size of a daily move over the last 20 days. If the forecast move is much smaller than this, it is lost in everyday noise.',
   model: 'Choose which forecasting model to show. Best estimate combines the others using their past-test results.',
-  news: 'Recent headlines about this market from news sites worldwide (GDELT), most widely carried first. Shown for context only: news is not used in the forecast until it has been tested over enough days.',
+  news: 'Recent headlines about this market from news sites worldwide (GDELT, or Google News when GDELT is unavailable), most widely carried first. Shown for context only: news is not used in the forecast until it has been tested over enough days.',
   nowcast: 'A quick model that looks at how today has traded so far (gap, move, position in the day range, last-hour momentum) and predicts where the day will end.',
 };
 const tip = k => `<span class="tip" tabindex="0" data-tip="${TIPS[k]}">i</span>`;
@@ -285,7 +285,7 @@ function newsCard(d) {
   return `<div class="card"><div class="k">In the news · last ${esc(n.hours)} hours ${tip('news')}</div>
     ${items ? `<p class="about">${esc(st.articles)} related articles (${esc(st.stories)} different headlines); tone of the headlines ${mood}. This is background, not a signal: the forecast above does not use it.</p><ul class="news">${items}</ul>`
             : '<p class="about">No related headlines in this period.</p>'}
-    <div class="sub">Source: <a href="https://www.gdeltproject.org" target="_blank" rel="noopener noreferrer">GDELT</a> · updated ${ago(n.updated)}</div></div>`;
+    <div class="sub">Source: ${n.source === 'Google News' ? '<a href="https://news.google.com" target="_blank" rel="noopener noreferrer">Google News</a>' : '<a href="https://www.gdeltproject.org" target="_blank" rel="noopener noreferrer">GDELT</a>'} · updated ${ago(n.updated)}</div></div>`;
 }
 
 function agreeHTML(d) {

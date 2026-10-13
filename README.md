@@ -31,7 +31,8 @@ dropped on the next deploy.
 `scripts/news.py` fetches related headlines from the last 36 hours per instrument from the free
 [GDELT DOC 2.0 API](https://blog.gdeltproject.org/gdelt-doc-2-0-api-debuts/) (no key; one search query per instrument,
 set in `news.query` in `instruments.json`). Copies of the same headline from different outlets are grouped, and the
-most widely carried stories are listed first.
+most widely carried stories are listed first. GDELT often rate-limits GitHub's shared runners, so when it answers
+with nothing the same query goes to Google News RSS instead (the source is shown on the page and stored with the history).
 
 - The page shows them as **In the news** (`docs/data/news-<key>.json`). The daily workflow fetches them, and the
   nowcast workflow refreshes them during the NSE session.
