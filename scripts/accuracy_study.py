@@ -55,7 +55,7 @@ def share_table(conf, correct, up, levels=COVERAGE, min_hist=60):
     for c in levels:
         take = np.zeros(len(conf), bool)
         for i in range(min_hist, len(conf)):
-            take[i] = c >= 1.0 or conf[i] >= np.quantile(conf[:i], 1 - c)
+            take[i] = c >= 1.0 or (i > 0 and conf[i] >= np.quantile(conf[:i], 1 - c))
         n = int(take.sum())
         out[f"top_{int(c * 100)}pct"] = {"days": n, "share": round(n / max(len(conf) - min_hist, 1), 3),
                                          "accuracy": round(float(correct[take].mean()), 3) if n else None,
@@ -116,7 +116,7 @@ def gap(nd):
     return {"days": int(ok.sum()), "from": str(df.index[ok][0].date()), "gap_up_rate": round(float((g > 0).mean()), 3),
             "es_futures_sign_rule_accuracy": round(float((rule == np.sign(g)).mean()), 3),
             "corr_by_market": {k: round(float(np.corrcoef(df[k].values[ok], g)[0, 1]), 3) for k in feats},
-            "table": share_table(np.abs(p), (np.sign(p) == np.sign(g)).astype(float), (g > 0).astype(float), min_hist=0)}
+            "table": share_table(np.abs(p), (np.sign(p) == np.sign(g)).astype(float), (g > 0).astype(float), min_hist=20)}
 
 
 def intraday(nd):
