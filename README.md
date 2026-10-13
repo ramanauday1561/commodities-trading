@@ -38,8 +38,18 @@ with nothing the same query goes to Google News RSS instead (the source is shown
   nowcast workflow refreshes them during the NSE session.
 - Each daily run appends one row (articles, distinct headlines, outlets, headline tone) to `news/<key>.json` on the
   `scoreboard` branch.
-- News is **not** a model input. Once a few hundred days are recorded, the history can be tested as a LightGBM feature
-  the same way every other input was.
+
+### News tone as a forecast input (`scripts/newsfeat.py`)
+
+- **No lookahead.** For session D the tone comes only from headlines published in the 36 hours before the *previous*
+  session's close. Anything later could already describe D (live blogs get retitled with the day's result).
+- **History.** One row per session in `news-daily/<key>.json` on the `scoreboard` branch. **Actions → News history
+  backfill → Run workflow** fills about a year from Google News date searches (resumable). After that, every forecast
+  run adds the sessions it needs.
+- **Tested before trusted.** Each session's return is predicted from the tone using only earlier sessions
+  (walk-forward). The tone's effect is scaled by how much it actually helped in that test, between 0 (no help, no
+  effect) and 1. It has no effect at all until 60 sessions have been tested. The result shifts the best estimate,
+  and the news card on the page shows the tone, the test result and the shift.
 - If the API is slow or down, the step gives up within two minutes and the page keeps the previous headlines.
 
 [NewsMCP](https://github.com/pranciskus/newsmcp) was the first choice, but the service was shut down in October 2026

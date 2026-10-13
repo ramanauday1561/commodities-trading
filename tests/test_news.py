@@ -62,7 +62,7 @@ class News(unittest.TestCase):
                                    "domain": "Reuters", "seendate": "20261012T100000Z"})
         self.assertIsNone(arts[1]["seendate"])
         with mock.patch.object(news, "fetch", return_value="<html>blocked"):
-            self.assertEqual(news.from_google("gold"), [])
+            self.assertIsNone(news.from_google("gold"))
 
     def test_falls_back_to_google_and_records_the_source(self):
         insts = [{"key": "gold", "news": {"query": "gold"}}]

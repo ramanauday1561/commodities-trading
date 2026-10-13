@@ -102,6 +102,11 @@ jobs:
         with:
           path: ~/.cache/huggingface
           key: hf-kronos-base
+      - name: News-tone history (read only; the deploy job saves new rows)
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/store.sh pull scoreboard store
       - name: Run prediction
         env:
           KRONOS_T: ${{ github.event.inputs.kronos_t }}
@@ -144,6 +149,7 @@ jobs:
         run: |
           bash scripts/store.sh pull scoreboard store
           python scripts/scoreboard.py store docs/data
+          python scripts/newsfeat.py merge docs/data store
       - name: News (GDELT headlines; history kept for later evaluation, not a model input)
         continue-on-error: true
         timeout-minutes: 4
