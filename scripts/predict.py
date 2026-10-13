@@ -38,6 +38,7 @@ MODELS = {
     "base": {"label": "Kronos-base", "model": "NeoQuasar/Kronos-base",
              "tokenizer": "NeoQuasar/Kronos-Tokenizer-base", "context": 512},
 }
+BACKTEST_START = 2048     # first candle of the shared backtest days
 HORIZON = 4               # working days to forecast
 SAMPLES = int(os.environ.get("KRONOS_SAMPLES") or 30)
 TEMP = float(os.environ.get("KRONOS_T") or 0.6)   # A/B on NIFTY: lower average miss than 1.0 (-8% miss)
@@ -174,9 +175,12 @@ def main(key):
     n = len(full)
     models, backtests, rows_by_model = {}, {}, {}
 
-    # One shared set of test days so every model is scored on the same days (Kronos-mini was dropped in Oct 2026: its
-    # blend weight was at most 3% on every instrument and its error 2-3x that of "no change").
-    wide = backtest_indices(n, max(m["context"] for m in MODELS.values()))
+    # Test days: 150 spread over the history after the first 2,048 candles (+ the latest), plus 40 earlier ones. These are
+    # the same days used while Kronos-mini (2,048-candle context) was part of the blend, so dropping it (Oct 2026: blend
+    # weight at most 3% on every instrument, error 2-3x that of "no change") did not change how the others are scored.
+    core = backtest_indices(n, BACKTEST_START)
+    early = np.linspace(MODELS["base"]["context"], BACKTEST_START - 1, 40).astype(int).tolist()
+    wide = sorted(set((core or []) + early)) if core else backtest_indices(n, MODELS["base"]["context"])
 
     for mkey, m in MODELS.items():
         if n < 300:
@@ -213,6 +217,8 @@ def main(key):
         if res["rows"] is not None:
             rows_by_model["gbm"] = res["rows"]
         print("gbm", json.dumps(res["backtest"]), f"features={res['n_features']} (exo {n_exo})")
+        print("risk", json.dumps(risk), "range", json.dumps(range_info), "half-widths %",
+              [round(h * 100, 3) for h in half_widths])
     except Exception as e:  # never block the Kronos forecasts
         print("gbm failed:", repr(e))
 
