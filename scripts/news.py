@@ -29,6 +29,7 @@ SHOW = 8
 HISTORY_DAYS = 2000
 BUDGET_S = 120            # whole run; the page keeps the previous news if the API is slow or down
 GAP_S = 6                 # GDELT asks for at most one request every 5 seconds
+GOOGLE_GAP_S = 2
 
 # Small finance lexicon for a rough headline tone (+ / -). Recorded for later evaluation, not used in forecasts.
 POS = {"surge", "surges", "rally", "rallies", "gain", "gains", "rise", "rises", "jump", "jumps", "record", "high", "boost",
@@ -38,6 +39,15 @@ NEG = {"fall", "falls", "drop", "drops", "slump", "slumps", "plunge", "plunges",
        "hike", "hikes", "downgrade", "default", "crisis", "selloff", "sell-off", "tension", "tensions", "conflict"}
 
 _start, _last, _down = time.monotonic(), 0.0, set()
+
+
+def reset_budget(seconds=None):
+    """Start a fresh time budget (and forget failed hosts), e.g. when news is fetched late in a long job."""
+    global _start, BUDGET_S
+    _start = time.monotonic()
+    _down.clear()
+    if seconds is not None:
+        BUDGET_S = seconds
 
 
 def _timeout(signum, frame):
@@ -55,7 +65,8 @@ def fetch(url, tries=2):
         left = BUDGET_S - (time.monotonic() - _start)
         if host in _down or left < 5:
             return None
-        time.sleep(max(0.0, min(GAP_S - (time.monotonic() - _last), left - 5)))
+        gap = GAP_S if "gdelt" in host else GOOGLE_GAP_S
+        time.sleep(max(0.0, min(gap - (time.monotonic() - _last), left - 5)))
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (compatible; commodities-trading)"})
             signal.alarm(int(min(30, left)))           # hard limit: urlopen's timeout is per read, not per request
@@ -85,17 +96,19 @@ def from_gdelt(query):
     return arts
 
 
-def from_google(query):
-    """Google News RSS search. Titles end in " - Outlet"; links point to Google's redirect to the article."""
-    q = re.sub(r"\s*sourcelang:\w+", "", query) + f" when:{max(1, HOURS // 24)}d"
+def from_google(query, window=None):
+    """Google News RSS search, over the last HOURS or a (after, before) date window. Titles end in " - Outlet";
+    links point to Google's redirect to the article. Returns None if the request failed (not the same as no news)."""
+    q = re.sub(r"\s*sourcelang:\w+", "", query)
+    q += f" after:{window[0]} before:{window[1]}" if window else f" when:{max(1, HOURS // 24)}d"
     body = fetch(f"{RSS}?" + urllib.parse.urlencode({"q": q, "hl": "en-IN", "gl": "IN", "ceid": "IN:en"}))
     if body is None:
-        return []
+        return None
     try:
         root = ET.fromstring(body)
     except ET.ParseError:
         print(f"news: Google News answer is not RSS: {body[:200]!r}", flush=True)
-        return []
+        return None
     out = []
     for it in root.iter("item"):
         src = it.find("source")
@@ -160,7 +173,7 @@ def main(data_dir, store_dir):
     for inst in insts:
         source, arts = "GDELT", from_gdelt(inst["news"]["query"])
         if not arts:
-            source, arts = "Google News", from_google(inst["news"]["query"])
+            source, arts = "Google News", from_google(inst["news"]["query"]) or []
         if not arts:
             print(f"news {inst['key']}: nothing from either source, keeping the previous file", flush=True)
             continue

@@ -31,6 +31,7 @@ from blend import blend_forecast, fit_blend, platt_fit, platt_prob  # noqa: E402
 from evalutil import backtest_indices, expected_last_session, full_stats  # noqa: E402
 from exo import load_exo  # noqa: E402
 from gbm import run_gbm  # noqa: E402
+import newsfeat  # noqa: E402
 
 COLS = ["open", "high", "low", "close"]
 MODELS = {
@@ -218,6 +219,18 @@ def main(key):
     except Exception as e:
         print("blend failed:", repr(e))
 
+    # News tone: tested walk-forward against past sessions; shifts the best estimate only as much as it has helped.
+    news_feature = None
+    if inst.get("news"):
+        try:
+            news_feature = newsfeat.run(inst, full, future[0].date(), os.environ.get("NEWS_STORE", "store"))
+            if "blend" in models and news_feature["adj_pct"]:
+                platt = fit["platt"]["blend"]
+                newsfeat.apply(models["blend"]["forecast"], news_feature["adj_pct"] / 100, last_close,
+                               lambda ret, k: platt_prob(platt, ret / k ** 0.5))
+        except Exception as e:  # never block the forecast
+            print("news feature failed:", repr(e))
+
     calibrate_probabilities({k: v for k, v in models.items() if k != "blend"}, rows_by_model, last_close)
 
     candles = [{"time": d.strftime("%Y-%m-%d"), **{c: round(float(r[c]), 2) for c in COLS}}
@@ -232,6 +245,7 @@ def main(key):
         "data_check": {"stale": stale, "expected": expected.isoformat(), "last_date": full.index[-1].strftime("%Y-%m-%d")},
         "blend": blend_info, "expected_range_pct": None if exp_range is None else round(exp_range * 100, 3),
         "settings": {"kronos_t": TEMP, "n_exo": n_exo},
+        "news_feature": news_feature,
         "candles": candles, "models": models, "backtest": backtests, "today_live": today_live,
     }
     os.makedirs("docs/data", exist_ok=True)
