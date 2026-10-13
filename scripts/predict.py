@@ -199,11 +199,13 @@ def main(key):
         print(mkey, json.dumps(bt))
 
     # LightGBM: trained on the complete history (+ overnight/global context), scored on the same days as Kronos-base.
-    exp_range, n_exo = None, 0
+    exp_range, n_exo, half_widths, risk, range_info = None, 0, None, None, None
     try:
         exo = load_exo(inst.get("exo"), full.index)
         n_exo = 0 if exo is None else exo.shape[1]
-        res = run_gbm(full, future, last_close, wide, exo)
+        res = run_gbm(full, future, last_close, wide, exo, inst.get("big_move_pct"))
+        half_widths, risk = res["half_widths"], res["risk"]
+        range_info = {"scale": res["range_scale"], "days": res["range_coverage_days"]}
         models["gbm"] = {"label": "LightGBM", "context": res["rows_used"], "ctx_text": f"all {res['rows_used']:,} days",
                          "forecast": res["forecast"]}
         backtests["gbm"] = res["backtest"]
@@ -220,7 +222,7 @@ def main(key):
         fit = fit_blend(rows_by_model, n, full.index) if len(rows_by_model) >= 2 else None
         if fit:
             models["blend"] = {"label": "Best estimate", "context": fit["days"], "ctx_text": "weighted blend",
-                               "forecast": blend_forecast(models, fit, future, last_close, exp_range)}
+                               "forecast": blend_forecast(models, fit, future, last_close, exp_range, half_widths)}
             backtests["blend"] = fit["stats"]
             blend_info = {"weights": fit["weights"], "naive_weight": fit["naive_weight"], "days": fit["days"]}
             print("blend", json.dumps(blend_info), json.dumps(fit["stats"]["all"]))
@@ -253,7 +255,7 @@ def main(key):
         "data_check": {"stale": stale, "expected": expected.isoformat(), "last_date": full.index[-1].strftime("%Y-%m-%d")},
         "blend": blend_info, "expected_range_pct": None if exp_range is None else round(exp_range * 100, 3),
         "settings": {"kronos_t": TEMP, "n_exo": n_exo},
-        "news_feature": news_feature,
+        "news_feature": news_feature, "risk": risk, "range_method": range_info,
         "inr": ({**inst["inr"], **fx} if inst.get("inr") and (fx := usd_inr()) else None),
         "candles": candles, "models": models, "backtest": backtests, "today_live": today_live,
     }

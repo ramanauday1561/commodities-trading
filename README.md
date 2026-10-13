@@ -20,7 +20,30 @@ result in plain language and keeps an honest record of how the forecasts actuall
 Persistence uses two branches written by the workflows: `scoreboard` (small JSON records, normal commits) and
 `site-data` (latest generated data, a single squashed commit). Do not delete them.
 
-## Instruments
+## How big a move, and the likely range
+
+Direction is close to unpredictable, but the *size* of moves partly is (calm and stormy spells persist). Backtested
+on 375 days per instrument (`experiment.py`, mode `risk`) before being switched on:
+
+| | Big move = | Big-move chance vs usual rate (Brier skill) | AUC | Range interval score: fixed → volatility-aware | 80% range coverage: fixed → new |
+|---|---|---|---|---|---|
+| NIFTY | ±1% | +15% | 0.71 | 3.05 → 2.77 | 90.7% → 79.7% |
+| Gold | ±1.5% | +5% | 0.63 | 5.16 → 4.88 | 71.5% → 79.2% |
+| Silver | ±3% | +13% | 0.68 | 10.31 → 9.61 | 72.5% → 79.5% |
+| Crude | ±3% | +10% | 0.72 | 9.41 → 8.71 | 78.7% → 77.9% |
+
+- **Big-move chance**: a LightGBM classifier for "the next close moves more than `big_move_pct`", shown with the
+  usual rate and the last 60 days, and with its own backtest score on the page.
+- **Likely range**: from LightGBM's quantile models (wider on volatile days), scaled by one factor measured on the
+  backtest days so that 8 in 10 closes fell inside. The old range had one width for every day.
+
+## Trading calendars and rupee prices
+
+Forecast dates skip exchange holidays (`scripts/calendars.py`, via `exchange_calendars`): the BSE calendar for NIFTY
+(same holidays as NSE) and the NYSE calendar for the US futures (on US holidays CME trades a short session and Yahoo has
+no daily candle). Gold, silver and crude also show an approximate rupee price (international price × USD/INR, per
+10 g / per kg / per barrel). Indian prices (MCX, jewellers) add import duty, GST and premiums, so they are higher.
+
 
 `scripts/instruments.json` lists them (ticker, exchange time zone and close, extra context tickers, news query).
 Add or remove an entry there; the workflow, page and scoreboard pick it up, and files of removed instruments are
