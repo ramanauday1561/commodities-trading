@@ -3,8 +3,6 @@ name: News history backfill
 # One-off (re-runnable) job: fetch past headlines per session from Google News so the news-tone input can be tested
 # on about a year of history straight away. Resumable: sessions already stored are skipped.
 on:
-  push:
-    branches: [news-feature]   # TEMPORARY: test run on the PR branch (the save job only runs on main)
   workflow_dispatch:
     inputs:
       days:

@@ -76,6 +76,19 @@ class Evaluate(unittest.TestCase):
         st = newsfeat.evaluate(rows, closes)
         self.assertLess(abs(newsfeat.adjustment(st, 1.0)), 0.002)
 
+    def test_tiny_gain_is_not_enough(self):
+        st = {"tested": 200, "shrink": 0.4, "slope": 0.01, "mean": 0.0, "sd": 0.2, "mse_ratio": 0.997}
+        self.assertEqual(newsfeat.adjustment(st, 0.5), 0.0)
+        self.assertNotEqual(newsfeat.adjustment({**st, "mse_ratio": 0.98}, 0.5), 0.0)
+
+    def test_budget_restarts_for_a_late_news_step(self):
+        newsfeat.news._start -= 10_000            # as if the module was imported long ago
+        newsfeat.news._down.add("news.google.com")
+        with mock.patch("urllib.request.urlopen", side_effect=OSError("offline")) as op, \
+                mock.patch("time.sleep"):
+            newsfeat.run(NIFTY, _Frame(), date(2026, 10, 13), tempfile.mkdtemp())
+        self.assertTrue(op.called)               # requests were attempted, not skipped for lack of budget
+
     def test_too_little_history_has_no_effect(self):
         rows, closes = series(50, 0.02)
         st = newsfeat.evaluate(rows, closes)
@@ -87,6 +100,18 @@ class Evaluate(unittest.TestCase):
         for r in rows:
             r["n"] = 0
         self.assertEqual(newsfeat.evaluate(rows, closes)["sessions"], 0)
+
+
+class _Frame:
+    """Minimal stand-in for the price DataFrame used by newsfeat.run."""
+    def __init__(self):
+        import pandas as pd
+        idx = pd.bdate_range("2026-09-28", "2026-10-12")
+        self.index = idx
+        self._close = pd.Series(range(100, 100 + len(idx)), index=idx, dtype=float)
+
+    def __getitem__(self, k):
+        return self._close
 
 
 class ApplyAndMerge(unittest.TestCase):

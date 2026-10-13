@@ -9,7 +9,8 @@ then kept up to date by every forecast run.
 
 Use: a walk-forward test regresses each session's return on the tone known before it (standardised with past data
 only). The tone's effect is scaled by how much it actually helped in that test (0 = no help = no effect), and the
-result shifts the best estimate. Below MIN_EVAL tested sessions it has no effect at all.
+result shifts the best estimate. It has no effect at all below MIN_EVAL tested sessions, or if it cut the
+walk-forward squared error by less than MIN_GAIN.
 
 CLI:
   python scripts/newsfeat.py backfill <key> <store_dir> [days] [budget_seconds]
@@ -30,6 +31,7 @@ import news  # noqa: E402
 WINDOW_H = 36
 MIN_TRAIN = 40            # sessions before the first walk-forward prediction
 MIN_EVAL = 60             # walk-forward predictions needed before the tone may move the forecast
+MIN_GAIN = 0.01           # ...and it must cut the walk-forward squared error by at least 1%
 CATCH_UP = 10             # sessions a forecast run fills in if the history has gaps
 
 
@@ -125,13 +127,14 @@ def evaluate(rows, closes):
 
 def adjustment(stats, tone_today):
     """Return to add to the best estimate's 1-day return (0 until the tone has proven itself)."""
-    if tone_today is None or stats["tested"] < MIN_EVAL or stats["sd"] < 1e-9:
+    if tone_today is None or stats["tested"] < MIN_EVAL or stats["sd"] < 1e-9 or stats.get("mse_ratio", 1.0) > 1 - MIN_GAIN:
         return 0.0
     return stats["shrink"] * stats["slope"] * (tone_today - stats["mean"]) / stats["sd"]
 
 
 def run(inst, full, target, store_dir):
     """Forecast-time entry point. `full` = completed daily candles, `target` = first forecast session (date)."""
+    news.reset_budget(90)
     rows = load_rows(history_path(store_dir, inst["key"]))
     recent = [d.date() for d in full.index[-CATCH_UP:]] + [target]
     new = fill(inst, rows, recent)
@@ -161,7 +164,7 @@ def apply(forecast, adj, last_close, prob_fn):
 
 def backfill(key, store_dir, days=365, budget=1500):
     inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
-    news.BUDGET_S = budget
+    news.reset_budget(budget)
     path = history_path(store_dir, key)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     rows = load_rows(path)

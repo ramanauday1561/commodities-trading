@@ -41,6 +41,15 @@ NEG = {"fall", "falls", "drop", "drops", "slump", "slumps", "plunge", "plunges",
 _start, _last, _down = time.monotonic(), 0.0, set()
 
 
+def reset_budget(seconds=None):
+    """Start a fresh time budget (and forget failed hosts), e.g. when news is fetched late in a long job."""
+    global _start, BUDGET_S
+    _start = time.monotonic()
+    _down.clear()
+    if seconds is not None:
+        BUDGET_S = seconds
+
+
 def _timeout(signum, frame):
     raise TimeoutError("request took too long")
 
