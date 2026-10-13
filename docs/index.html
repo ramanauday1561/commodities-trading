@@ -144,6 +144,7 @@ const TIPS = {
   newsfx: 'The tone of past headlines is compared with what the market did next, day by day, using only news published before each day started. If it helped, it gets a weight in the best estimate in proportion to how much it helped; if not, it is ignored.',
   inr: 'The international price converted at the latest US dollar to rupee rate. Indian prices (MCX, jewellers) also include import duty, GST and local premiums, so they are typically several percent higher.',
   risk: 'How likely the next close is to move more than this amount (up or down) from the last close. Direction is close to unpredictable, but how big the moves tend to be is partly predictable: calm and stormy periods last for a while.',
+  todaycall: 'Direction calls for today that use what happened after yesterday\'s close: US index futures and Asian markets before the open, then where NIFTY trades during the day. Each call shows how often calls of the same strength were right in a walk-forward test over about 2.5 years, and a live record starts from launch.',
   nowcast: 'A quick model that looks at how today has traded so far (gap, move, position in the day range, last-hour momentum) and predicts where the day will end.',
 };
 const tip = k => `<span class="tip" tabindex="0" data-tip="${TIPS[k]}">i</span>`;
@@ -329,6 +330,47 @@ function riskCard(d) {
     <p class="about" style="margin-top:8px">The models expect ${mood}. ${test}${rng}</p></div>`;
 }
 
+const TIER = { very_strong: 'Very strong call', strong: 'Strong call', lean: 'Lean', none: 'No clear call' };
+function todayCard(d) {
+  const t = d._today;
+  const todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+  if (!t || t.date !== todayIst) return '';
+  if (t.status === 'holiday') return `<div class="card"><div class="k">Today's call ${tip('todaycall')}</div><p class="about">Market holiday today, so there is no call.</p></div>`;
+  const arrow = dir => dir === 'up' ? '<b class="up">▲ higher</b>' : '<b class="down">▼ lower</b>';
+  const line = (label, c) => {
+    if (!c) return '';
+    const ti = c.tiers[c.tier], all = c.tiers.all_days;
+    const body = c.tier === 'none'
+      ? `<span class="mini">${TIER.none}: overnight signals point ${c.direction === 'up' ? 'up' : 'down'} only weakly (all calls together were right ${Math.round(all.accuracy * 100)}%).</span>`
+      : `${arrow(c.direction)} <span class="lvl ${c.tier === 'lean' ? '' : 'good'}" style="margin-left:6px">${TIER[c.tier]}</span>
+         <div class="sub" style="margin-top:3px">Calls this strong were right <b>${Math.round(ti.accuracy * 100)}%</b> of the time in past tests (they come on ${Math.round(ti.share * 100)}% of days).</div>`;
+    return `<div style="margin:8px 0"><div class="k" style="margin-bottom:2px">${label}</div>${body}</div>`;
+  };
+  const p = t.preopen;
+  const mv = p ? Object.entries({ es: 'US S&P futures', nq: 'US Nasdaq futures', nikkei: 'Nikkei', kospi: 'KOSPI', hangseng: 'Hang Seng' })
+      .map(([k, n]) => `${n} ${pc(p.moves_pct[k])}`).join(' · ') : '';
+  const pre = p ? `${line(`Opening at 9:15 vs yesterday's close (${f(p.prev_close)})`, p.gap)}${line('Close today vs yesterday\'s close', p.close)}
+    <div class="sub">Based on markets up to ${esc(p.cutoff_ist)} IST since NIFTY's last close: ${mv}. Tested on ${p.close.test_days} days since ${esc(p.since)}.</div>` : '';
+  const i = t.intraday;
+  let intr = '';
+  if (i && t.status === 'open') {
+    intr = i.accuracy != null
+      ? `<div style="margin-top:12px"><div class="k" style="margin-bottom:2px">Update at ${esc(i.asof)} IST</div>NIFTY is <b class="${cls(i.move_pct)}">${pc(i.move_pct)}</b> vs yesterday (${f(i.price)}), so the close is likely ${arrow(i.direction)}.
+         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} more than ${i.bucket_pct.toFixed(2)}% by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${Math.round(i.share * 100)}% of days, ${i.test_days} days tested).</div></div>`
+      : `<div class="sub" style="margin-top:12px">At ${esc(i.asof)} IST NIFTY is ${pc(i.move_pct)} vs yesterday. The intraday update starts at 10:15.</div>`;
+  } else if (i && t.status === 'closed' && p) {
+    const ok = (c, up) => c.tier === 'none' ? 'no call' : ((c.direction === 'up') === up ? '<b class="up">✓ right</b>' : '<b class="down">✗ wrong</b>');
+    intr = `<div class="sub" style="margin-top:12px">Closed ${pc(i.move_pct)} vs yesterday. Close call: ${ok(p.close, i.move_pct > 0)}.</div>`;
+  }
+  const r = t.record || {};
+  const recLine = kind => Object.entries(r[kind] || {}).filter(([k]) => k !== 'none')
+      .map(([k, v]) => `${TIER[k].toLowerCase()} ${v.hits}/${v.calls}`).join(', ');
+  const rec = r.days ? `Live record (${r.days} days): opening calls ${recLine('gap') || '—'}; close calls ${recLine('close') || '—'}.` : 'The live record starts with today\'s pre-open call.';
+  return `<div class="card live"><div class="k"><span class="pulse"></span>Today's call · ${esc(t.date)} ${tip('todaycall')}</div>
+    ${pre}${intr}
+    <p class="note" style="margin-top:10px">${rec} Overnight markets explain most of the opening gap but not surprises during the day, and no call is a guarantee.</p></div>`;
+}
+
 function agreeHTML(d) {
   const last = d.last_close, keys = Object.keys(d.models);
   const rows = keys.map(k => {
@@ -419,7 +461,7 @@ async function select(key) {
     }
     if (!d.models || !Object.keys(d.models).length) throw new Error('data format not recognised — hard-refresh the page');
     const side = async name => { try { const r = await fetch(`data/${name}-${key}.json?t=` + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
-    [d._score, d._intraday, d._news] = await Promise.all([side('scoreboard'), side('intraday'), side('news')]);
+    [d._score, d._intraday, d._news, d._today] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today')]);
     if (my !== token) return;
     render(d);
   } catch (e) {
@@ -492,6 +534,7 @@ function render(d) {
   $('app').innerHTML = `
     ${stale}
     ${toggle}
+    ${todayCard(d)}
     ${summaryHTML(d, sel, sel.keys)}
     ${nowcastCard(d)}
     ${riskCard(d)}

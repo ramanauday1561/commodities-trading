@@ -9,7 +9,7 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close) or risk (big-move probability and ranges)"
+        description: "variants (expected close), risk (big-move probability and ranges) or accuracy (NIFTY direction study)"
         required: false
         default: "variants"
 

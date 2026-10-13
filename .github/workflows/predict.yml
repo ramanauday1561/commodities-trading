@@ -150,6 +150,12 @@ jobs:
           bash scripts/store.sh pull scoreboard store
           python scripts/scoreboard.py store docs/data
           python scripts/newsfeat.py merge docs/data store
+      - name: Today's call for NIFTY (pre-open and intraday direction calls)
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          pip install pandas yfinance exchange_calendars
+          python -u scripts/todaycall.py store docs/data
       - name: News (GDELT headlines; history kept for later evaluation, not a model input)
         continue-on-error: true
         timeout-minutes: 4
