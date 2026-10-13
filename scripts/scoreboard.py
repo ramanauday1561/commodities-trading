@@ -26,14 +26,19 @@ def update_records(records, d):
     for m, info in ({} if stale else d["models"]).items():     # a forecast built on out-of-date data is not a real forecast
         f0 = info["forecast"][0]
         by_key[(m, f0["time"])] = {"m": m, "d": f0["time"], "f": made, "l": d["last_close"], "p": f0["close"]}
-    actual = {c["time"]: c["close"] for c in d["candles"]}
+    # Futures prices on Yahoo are first the last trade and later the official settlement, so recent closes can still
+    # change: refresh both the actual close and the previous close from the newest data on every run.
+    candles = d["candles"]
+    actual = {c["time"]: c["close"] for c in candles}
+    prev = {b["time"]: a["close"] for a, b in zip(candles, candles[1:])}
     cutoff = (datetime.now(timezone.utc) - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
     out = []
     for r in by_key.values():
         if r["d"] < cutoff:
             continue
-        if "a" not in r and r["d"] in actual:
+        if r["d"] in actual:
             r["a"] = actual[r["d"]]
+            r["l"] = prev.get(r["d"], r["l"])
         out.append(r)
     return sorted(out, key=lambda r: (r["d"], r["m"]))
 
