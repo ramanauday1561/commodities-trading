@@ -118,6 +118,8 @@ const pc = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 const cls = n => n >= 0 ? 'up' : 'down';
 const showErr = m => { $('err').textContent = m; };
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inrOf = (d, v) => d.inr ? v * d.inr.rate * d.inr.factor : null;
+const inrText = (d, v) => d.inr ? '≈ ₹' + Math.round(inrOf(d, v)).toLocaleString('en-IN') + ' ' + d.inr.unit.replace(/^₹ /, '') : '';
 const safeUrl = u => /^https?:\/\//i.test(u || '') ? esc(u) : '#';
 
 // Browser extensions (wallets, translators…) inject scripts that can throw errors unrelated to this page.
@@ -129,7 +131,7 @@ window.addEventListener('error', e => {
 /* ---------------- plain-language helpers ---------------- */
 const TIPS = {
   close: 'The price at the end of the trading day. This is the number most people quote.',
-  range: 'A realistic range for the closing price. We expect the real close to land inside it about 8 times out of 10. It is based on how far off the model was in past tests, so it is a fair picture of the uncertainty.',
+  range: 'A realistic range for the closing price. It is wider when markets are volatile and narrower when they are calm, and it was tuned on past tests so that about 8 real closes in 10 landed inside it.',
   pup: 'How likely the next close is above the last completed close. It is calibrated against how often the model was actually right in past tests, so 50% means a coin flip and you should rarely see very high or low numbers.',
   change: 'How much the forecast close differs from the last completed close, in percent.',
   agree: 'Different models can disagree. When they all point the same way the signal is a bit more meaningful; when they split, treat it as no signal.',
@@ -140,6 +142,8 @@ const TIPS = {
   model: 'Choose which forecasting model to show. Best estimate combines the others using their past-test results.',
   news: 'Recent headlines about this market from news sites worldwide (GDELT, or Google News when GDELT is unavailable), most widely carried first. Whether the news tone affects the forecast is shown at the bottom of this card.',
   newsfx: 'The tone of past headlines is compared with what the market did next, day by day, using only news published before each day started. If it helped, it gets a weight in the best estimate in proportion to how much it helped; if not, it is ignored.',
+  inr: 'The international price converted at the latest US dollar to rupee rate. Indian prices (MCX, jewellers) also include import duty, GST and local premiums, so they are typically several percent higher.',
+  risk: 'How likely the next close is to move more than this amount (up or down) from the last close. Direction is close to unpredictable, but how big the moves tend to be is partly predictable: calm and stormy periods last for a while.',
   nowcast: 'A quick model that looks at how today has traded so far (gap, move, position in the day range, last-hour momentum) and predicts where the day will end.',
 };
 const tip = k => `<span class="tip" tabindex="0" data-tip="${TIPS[k]}">i</span>`;
@@ -216,6 +220,7 @@ function summaryHTML(d, sel, keys) {
   const voters = Object.keys(d.models).filter(k => k !== 'blend');
   const ups = voters.filter(k => d.models[k].forecast[0].close > last).length, n = voters.length;
   const typRange = typicalRange(d), expRange = d.expected_range_pct;
+  const riskText = d.risk ? ` Chance of a move bigger than ±${d.risk.threshold_pct}%: <b>${Math.round(d.risk.p * 100)}%</b> (usually ${Math.round(d.risk.base_rate * 100)}%)${tip('risk')}.` : '';
   const rangeText = typRange ? ` A normal day's high-to-low swing here is about <b>${typRange.toFixed(2)}%</b>${expRange ? `; the model expects about <b>${expRange.toFixed(2)}%</b> today` : ''}${tip('typical')}.` : '';
   const trText = tr.level === 'good'
     ? 'In past tests this model guessed direction better than a simple baseline, but the sample is small, so treat that with caution.'
@@ -228,14 +233,14 @@ function summaryHTML(d, sel, keys) {
     <div class="k">In plain English</div>
     <p><b>${name}</b> last closed at <b>${f(last)}</b> ${unit}. For ${when}, <b>${sel.label}</b> expects a close around <b class="${cls(chg)}">${f(first.close)}</b>
       (${pc(chg)}), and a close anywhere between ${f(lo)} and ${f(hi)} would not be surprising.</p>
-    <p>That expected move is <b>${size}</b> compared with a typical day (${typ.toFixed(2)}% up or down)${tip('typical')}. The model's view ${lean} (${pup}% chance of closing higher${tip('pup')}), and ${ups} of ${n} models expect a higher close.${rangeText}${(chg > 0) !== (pup >= 50) && Math.abs(pup - 50) > 5 ? ' The expected move and the probability point in different directions, which is another sign this is a weak signal.' : ''}</p>
+    <p>That expected move is <b>${size}</b> compared with a typical day (${typ.toFixed(2)}% up or down)${tip('typical')}. The model's view ${lean} (${pup}% chance of closing higher${tip('pup')}), and ${ups} of ${n} models expect a higher close.${rangeText}${riskText}${(chg > 0) !== (pup >= 50) && Math.abs(pup - 50) > 5 ? ' The expected move and the probability point in different directions, which is another sign this is a weak signal.' : ''}</p>
     <p class="note">${trText}${blendNote} This page is for learning, not advice.</p></div>`;
 }
 
 function scoreboardCard(d) {
   const sc = d._score;
   if (!sc || !sc.models) return '';
-  const order = ['blend', 'base', 'mini', 'gbm'].filter(k => sc.models[k]);
+  const order = ['blend', 'base', 'gbm'].filter(k => sc.models[k] && d.models[k]);   // models no longer published are hidden
   const rows = order.map(k => {
     const a = sc.models[k].all;
     if (!a || !a.days) return `<tr><td>${(d.models[k] || {}).label || k}</td><td colspan="4" class="mini">collecting results…</td></tr>`;
@@ -304,6 +309,26 @@ function newsCard(d) {
     <div class="sub">Source: ${n.source === 'Google News' ? '<a href="https://news.google.com" target="_blank" rel="noopener noreferrer">Google News</a>' : '<a href="https://www.gdeltproject.org" target="_blank" rel="noopener noreferrer">GDELT</a>'} · updated ${ago(n.updated)}</div></div>`;
 }
 
+function riskCard(d) {
+  const r = d.risk;
+  if (!r) return '';
+  const p = Math.round(r.p * 100), base = Math.round(r.base_rate * 100), recent = Math.round(r.recent_rate * 100);
+  const ratio = r.base_rate ? r.p / r.base_rate : 1;
+  const mood = ratio >= 1.5 ? 'a <b class="warn">stormier than usual</b> day' : ratio <= 0.67 ? 'a <b>calmer than usual</b> day' : 'a <b>fairly normal</b> day';
+  const bt = r.backtest;
+  const test = bt && bt.days ? (bt.skill > 0.02
+      ? `In past tests (${bt.days} days) this estimate was ${Math.round(bt.skill * 100)}% more accurate than just using the usual rate${bt.auc ? `, and it ranked stormy days above calm ones ${Math.round(bt.auc * 100)}% of the time` : ''}.`
+      : `In past tests (${bt.days} days) it was not more accurate than the usual rate, so treat it as rough.`) : '';
+  const rng = d.range_method && d.range_method.days ? ' The likely range above widens and narrows with these conditions; it was tuned so that 8 in 10 past closes fell inside it.' : '';
+  return `<div class="card"><div class="k">How big a move to expect? ${tip('risk')}</div>
+    <div class="row" style="margin-top:6px">
+      <div><span class="v ${ratio >= 1.5 ? 'warn' : ''}">${p}%</span><span class="k">chance of a move over ±${r.threshold_pct}%</span></div>
+      <div><span class="v">${base}%</span><span class="k">usual (all history)</span></div>
+      <div><span class="v">${recent}%</span><span class="k">last 60 days</span></div>
+    </div>
+    <p class="about" style="margin-top:8px">The models expect ${mood}. ${test}${rng}</p></div>`;
+}
+
 function agreeHTML(d) {
   const last = d.last_close, keys = Object.keys(d.models);
   const rows = keys.map(k => {
@@ -340,7 +365,7 @@ function guideHTML(d) {
       <li><b>Chance higher</b>: the model's probability that the close ends above the last completed close.</li><li><b>vs last</b>: the expected change in percent.</li>
       <li><b>Typical day</b>: how much this market normally moves in a day. A forecast move smaller than that is hard to tell from random noise.</li></ul></details>
     <details><summary>What do the models do?</summary>
-      <ul><li><b>Kronos-base</b> and <b>Kronos-mini</b> are AI models pretrained on millions of candlesticks from many markets. They read the most recent 512 (base) or 2,048 (mini) days and imagine ${d.samples} possible futures; the forecast is their average.</li>
+      <ul><li><b>Kronos-base</b> is an AI model pretrained on millions of candlesticks from many markets. It reads the most recent 512 days and imagines ${d.samples} possible futures; the forecast is their average. (A larger variant, Kronos-mini, was removed after it never beat "no change".)</li>
       <li><b>LightGBM</b> is a classic machine-learning model (decision trees). It is trained from scratch on this market's complete history using simple clues such as recent returns, volatility, trend and RSI.</li>
       <li><b>Best estimate</b> combines them. It looks at how each model did in the past tests and only listens to the ones that actually helped. Whatever is left goes to "same as yesterday" (no change), so weak signals are shrunk toward zero. This is the default view.</li></ul>
       <p>The models also see overnight context (US markets, volatility indices, the dollar, oil and gold) so that news from after the local close can be reflected.</p></details>
@@ -469,12 +494,14 @@ function render(d) {
     ${toggle}
     ${summaryHTML(d, sel, sel.keys)}
     ${nowcastCard(d)}
+    ${riskCard(d)}
     ${newsCard(d)}
     <div class="hero">
       <div class="card">
         <div class="k">${d.starts_today ? 'Today' : 'Next candle'} · ${first.time}</div>
         <div class="big ${cls(chg1)}">${f(first.close)}</div>
         <div class="${cls(chg1)}" style="font-weight:600">${sg(chg1)} (${sg(chg1 / last * 100)}%) vs ${f(last)}</div>
+        ${d.inr ? `<div class="sub" style="margin-top:4px">${inrText(d, first.close)} (last close ${inrText(d, last)}) ${tip('inr')}</div>` : ''}
         ${d.today_live ? `<div class="sub" style="margin-top:4px">Live so far: O ${f(d.today_live.open)} H ${f(d.today_live.high)} L ${f(d.today_live.low)} C ${f(d.today_live.close)}</div>` : ''}
         <div class="row">
           <div><span class="v">${f(first.open)}</span><span class="k">open</span></div>

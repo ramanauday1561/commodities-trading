@@ -27,6 +27,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import news  # noqa: E402
+from calendars import is_session, previous_session  # noqa: E402
 
 WINDOW_H = 36
 MIN_TRAIN = 40            # sessions before the first walk-forward prediction
@@ -53,10 +54,8 @@ def merge_rows(old, new):
 
 
 def cutoff(session, inst):
-    """UTC time after which news may describe `session`: the close of the weekday before it."""
-    prev = session - timedelta(days=1)
-    while prev.weekday() >= 5:
-        prev -= timedelta(days=1)
+    """UTC time after which news may describe `session`: the close of the trading day before it."""
+    prev = previous_session(session, inst.get("calendar"))
     h, m = map(int, inst["close"].split(":"))
     return datetime.combine(prev, dtime(h, m), ZoneInfo(inst["tz"])).astimezone(timezone.utc)
 
@@ -170,7 +169,7 @@ def backfill(key, store_dir, days=365, budget=1500):
     rows = load_rows(path)
     today = datetime.now(timezone.utc).date()
     sessions = [today - timedelta(days=i) for i in range(days, -1, -1)]
-    sessions = [s for s in sessions if s.weekday() < 5]
+    sessions = [s for s in sessions if is_session(s, inst.get("calendar"))]
     have = {r["d"] for r in rows}
     todo = [s for s in sessions if s.isoformat() not in have]
     print(f"{key}: {len(have)} sessions stored, {len(todo)} to fetch", flush=True)

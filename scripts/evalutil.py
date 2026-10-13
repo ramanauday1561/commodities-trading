@@ -1,7 +1,8 @@
 """Backtest helpers shared by the Kronos and LightGBM models so all models are scored identically."""
-from datetime import timedelta
 
 import numpy as np
+
+from calendars import last_finished_session
 
 BT_SPREAD = 100           # backtest days spread evenly across the whole history
 BT_RECENT = 50            # plus the most recent days
@@ -37,11 +38,6 @@ def full_stats(r, n, index):
     return stats, (float(np.percentile(err, 10)), float(np.percentile(err, 90)))
 
 
-def expected_last_session(now_ex, close_h, close_m):
-    """Date of the most recent trading session that should already be complete (weekends skipped, holidays not)."""
-    d = now_ex.date()
-    if (now_ex.hour, now_ex.minute) < (close_h, close_m):
-        d -= timedelta(days=1)
-    while d.weekday() >= 5:
-        d -= timedelta(days=1)
-    return d
+def expected_last_session(now_ex, close_h, close_m, calendar=None):
+    """Date of the most recent trading session that should already be complete (weekends and holidays skipped)."""
+    return last_finished_session(now_ex.date(), (now_ex.hour, now_ex.minute) >= (close_h, close_m), calendar)

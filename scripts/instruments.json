@@ -27,7 +27,9 @@
   },
   "news": {
    "query": "(nifty OR sensex OR \"indian stocks\" OR \"indian shares\" OR \"indian equities\" OR \"reserve bank of india\" OR \"dalal street\") sourcelang:english"
-  }
+  },
+  "big_move_pct": 1.0,
+  "calendar": "XBOM"
  },
  {
   "key": "gold",
@@ -46,6 +48,12 @@
   ],
   "news": {
    "query": "(\"gold price\" OR \"gold prices\" OR \"gold futures\" OR \"spot gold\" OR bullion) sourcelang:english"
+  },
+  "big_move_pct": 1.5,
+  "calendar": "XNYS",
+  "inr": {
+   "unit": "₹ per 10 g",
+   "factor": 0.32150747
   }
  },
  {
@@ -65,6 +73,12 @@
   ],
   "news": {
    "query": "(\"silver price\" OR \"silver prices\" OR \"silver futures\" OR \"spot silver\") sourcelang:english"
+  },
+  "big_move_pct": 3.0,
+  "calendar": "XNYS",
+  "inr": {
+   "unit": "₹ per kg",
+   "factor": 32.150747
   }
  },
  {
@@ -84,6 +98,12 @@
   ],
   "news": {
    "query": "(\"oil price\" OR \"oil prices\" OR \"crude oil\" OR \"brent crude\" OR \"wti crude\" OR opec) sourcelang:english"
+  },
+  "big_move_pct": 3.0,
+  "calendar": "XNYS",
+  "inr": {
+   "unit": "₹ per barrel",
+   "factor": 1.0
   }
  }
 ]

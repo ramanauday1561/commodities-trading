@@ -87,7 +87,7 @@ def fit_blend(rows_by_model, n, index):
             "stats": stats, "cal": cal, "platt": platt, "rows": rows, "days": len(common)}
 
 
-def blend_forecast(models, fit, future, last_close, exp_range):
+def blend_forecast(models, fit, future, last_close, exp_range, half_widths=None):
     """Blended candles for each forecast day from the individual models' forecasts."""
     keys = list(fit["weights"])
     out, prev_close = [], last_close
@@ -99,7 +99,10 @@ def blend_forecast(models, fit, future, last_close, exp_range):
                                                           / models[m]["forecast"][k - 1]["close"] for m in keys]))
         wick = max(rng * c - abs(c - o), 0) / 2
         w = k ** 0.5
-        lo, hi = c * (1 + fit["cal"][0] * w), c * (1 + fit["cal"][1] * w)
+        if half_widths:           # volatility-aware range from LightGBM's quantile models (8 in 10 coverage)
+            lo, hi = c * math.exp(-half_widths[k - 1]), c * math.exp(half_widths[k - 1])
+        else:                     # fallback: one width from the blend's past errors
+            lo, hi = c * (1 + fit["cal"][0] * w), c * (1 + fit["cal"][1] * w)
         out.append({"time": day.strftime("%Y-%m-%d"), "open": round(o, 2), "high": round(max(o, c) + wick, 2),
                     "low": round(min(o, c) - wick, 2), "close": round(c, 2),
                     "close_p10": round(lo, 2), "close_p90": round(hi, 2), "cal_p10": round(lo, 2), "cal_p90": round(hi, 2),
