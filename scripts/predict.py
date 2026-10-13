@@ -170,7 +170,7 @@ def main(key):
     close_h, close_m = map(int, inst["close"].split(":"))
     expected = expected_last_session(now_ex, close_h, close_m, inst.get("calendar"))
     full, filled = load_history(inst["ticker"], expected,
-                                session=(inst["tz"], close_h, close_m, inst.get("calendar")))
+                                session=(inst["tz"], close_h, close_m, inst.get("calendar")) if inst.get("intraday_fill") else None)
     stale = bool(full.index[-1].date() < expected)       # newest data is older than the last finished session
     if stale:
         print(f"WARNING: data is stale (last candle {full.index[-1].date()}, expected {expected})")

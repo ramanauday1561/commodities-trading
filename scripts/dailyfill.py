@@ -4,6 +4,11 @@ Yahoo sometimes publishes the latest daily row hours after the session ends, whi
 complete. A session's candle is then rebuilt from the bars between the previous session's close and this session's
 close (exchange time), which is right both for NIFTY (one day session) and for futures that trade from the evening
 before. The row is only built when the bars reach the close, and the next run replaces it with Yahoo's own row.
+
+Only enabled where it matches the official candles (instruments.json "intraday_fill"). Checked on ~55 recent
+sessions (python scripts/experiment.py <key> 0 0 dailyfill): NIFTY closes match within 0.007% on average (max
+0.09%). Futures do not: their daily close is the exchange settlement price, and rebuilt closes were 0.3-0.8% off on
+average (up to 5%), as large as the forecast error itself.
 """
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
