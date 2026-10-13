@@ -4,6 +4,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "variants" (default): LightGBM variants for the expected close
   mode "risk": big-move probability and likely-range methods (see risk_and_range)
   mode "accuracy": NIFTY only, see accuracy_study.py
+  mode "dailyfill": daily candles rebuilt from 15-minute bars vs Yahoo's own daily rows (last ~55 sessions)
 
 Every variant is retrained walk-forward (only data known before each test day) and scored on the same test days:
 the last `test_days` trading days, every `step`-th day. Reported per variant: average miss (%) of the next close,
@@ -137,6 +138,35 @@ def risk_and_range(key, inst, full, X, tests):
     return out
 
 
+def dailyfill_check(inst):
+    """How close is a daily candle rebuilt from 15-minute bars to the official daily row? (see dailyfill.py)"""
+    import yfinance as yf
+    from dailyfill import daily_from_intraday
+    get = lambda **kw: yf.download(inst["ticker"], auto_adjust=False, progress=False, **kw)
+    bars, daily = get(period="60d", interval="15m"), get(period="3mo", interval="1d")
+    for df in (bars, daily):
+        df.columns = [str(c[0] if isinstance(c, tuple) else c).lower() for c in df.columns]
+    h, m = map(int, inst["close"].split(":"))
+    diffs = {k: [] for k in ("open", "high", "low", "close")}
+    days, skipped = 0, 0
+    for day, row in daily.dropna(subset=["close"]).iterrows():
+        if pd.Timestamp(day).tz_localize(None) < pd.Timestamp(bars.index[0]).tz_localize(None) + pd.Timedelta(days=2):
+            continue
+        r = daily_from_intraday(bars, day.date(), inst["tz"], h, m, inst.get("calendar"))
+        if r is None:
+            skipped += 1
+            continue
+        days += 1
+        for k in diffs:
+            diffs[k].append(abs(r[k] / row[k] - 1) * 100)
+    out = {"days": days, "skipped": skipped}
+    for k, v in diffs.items():
+        if v:
+            out[k] = {"mean_pct": round(float(np.mean(v)), 3), "p90_pct": round(float(np.percentile(v, 90)), 3),
+                      "max_pct": round(float(np.max(v)), 3)}
+    print("DAILYFILL " + json.dumps({"key": inst["key"], **out}), flush=True)
+
+
 def main(key, test_days=750, step=2, mode="variants"):
     if mode == "accuracy":                     # NIFTY-only study of where direction calls are most reliable
         if key == "nifty":
@@ -144,6 +174,8 @@ def main(key, test_days=750, step=2, mode="variants"):
             accuracy_study.main()
         return
     inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
+    if mode == "dailyfill":
+        return dailyfill_check(inst)
     full = load(inst["ticker"])
     exo = load_exo(inst.get("exo"), full.index)
     X_exo = gbm.features(full, exo).values

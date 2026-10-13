@@ -3,6 +3,7 @@
   "key": "nifty",
   "name": "NIFTY 50",
   "group": "Index",
+  "intraday_fill": true,
   "ticker": "^NSEI",
   "unit": "pts",
   "tz": "Asia/Kolkata",

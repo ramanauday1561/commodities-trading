@@ -630,7 +630,9 @@ function render(d) {
   const toggle = models.length > 1 ? `<div class="k" style="margin-bottom:6px">Model ${tip('model')}</div><div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].ctx_text || d.models[k].context + 'c'}</button>`).join('')}${d.models.blend ? '' : '<button data-m="avg">Average</button>'}</div>` : '';
 
   const stale = d.data_check && d.data_check.stale
-    ? `<div class="notice"><b class="warn">Data may be out of date.</b> The ${d.data_check.expected} close is not in yet, so this uses ${d.data_check.last_date}. It refreshes on the next run.</div>` : '';
+    ? `<div class="notice"><b class="warn">Data may be out of date.</b> The ${d.data_check.expected} close is not in yet, so this uses ${d.data_check.last_date}. It refreshes on the next run.</div>`
+    : d.data_check && d.data_check.from_intraday
+      ? `<p class="note" style="margin:10px 0 0">The ${esc(d.data_check.last_date)} close was built from 15-minute prices because the daily figure was not published yet; the next run uses the official one.</p>` : '';
   const tr = track(d, sel.keys);
   const when = d.starts_today ? 'today' : `on ${first.time}`;
   const facts = [
