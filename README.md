@@ -77,6 +77,25 @@ close, 04:00 after the US futures close; nowcast at 10:00, 11:30, 13:00, 14:30.
 
 ## Experiments
 
+**Actions → Model experiments → Run workflow** backtests LightGBM variants side by side
+(`scripts/experiment.py`): every variant is retrained walk-forward and scored on the same test days (by default every
+second day of the last 750 trading days). A variant counts as better only if the paired t-statistic of its miss
+against the current model is below about −2; anything closer is indistinguishable from luck.
+
+Result on 13 Oct 2026 (375 test days, Sep/Oct 2023 – Oct 2026):
+
+| | Current miss | "No change" miss | Direction right / always-up | Beats "no change"? | Variant clearly better? |
+|---|---|---|---|---|---|
+| NIFTY | 0.599% | 0.622% | 61.1% / 56.3% | yes (t = −2.1) | no |
+| Gold | 1.006% | 1.000% | 52.0% / 56.3% | no | no |
+| Silver | 1.835% | 1.860% | 54.7% / 55.5% | not clearly (t = −1.5) | no |
+| Crude | 1.860% | 1.838% | 50.7% / 51.5% | no, worse (t = +2.1) | no (fewer trees beat current, not "no change") |
+
+Variants tested: no overnight/global features, recency-weighted training (3-year half-life), last 10 years only, more
+trees, fewer trees. The overnight features help NIFTY (removing them is worse); nothing else changed the picture, so
+the model was left as it is. The best estimate already leans on "no change" for the commodities.
+
+
 Run **Actions → Predict next candles → Run workflow** with `keys` (for example `nifty`) to run a subset without
 deploying. `kronos_t` (sampling temperature, default 0.6) lets you A/B test Kronos settings; compare the backtest lines in the
 job logs.
