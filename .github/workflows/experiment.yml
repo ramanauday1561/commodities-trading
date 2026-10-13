@@ -2,8 +2,6 @@ name: Model experiments
 
 # Backtest LightGBM variants side by side (scripts/experiment.py). Nothing is deployed or saved; read the job logs.
 on:
-  push:
-    branches: [model-experiments]   # TEMPORARY: run on the PR branch
   workflow_dispatch:
     inputs:
       test_days:
