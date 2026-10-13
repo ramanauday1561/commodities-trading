@@ -9,7 +9,7 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk (big-move probability and ranges) or accuracy (NIFTY direction study)"
+        description: "variants (expected close), risk (big-move probability and ranges), accuracy (NIFTY direction study) or dailyfill (candles rebuilt from 15m bars vs official)"
         required: false
         default: "variants"
 

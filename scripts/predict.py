@@ -28,6 +28,7 @@ from model import Kronos, KronosPredictor, KronosTokenizer  # noqa: E402
 
 from blend import blend_forecast, fit_blend, platt_fit, platt_prob  # noqa: E402
 from calendars import next_sessions  # noqa: E402
+from dailyfill import append_day, daily_from_intraday  # noqa: E402
 from evalutil import backtest_indices, expected_last_session, full_stats  # noqa: E402
 from exo import load_exo  # noqa: E402
 from gbm import run_gbm  # noqa: E402
@@ -66,17 +67,29 @@ def _download(symbol):
     return raw
 
 
-def load_history(symbol, expected, tries=3, wait=20):
-    """Daily candles. Yahoo occasionally omits the latest session, so retry until it appears; report if it never does."""
+def load_history(symbol, expected, tries=3, wait=20, session=None):
+    """Daily candles. Yahoo occasionally omits the latest session, so retry until it appears. If it never does, build
+    that session from the 15-minute bars (session = (tz, close_h, close_m, calendar)). Returns (candles, filled)."""
     full = None
     for attempt in range(tries):
         full = _download(symbol).rename(columns=str.lower)[COLS + ["volume"]].fillna(0.0)
         if full.index[-1].date() >= expected:
-            break
+            return full, False
         print(f"latest session {expected} missing from Yahoo (last candle {full.index[-1].date()}), retry {attempt + 1}/{tries}")
         if attempt < tries - 1:
             time.sleep(wait)
-    return full
+    if session:
+        try:
+            bars = yf.download(symbol, period="5d", interval="15m", auto_adjust=False, progress=False)
+            bars.columns = [c[0] if isinstance(c, tuple) else c for c in bars.columns]
+            row = daily_from_intraday(bars.rename(columns=str.lower), expected, *session)
+            if row:
+                print(f"{symbol}: session {expected} built from 15m bars (close {row['close']:.2f})")
+                return append_day(full, expected, row), True
+            print(f"{symbol}: 15m bars do not cover the {expected} session yet")
+        except Exception as e:
+            print(f"{symbol}: could not build {expected} from 15m bars ({e!r})")
+    return full, False
 
 
 def usd_inr():
@@ -156,7 +169,8 @@ def main(key):
     now_ex = datetime.now(ZoneInfo(inst["tz"]))
     close_h, close_m = map(int, inst["close"].split(":"))
     expected = expected_last_session(now_ex, close_h, close_m, inst.get("calendar"))
-    full = load_history(inst["ticker"], expected)
+    full, filled = load_history(inst["ticker"], expected,
+                                session=(inst["tz"], close_h, close_m, inst.get("calendar")))
     stale = bool(full.index[-1].date() < expected)       # newest data is older than the last finished session
     if stale:
         print(f"WARNING: data is stale (last candle {full.index[-1].date()}, expected {expected})")
@@ -258,7 +272,8 @@ def main(key):
         "last_close": round(last_close, 2), "last_date": full.index[-1].strftime("%Y-%m-%d"),
         "history_start": full.index[0].strftime("%Y-%m-%d"), "samples": SAMPLES,
         "default_model": "blend" if "blend" in models else "base",
-        "data_check": {"stale": stale, "expected": expected.isoformat(), "last_date": full.index[-1].strftime("%Y-%m-%d")},
+        "data_check": {"stale": stale, "expected": expected.isoformat(), "last_date": full.index[-1].strftime("%Y-%m-%d"),
+                       "from_intraday": filled},
         "blend": blend_info, "expected_range_pct": None if exp_range is None else round(exp_range * 100, 3),
         "settings": {"kronos_t": TEMP, "n_exo": n_exo},
         "news_feature": news_feature, "risk": risk, "range_method": range_info,
