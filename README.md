@@ -7,7 +7,7 @@ result in plain language and keeps an honest record of how the forecasts actuall
 
 | Piece | What it does |
 |---|---|
-| `scripts/predict.py` | Per instrument: complete Yahoo history → Kronos-base, Kronos-mini and LightGBM forecasts → walk-forward backtests → **Best estimate** (backtest-weighted blend, shrunk toward "no change") with calibrated ranges and probabilities |
+| `scripts/predict.py` | Per instrument: complete Yahoo history → Kronos-base and LightGBM forecasts → walk-forward backtests → **Best estimate** (backtest-weighted blend, shrunk toward "no change") with calibrated ranges and probabilities |
 | `scripts/gbm.py`, `scripts/exo.py` | LightGBM on the full history plus overnight/global context (US indices, VIX, India VIX, USD/INR, oil, gold, dollar, Asia) |
 | `scripts/blend.py` | Non-negative least-squares stacking, cross-validated; Platt scaling for probabilities |
 | `scripts/scoreboard.py` | **Live scoreboard**: saves every forecast, scores it once the real close is known |

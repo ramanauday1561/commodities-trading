@@ -118,6 +118,8 @@ const pc = n => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
 const cls = n => n >= 0 ? 'up' : 'down';
 const showErr = m => { $('err').textContent = m; };
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inrOf = (d, v) => d.inr ? v * d.inr.rate * d.inr.factor : null;
+const inrText = (d, v) => d.inr ? '≈ ₹' + Math.round(inrOf(d, v)).toLocaleString('en-IN') + ' ' + d.inr.unit.replace(/^₹ /, '') : '';
 const safeUrl = u => /^https?:\/\//i.test(u || '') ? esc(u) : '#';
 
 // Browser extensions (wallets, translators…) inject scripts that can throw errors unrelated to this page.
@@ -140,6 +142,7 @@ const TIPS = {
   model: 'Choose which forecasting model to show. Best estimate combines the others using their past-test results.',
   news: 'Recent headlines about this market from news sites worldwide (GDELT, or Google News when GDELT is unavailable), most widely carried first. Whether the news tone affects the forecast is shown at the bottom of this card.',
   newsfx: 'The tone of past headlines is compared with what the market did next, day by day, using only news published before each day started. If it helped, it gets a weight in the best estimate in proportion to how much it helped; if not, it is ignored.',
+  inr: 'The international price converted at the latest US dollar to rupee rate. Indian prices (MCX, jewellers) also include import duty, GST and local premiums, so they are typically several percent higher.',
   nowcast: 'A quick model that looks at how today has traded so far (gap, move, position in the day range, last-hour momentum) and predicts where the day will end.',
 };
 const tip = k => `<span class="tip" tabindex="0" data-tip="${TIPS[k]}">i</span>`;
@@ -235,7 +238,7 @@ function summaryHTML(d, sel, keys) {
 function scoreboardCard(d) {
   const sc = d._score;
   if (!sc || !sc.models) return '';
-  const order = ['blend', 'base', 'mini', 'gbm'].filter(k => sc.models[k]);
+  const order = ['blend', 'base', 'gbm'].filter(k => sc.models[k] && d.models[k]);   // models no longer published are hidden
   const rows = order.map(k => {
     const a = sc.models[k].all;
     if (!a || !a.days) return `<tr><td>${(d.models[k] || {}).label || k}</td><td colspan="4" class="mini">collecting results…</td></tr>`;
@@ -340,7 +343,7 @@ function guideHTML(d) {
       <li><b>Chance higher</b>: the model's probability that the close ends above the last completed close.</li><li><b>vs last</b>: the expected change in percent.</li>
       <li><b>Typical day</b>: how much this market normally moves in a day. A forecast move smaller than that is hard to tell from random noise.</li></ul></details>
     <details><summary>What do the models do?</summary>
-      <ul><li><b>Kronos-base</b> and <b>Kronos-mini</b> are AI models pretrained on millions of candlesticks from many markets. They read the most recent 512 (base) or 2,048 (mini) days and imagine ${d.samples} possible futures; the forecast is their average.</li>
+      <ul><li><b>Kronos-base</b> is an AI model pretrained on millions of candlesticks from many markets. It reads the most recent 512 days and imagines ${d.samples} possible futures; the forecast is their average. (A larger variant, Kronos-mini, was removed after it never beat "no change".)</li>
       <li><b>LightGBM</b> is a classic machine-learning model (decision trees). It is trained from scratch on this market's complete history using simple clues such as recent returns, volatility, trend and RSI.</li>
       <li><b>Best estimate</b> combines them. It looks at how each model did in the past tests and only listens to the ones that actually helped. Whatever is left goes to "same as yesterday" (no change), so weak signals are shrunk toward zero. This is the default view.</li></ul>
       <p>The models also see overnight context (US markets, volatility indices, the dollar, oil and gold) so that news from after the local close can be reflected.</p></details>
@@ -475,6 +478,7 @@ function render(d) {
         <div class="k">${d.starts_today ? 'Today' : 'Next candle'} · ${first.time}</div>
         <div class="big ${cls(chg1)}">${f(first.close)}</div>
         <div class="${cls(chg1)}" style="font-weight:600">${sg(chg1)} (${sg(chg1 / last * 100)}%) vs ${f(last)}</div>
+        ${d.inr ? `<div class="sub" style="margin-top:4px">${inrText(d, first.close)} (last close ${inrText(d, last)}) ${tip('inr')}</div>` : ''}
         ${d.today_live ? `<div class="sub" style="margin-top:4px">Live so far: O ${f(d.today_live.open)} H ${f(d.today_live.high)} L ${f(d.today_live.low)} C ${f(d.today_live.close)}</div>` : ''}
         <div class="row">
           <div><span class="v">${f(first.open)}</span><span class="k">open</span></div>
