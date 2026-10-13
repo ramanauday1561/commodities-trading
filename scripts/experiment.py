@@ -3,6 +3,7 @@
 Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "variants" (default): LightGBM variants for the expected close
   mode "risk": big-move probability and likely-range methods (see risk_and_range)
+  mode "accuracy": NIFTY only, see accuracy_study.py
 
 Every variant is retrained walk-forward (only data known before each test day) and scored on the same test days:
 the last `test_days` trading days, every `step`-th day. Reported per variant: average miss (%) of the next close,
@@ -137,6 +138,11 @@ def risk_and_range(key, inst, full, X, tests):
 
 
 def main(key, test_days=750, step=2, mode="variants"):
+    if mode == "accuracy":                     # NIFTY-only study of where direction calls are most reliable
+        if key == "nifty":
+            import accuracy_study
+            accuracy_study.main()
+        return
     inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
     full = load(inst["ticker"])
     exo = load_exo(inst.get("exo"), full.index)
