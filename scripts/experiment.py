@@ -1,0 +1,105 @@
+"""Backtest LightGBM variants side by side before changing the live model.
+
+Usage: python scripts/experiment.py <key> [test_days] [step]
+
+Every variant is retrained walk-forward (only data known before each test day) and scored on the same test days:
+the last `test_days` trading days, every `step`-th day. Reported per variant: average miss (%) of the next close,
+direction hit rate, and a paired comparison against the current model (mean difference in miss, with a t-statistic;
+|t| < 2 means the difference is not distinguishable from luck).
+"""
+import json
+import sys
+
+import lightgbm as lgb
+import numpy as np
+import pandas as pd
+import yfinance as yf
+
+import gbm
+from exo import load_exo
+
+
+def load(symbol):
+    raw = yf.download(symbol, period="max", interval="1d", auto_adjust=False, progress=False)
+    raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
+    raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
+    raw.index = pd.to_datetime(raw.index).tz_localize(None)
+    df = raw.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].fillna(0.0)
+    return df.iloc[:-1]            # the newest candle may still be live
+
+
+def walk_forward(full, X, tests, rounds=gbm.ROUNDS, params=None, half_life=None, window=None):
+    n = len(full)
+    logc = np.log(full["close"].values)
+    y1 = np.full(n, np.nan)
+    y1[:-1] = logc[1:] - logc[:-1]
+    valid = (np.arange(n) >= gbm.WARMUP) & ~np.isnan(y1)
+    p = dict(gbm.PARAMS, objective="regression", **(params or {}))
+    preds = []
+    for t in tests:
+        tr = np.where(valid & (np.arange(n) <= t - 2))[0]
+        if window:
+            tr = tr[-window:]
+        w = None
+        if half_life:
+            w = 0.5 ** ((tr[-1] - tr) / half_life)
+        m = lgb.train(p, lgb.Dataset(X[tr], gbm.winsorize(y1[tr]), weight=w), num_boost_round=rounds)
+        preds.append(float(m.predict(X[[t - 1]])[0]))
+    return np.array(preds)
+
+
+def score(full, tests, pred_ret):
+    prev = full["close"].values[np.array(tests) - 1]
+    act = full["close"].values[np.array(tests)]
+    pred = prev * np.exp(pred_ret)
+    miss = np.abs(pred - act) / act * 100
+    move = np.sign(act - prev)
+    call = np.sign(pred - prev)
+    hit = np.where(call == 0, 0.5, (call == move).astype(float))
+    return miss, hit
+
+
+def main(key, test_days=750, step=2):
+    inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
+    full = load(inst["ticker"])
+    exo = load_exo(inst.get("exo"), full.index)
+    X_exo = gbm.features(full, exo).values
+    X_px = gbm.features(full, None).values
+    n = len(full)
+    tests = list(range(n - test_days, n, step))
+    prev = full["close"].values[np.array(tests) - 1]
+    act = full["close"].values[np.array(tests)]
+    naive_miss = np.abs(prev - act) / act * 100
+    up_rate = float((act > prev).mean())
+    print(f"{key}: {n} candles, {len(tests)} test days {full.index[tests[0]].date()} -> {full.index[tests[-1]].date()}, "
+          f"up-rate {up_rate:.3f}, naive miss {naive_miss.mean():.3f}%", flush=True)
+
+    variants = {
+        "current": dict(X=X_exo),
+        "no_exo": dict(X=X_px),
+        "recency_3y": dict(X=X_exo, half_life=756),
+        "last_10y": dict(X=X_exo, window=2520),
+        "more_trees": dict(X=X_exo, rounds=300, params=dict(learning_rate=0.02)),
+        "fewer_trees": dict(X=X_exo, rounds=60),
+    }
+    base_miss = None
+    results = {}
+    for name, v in variants.items():
+        X = v.pop("X")
+        miss, hit = score(full, tests, walk_forward(full, X, tests, **v))
+        if base_miss is None:
+            base_miss = miss
+        d = miss - base_miss
+        t = float(d.mean() / (d.std(ddof=1) / np.sqrt(len(d)))) if d.std() > 0 else 0.0
+        dn = miss - naive_miss
+        tn = float(dn.mean() / (dn.std(ddof=1) / np.sqrt(len(dn))))
+        results[name] = {"miss_pct": round(float(miss.mean()), 4), "hit": round(float(hit.mean()), 3),
+                         "vs_current": round(float(d.mean()), 4), "t_vs_current": round(t, 2),
+                         "vs_naive": round(float(dn.mean()), 4), "t_vs_naive": round(tn, 2)}
+        print(f"{key} {name:12s} " + json.dumps(results[name]), flush=True)
+    print(f"RESULT {key} " + json.dumps({"up_rate": round(up_rate, 3), "naive_miss": round(float(naive_miss.mean()), 4),
+                                          "days": len(tests), "variants": results}), flush=True)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1], *(int(a) for a in sys.argv[2:4]))
