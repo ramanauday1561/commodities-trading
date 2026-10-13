@@ -37,7 +37,26 @@ on 375 days per instrument (`experiment.py`, mode `risk`) before being switched 
 - **Likely range**: from LightGBM's quantile models (wider on volatile days), scaled by one factor measured on the
   backtest days so that 8 in 10 closes fell inside. The old range had one width for every day.
 
-## Trading calendars and rupee prices
+## Today's call (NIFTY)
+
+`scripts/todaycall.py`, shown as the **Today's call** card. Daily-close data alone gets about 60% of next-day
+directions right, even on the model's most confident days. Information that arrives later does much better. Study:
+`scripts/accuracy_study.py` (Actions → Model experiments → mode `accuracy`), walk-forward, Jan 2024 – Oct 2026:
+
+| Call (made at) | All days | Top 50% | Top 20% | Top 10% |
+|---|---|---|---|---|
+| Opening gap direction (09:10, from US futures + Asia) | 71% | 83% | 90% | 95% |
+| Today's close vs yesterday (09:10, same inputs) | 61% | 70% | 77% | 88% |
+| Today's close vs yesterday (11:15, sign of the move so far) | 81% | 89% if moved > 0.25% (65% of days) | | 98% if moved > 0.75% (17%) |
+
+- Pre-open calls come from a ridge regression on overnight moves (US S&P/Nasdaq futures, Nikkei, KOSPI, Hang Seng,
+  previous NIFTY day), refitted daily. Each call's confidence is ranked against its own past walk-forward calls and
+  shown with the accuracy of that tier. Weak days say "no clear call".
+- From 10:15 the card adds the move so far and the historical accuracy for that time of day and move size.
+- The call made last before 09:15 is recorded on the `scoreboard` branch (`calls/nifty.json`) and scored after the
+  close; the card shows the live record. A 09:05 IST run makes the call (GitHub can start scheduled runs late; the card
+  shows the time of the data used).
+
 
 Forecast dates skip exchange holidays (`scripts/calendars.py`, via `exchange_calendars`): the BSE calendar for NIFTY
 (same holidays as NSE) and the NYSE calendar for the US futures (on US holidays CME trades a short session and Yahoo has

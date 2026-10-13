@@ -1,0 +1,64 @@
+"""Today's call: tiers, walk-forward, live record (no network)."""
+import os
+import sys
+import unittest
+from datetime import date, datetime
+
+import numpy as np
+import pandas as pd
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
+
+import todaycall as tc  # noqa: E402
+
+
+class Calls(unittest.TestCase):
+    def test_tiers(self):
+        past = np.linspace(0, 1, 101)
+        self.assertEqual(tc.tier_of(0.95, past), "very_strong")
+        self.assertEqual(tc.tier_of(0.85, past), "strong")
+        self.assertEqual(tc.tier_of(0.60, past), "lean")
+        self.assertEqual(tc.tier_of(0.10, past), "none")
+
+    def test_walk_forward_learns_a_real_signal_and_never_uses_the_future(self):
+        rng = np.random.default_rng(0)
+        X = rng.normal(size=(300, 3))
+        y = 0.01 * X[:, 0] + rng.normal(0, 0.003, 300)
+        p = tc.walk_forward(X, y)
+        self.assertTrue(np.isnan(p[: tc.MIN_HIST]).all())
+        ok = ~np.isnan(p)
+        self.assertGreater((np.sign(p[ok]) == np.sign(y[ok])).mean(), 0.85)
+        y2 = y.copy()
+        y2[200:] = 99.0                                   # changing the future must not change earlier predictions
+        self.assertTrue(np.allclose(tc.walk_forward(X, y2)[:201], p[:201], equal_nan=True))
+
+    def test_call_block_reports_tier_accuracy(self):
+        rng = np.random.default_rng(1)
+        X = rng.normal(size=(300, 2))
+        y = 0.01 * X[:, 0] + rng.normal(0, 0.004, 300)
+        b = tc.call_block(X, y, np.array([2.5, 0.0]))
+        self.assertEqual(b["direction"], "up")
+        self.assertEqual(b["tier"], "very_strong")
+        self.assertGreater(b["tiers"]["very_strong"]["accuracy"], b["tiers"]["all_days"]["accuracy"])
+
+    def test_record_is_scored_only_after_the_close(self):
+        nd = pd.DataFrame({"open": [100.0, 101.0], "close": [100.0, 99.0]},
+                          index=pd.to_datetime(["2026-10-12", "2026-10-13"]))
+        rec = [{"d": "2026-10-13", "gap": {"direction": "up", "tier": "strong"}, "close": {"direction": "up", "tier": "lean"}}]
+        tc.resolve(rec, nd, date(2026, 10, 13), datetime(2026, 10, 13, 14, 0))
+        self.assertNotIn("result", rec[0])
+        tc.resolve(rec, nd, date(2026, 10, 13), datetime(2026, 10, 13, 16, 0))
+        self.assertTrue(rec[0]["result"]["gap_hit"])
+        self.assertFalse(rec[0]["result"]["close_hit"])
+        s = tc.summarize_record(rec)
+        self.assertEqual(s["gap"]["strong"], {"calls": 1, "hits": 1})
+        self.assertEqual(s["close"]["lean"], {"calls": 1, "hits": 0})
+
+    def test_value_at_uses_only_finished_bars(self):
+        s = pd.Series([1.0, 2.0], index=pd.to_datetime(["2026-10-13 03:00", "2026-10-13 04:00"]).tz_localize("UTC"))
+        self.assertEqual(tc.value_at(s, pd.Timestamp("2026-10-13 03:59", tz="UTC")), 1.0)
+        self.assertTrue(np.isnan(tc.value_at(s, pd.Timestamp("2026-10-13 02:00", tz="UTC"))))
+
+
+if __name__ == "__main__":
+    unittest.main()

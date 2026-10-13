@@ -18,9 +18,9 @@ import yfinance as yf
 
 import gbm
 from exo import load_exo
+from todaycall import OVERNIGHT, hourly, share_table, value_at  # shared with the live card
 
 NIFTY = "^NSEI"
-OVERNIGHT = {"es": "ES=F", "nq": "NQ=F", "nikkei": "^N225", "kospi": "^KS11", "hangseng": "^HSI"}
 COVERAGE = (1.0, 0.5, 0.3, 0.2, 0.1)
 
 
@@ -30,37 +30,6 @@ def daily(symbol):
     raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
     return raw.rename(columns=str.lower)[["open", "high", "low", "close", "volume"]].fillna(0.0).iloc[:-1]
-
-
-def hourly(symbol):
-    raw = yf.download(symbol, period="730d", interval="1h", auto_adjust=False, progress=False)
-    raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
-    raw = raw.dropna(subset=["Close"])
-    idx = pd.to_datetime(raw.index)
-    idx = idx.tz_localize("UTC") if idx.tz is None else idx.tz_convert("UTC")
-    return pd.Series(raw["Close"].values, index=idx + pd.Timedelta(hours=1)).sort_index()   # indexed by bar END
-
-
-def value_at(series, t):
-    """Last price known at time t (bar end <= t)."""
-    s = series.loc[:t]
-    return float(s.iloc[-1]) if len(s) else np.nan
-
-
-def share_table(conf, correct, up, levels=COVERAGE, min_hist=60):
-    """Accuracy when only the most confident calls are made. The cut-off for day i is the (1-c) quantile of the
-    confidence of days before i, so it never looks ahead."""
-    conf, correct, up = map(np.asarray, (conf, correct, up))
-    out = {}
-    for c in levels:
-        take = np.zeros(len(conf), bool)
-        for i in range(min_hist, len(conf)):
-            take[i] = c >= 1.0 or (i > 0 and conf[i] >= np.quantile(conf[:i], 1 - c))
-        n = int(take.sum())
-        out[f"top_{int(c * 100)}pct"] = {"days": n, "share": round(n / max(len(conf) - min_hist, 1), 3),
-                                         "accuracy": round(float(correct[take].mean()), 3) if n else None,
-                                         "always_up_same_days": round(float(up[take].mean()), 3) if n else None}
-    return out
 
 
 def selective(full, exo, test_days=750):

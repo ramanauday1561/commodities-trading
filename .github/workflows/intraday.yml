@@ -4,6 +4,7 @@ name: Intraday nowcast
 # (the latest full forecasts are read from the `site-data` branch written by the main workflow).
 on:
   schedule:
+    - cron: "35 3 * * 1-5"     # 09:05 IST: pre-open "Today's call" (recorded only if made before the 09:15 open)
     - cron: "30 4 * * 1-5"     # 10:00 IST
     - cron: "0 6 * * 1-5"      # 11:30 IST
     - cron: "30 7 * * 1-5"     # 13:00 IST
@@ -11,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write                # the live record of "Today's call" is saved to the scoreboard branch
   pages: write
   id-token: write
 
@@ -32,11 +33,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install yfinance pandas numpy
+      - run: pip install yfinance pandas numpy exchange_calendars
       - name: Latest published data
         run: bash scripts/store.sh pull site-data docs/data
       - name: Nowcast
         run: python scripts/intraday.py nifty
+      - name: Today's call (pre-open and intraday direction calls, live record)
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          bash scripts/store.sh pull scoreboard store
+          python -u scripts/todaycall.py store docs/data
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then bash scripts/store.sh push scoreboard store; fi
       - name: Refresh news headlines (history is only recorded by the daily run)
         continue-on-error: true
         timeout-minutes: 4
