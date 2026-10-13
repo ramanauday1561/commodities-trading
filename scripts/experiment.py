@@ -1,6 +1,8 @@
 """Backtest LightGBM variants side by side before changing the live model.
 
-Usage: python scripts/experiment.py <key> [test_days] [step]
+Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
+  mode "variants" (default): LightGBM variants for the expected close
+  mode "risk": big-move probability and likely-range methods (see risk_and_range)
 
 Every variant is retrained walk-forward (only data known before each test day) and scored on the same test days:
 the last `test_days` trading days, every `step`-th day. Reported per variant: average miss (%) of the next close,
@@ -59,7 +61,82 @@ def score(full, tests, pred_ret):
     return miss, hit
 
 
-def main(key, test_days=750, step=2):
+def auc(p, y):
+    """Probability that a random big-move day got a higher score than a random calm day (0.5 = no skill)."""
+    pos, neg = p[y == 1], p[y == 0]
+    if not len(pos) or not len(neg):
+        return float("nan")
+    r = pd.Series(np.concatenate([pos, neg])).rank().values
+    return float((r[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg)))
+
+
+def interval_score(lo, hi, y, alpha=0.2):
+    """Winkler score of a (1-alpha) interval: width plus a penalty for misses (lower is better)."""
+    return (hi - lo) + 2 / alpha * np.maximum(lo - y, 0) + 2 / alpha * np.maximum(y - hi, 0)
+
+
+def risk_and_range(key, inst, full, X, tests):
+    """Big-move probability (|next-day move| > big_move_pct) and 80% ranges for the next close, walk-forward."""
+    n = len(full)
+    logc = np.log(full["close"].values)
+    y1 = np.full(n, np.nan)
+    y1[:-1] = logc[1:] - logc[:-1]
+    valid = (np.arange(n) >= gbm.WARMUP) & ~np.isnan(y1)
+    thr = np.log(1 + inst["big_move_pct"] / 100)
+    big = (np.abs(y1) > thr).astype(float)
+    p_model, p_clim, p_recent, ys = [], [], [], []
+    rng = {"fixed": [], "quantile": []}
+    for t in tests:
+        tr = np.where(valid & (np.arange(n) <= t - 2))[0]
+        x = X[[t - 1]]
+        cls = lgb.train(dict(gbm.PARAMS, objective="binary"), lgb.Dataset(X[tr], big[tr]), num_boost_round=gbm.ROUNDS)
+        p_model.append(float(cls.predict(x)[0]))
+        p_clim.append(float(big[tr].mean()))
+        p_recent.append(float(big[tr[-60:]].mean()))
+        yw = gbm.winsorize(y1[tr])
+        m = float(gbm.fit(X[tr], yw, "regression").predict(x)[0])
+        q10 = float(gbm.fit(X[tr], yw, "quantile", 0.1).predict(x)[0])
+        q90 = float(gbm.fit(X[tr], yw, "quantile", 0.9).predict(x)[0])
+        res = y1[tr] - y1[tr].mean()                      # the current method: one width from all past errors
+        rng["fixed"].append((m + np.quantile(res, 0.1), m + np.quantile(res, 0.9)))
+        rng["quantile"].append((min(q10, m), max(q90, m)))
+        ys.append(y1[t - 1])                              # return from day t-1 to day t
+    y = np.array(ys)
+    yb = (np.abs(y) > thr).astype(float)
+    out = {"big_move_pct": inst["big_move_pct"], "big_day_rate": round(float(yb.mean()), 3), "risk": {}, "range": {}}
+    clim_brier = float(((np.array(p_clim) - yb) ** 2).mean())
+    for name, p in (("climatology", p_clim), ("last_60_days", p_recent), ("model", p_model)):
+        p = np.array(p)
+        brier = float(((p - yb) ** 2).mean())
+        out["risk"][name] = {"brier": round(brier, 4), "skill_vs_climatology": round(1 - brier / clim_brier, 3),
+                             "auc": round(auc(p, yb), 3), "mean_p": round(float(p.mean()), 3)}
+    # coverage-corrected quantile range: widen/narrow by the factor that gave 80% on the previous 120 test days only
+    q = np.array(rng["quantile"])
+    mid = q.mean(axis=1)
+    half = (q[:, 1] - q[:, 0]) / 2
+    scaled = []
+    for i in range(len(y)):
+        s = 1.0
+        if i >= 60:
+            z = np.abs(y[max(0, i - 120):i] - mid[max(0, i - 120):i]) / half[max(0, i - 120):i]
+            s = float(np.quantile(z, 0.8))
+        scaled.append((mid[i] - s * half[i], mid[i] + s * half[i]))
+    rng["quantile_calibrated"] = scaled
+    for name, iv in rng.items():
+        iv = np.array(iv)
+        lo, hi = iv[:, 0], iv[:, 1]
+        out["range"][name] = {"coverage": round(float(((y >= lo) & (y <= hi)).mean()), 3),
+                              "avg_width_pct": round(float((hi - lo).mean() * 100), 3),
+                              "interval_score": round(float(interval_score(lo, hi, y).mean() * 100), 4)}
+    # does the range widen on days that turn out wild? (correlation of predicted width with the size of the move)
+    for name, iv in rng.items():
+        iv = np.array(iv)
+        out["range"][name]["width_vs_move_corr"] = round(float(np.corrcoef(iv[:, 1] - iv[:, 0], np.abs(y))[0, 1]), 3)
+    print(f"RISK {key} " + json.dumps(out), flush=True)
+    return out
+
+
+def main(key, test_days=750, step=2, mode="variants"):
     inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
     full = load(inst["ticker"])
     exo = load_exo(inst.get("exo"), full.index)
@@ -73,6 +150,9 @@ def main(key, test_days=750, step=2):
     up_rate = float((act > prev).mean())
     print(f"{key}: {n} candles, {len(tests)} test days {full.index[tests[0]].date()} -> {full.index[tests[-1]].date()}, "
           f"up-rate {up_rate:.3f}, naive miss {naive_miss.mean():.3f}%", flush=True)
+
+    if mode == "risk":
+        return risk_and_range(key, inst, full, X_exo, tests)
 
     variants = {
         "current": dict(X=X_exo),
@@ -102,4 +182,4 @@ def main(key, test_days=750, step=2):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1], *(int(a) for a in sys.argv[2:4]))
+    main(sys.argv[1], *(int(a) for a in sys.argv[2:4]), *sys.argv[4:5])

@@ -8,6 +8,10 @@ on:
         description: "Trading days to test (most recent)"
         required: false
         default: "750"
+      mode:
+        description: "variants (expected close) or risk (big-move probability and ranges)"
+        required: false
+        default: "variants"
 
 permissions:
   contents: read
@@ -28,4 +32,4 @@ jobs:
       - run: pip install numpy pandas yfinance lightgbm
       - env:
           PYTHONPATH: scripts
-        run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2
+        run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2 ${{ github.event.inputs.mode || 'variants' }}
