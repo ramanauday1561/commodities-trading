@@ -264,7 +264,8 @@ def run(store_dir="store", out_dir="docs/data", now=None):
                 intr = {"asof": min(asof, pd.Timestamp(datetime.combine(today, datetime.min.time()), tz=IST)
                                     + timedelta(hours=15, minutes=30)).strftime("%H:%M"),
                         "price": round(price, 2), "move_pct": round(move * 100, 3),
-                        "direction": "up" if move > 0 else "down"}
+                        "direction": "up" if move > 0 else "down",
+                        "open": round(float(todays["Open"].iloc[0]), 2)}
                 if hm and out["status"] == "open":
                     row = table[hm[-1]]
                     b = max(x for x in BUCKETS if x in row and abs(move) > x) if any(
