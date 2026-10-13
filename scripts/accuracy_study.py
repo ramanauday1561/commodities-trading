@@ -97,26 +97,36 @@ def gap(nd):
             continue
         f = {k: value_at(s, t_open) / value_at(s, t_prev) - 1 for k, s in series.items()}
         f["prev_day"] = nd["close"].iloc[i - 1] / nd["close"].iloc[i - 2] - 1 if i >= 2 else 0.0
-        rows.append({"d": d, **f, "gap": nd["open"].iloc[i] / nd["close"].iloc[i - 1] - 1})
+        rows.append({"d": d, **f, "gap": nd["open"].iloc[i] / nd["close"].iloc[i - 1] - 1,
+                     "day": nd["close"].iloc[i] / nd["close"].iloc[i - 1] - 1})
     df = pd.DataFrame(rows).set_index("d").replace([np.inf, -np.inf], np.nan)
     feats = list(OVERNIGHT) + ["prev_day"]
     df[feats] = df[feats].fillna(0.0)
     df = df[df["gap"].abs() > 1e-6]                       # days where Yahoo's open equals the previous close are unusable
-    preds = np.full(len(df), np.nan)
-    Xa, ya = df[feats].values, df["gap"].values
-    for i in range(60, len(df)):
-        X, y = Xa[:i], ya[:i]
-        mu, sd = X.mean(0), X.std(0) + 1e-12
-        Z = (X - mu) / sd
-        w = np.linalg.solve(Z.T @ Z + 5.0 * np.eye(len(feats)), Z.T @ (y - y.mean()))
-        preds[i] = y.mean() + ((Xa[i] - mu) / sd) @ w
+    def walk(target):
+        preds = np.full(len(df), np.nan)
+        Xa, ya = df[feats].values, df[target].values
+        for i in range(60, len(df)):
+            X, y = Xa[:i], ya[:i]
+            mu, sd = X.mean(0), X.std(0) + 1e-12
+            Z = (X - mu) / sd
+            w = np.linalg.solve(Z.T @ Z + 5.0 * np.eye(len(feats)), Z.T @ (y - y.mean()))
+            preds[i] = y.mean() + ((Xa[i] - mu) / sd) @ w
+        return preds, ya
+
+    preds, ya = walk("gap")
+    pc, yc = walk("day")
+    okc = ~np.isnan(pc)
+    close_table = share_table(np.abs(pc[okc]), (np.sign(pc[okc]) == np.sign(yc[okc])).astype(float),
+                              (yc[okc] > 0).astype(float), min_hist=20)
     ok = ~np.isnan(preds)
     p, g = preds[ok], ya[ok]
     rule = np.sign(df["es"].values[ok])
     return {"days": int(ok.sum()), "from": str(df.index[ok][0].date()), "gap_up_rate": round(float((g > 0).mean()), 3),
             "es_futures_sign_rule_accuracy": round(float((rule == np.sign(g)).mean()), 3),
             "corr_by_market": {k: round(float(np.corrcoef(df[k].values[ok], g)[0, 1]), 3) for k in feats},
-            "table": share_table(np.abs(p), (np.sign(p) == np.sign(g)).astype(float), (g > 0).astype(float), min_hist=20)}
+            "table": share_table(np.abs(p), (np.sign(p) == np.sign(g)).astype(float), (g > 0).astype(float), min_hist=20),
+            "close_from_overnight": close_table}
 
 
 def intraday(nd):
