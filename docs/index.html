@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kronos Forecast</title>
+<meta name="description" content="Daily forecasts for NIFTY 50, gold, silver and crude oil, with today's NIFTY call.">
+<meta name="theme-color" content="#070a12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Forecast">
 <style>
   /* Glass on a dark ground: translucent panels over soft colour glows. Phone sizes first, desktop scales up. */
   :root { --bg:#070a12; --text:#eef1f6; --mute:#9aa6b8; --line:rgba(255,255,255,.08);
@@ -20,12 +29,12 @@
   .glow i:nth-child(3) { width:55vw; height:55vw; max-width:480px; max-height:480px; background:#0e5a8a; bottom:-20vw; left:10vw; opacity:.35; }
   .glass { background:var(--glass); border:1px solid var(--edge); border-radius:var(--r);
            -webkit-backdrop-filter:blur(22px) saturate(160%); backdrop-filter:blur(22px) saturate(160%); }  /* glass edge: taste-skill-ignore */
-  main { max-width:980px; margin:0 auto; padding:10px 14px 48px; }
+  main { max-width:980px; margin:0 auto; padding:calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
   a { color:var(--accent); }
   .up { color:var(--up); } .down { color:var(--down); } .warn { color:var(--warn); }
 
   /* Top bar */
-  header { position:sticky; top:8px; z-index:10; display:flex; justify-content:space-between; align-items:center; gap:10px;
+  header { position:sticky; top:calc(8px + env(safe-area-inset-top)); z-index:10; display:flex; justify-content:space-between; align-items:center; gap:10px;
            padding:10px 10px 10px 16px; margin-bottom:12px; border-radius:16px; }
   h1 { font-size:var(--s-title); margin:0; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .sub { color:var(--mute); font-size:12px; margin-top:1px; }
@@ -134,8 +143,12 @@
   .runstatus { background:var(--glass2); border-radius:12px; padding:10px 14px; margin-bottom:10px; font-size:var(--s-small); }
   .runstatus a { color:var(--mute); }
   .modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:14px; z-index:50; }
-  .modal[hidden], .runstatus[hidden] { display:none; }
+  .modal[hidden], .runstatus[hidden], .installhint[hidden] { display:none; }
   .modalcard { max-width:520px; width:100%; background:rgba(20,26,38,.85); max-height:90vh; overflow:auto; }
+  .installhint { display:flex; gap:10px; align-items:center; padding:10px 10px 10px 14px; margin-bottom:10px; border-radius:14px; font-size:var(--s-small); }
+  .installhint span { flex:1; }
+  .installhint svg { vertical-align:-3px; }
+  @media (display-mode: standalone) { .installhint { display:none; } }
   input[type=password] { background:var(--glass2); color:var(--text); border:1px solid var(--edge); border-radius:10px; padding:9px 12px; font:inherit; }
 </style>
 </head>
@@ -153,6 +166,9 @@
       <button id="helpBtn" title="How to read this page"aria-label="Guide"><span class="lg">Guide</span><span class="sm">?</span></button></div>
   </header>
   <div id="runStatus" class="runstatus" hidden></div>
+  <div id="installHint" class="installhint glass" hidden><span>Add this to your Home Screen: tap
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Share"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+    Share, then <b>Add to Home Screen</b>.</span><button id="installClose" aria-label="Dismiss">Got it</button></div>
 
   <nav id="chips"></nav>
 
@@ -549,7 +565,7 @@ async function select(key) {
     if (my !== token) return;
     $('app').innerHTML = '';
     $('sub').textContent = '';
-    showErr('Could not render: ' + e.message);
+    showErr(e instanceof TypeError ? 'No connection, and this market has not been opened on this device yet.' : 'Could not render: ' + e.message);
   }
 }
 
@@ -856,20 +872,38 @@ $('rerunBtn').onclick = () => startJob('rerun');
 $('recheckBtn').onclick = () => startJob('recheck');
 
 
-(async () => {
+let loadedAt = 0;
+async function loadAll() {
   try {
     if (typeof LightweightCharts === 'undefined') throw new Error('chart library failed to load (hard-refresh the page)');
     const res = await fetch('data/index.json?t=' + Date.now(), { cache: 'no-store' });
     if (!res.ok) throw new Error('data not found, run the "Predict next candles" workflow');
     manifest = await res.json();
     let saved = null; try { saved = localStorage.getItem('inst'); } catch (e) {}
-    const want = [location.hash.slice(1), saved, 'nifty'].find(k => k && manifest.some(m => m.key === k)) || manifest[0].key;
+    const want = [current, location.hash.slice(1), saved, 'nifty'].find(k => k && manifest.some(m => m.key === k)) || manifest[0].key;
     await select(want);
+    loadedAt = Date.now();
   } catch (e) {
     $('app').innerHTML = '';
     $('sub').textContent = '';
     showErr('Could not render: ' + e.message);
   }
+}
+loadAll();
+
+/* ---------------- home-screen app ---------------- */
+// A home-screen app has no reload button and stays in memory, so refresh when it comes back after a few minutes.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && !running && Date.now() - loadedAt > 5 * 60000) loadAll();
+});
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+(() => {   // iPhone/iPad Safari has no install prompt, so show how to add the app once
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+  let seen = false; try { seen = !!localStorage.getItem('installHint'); } catch (e) {}
+  if (!ios || standalone || seen) return;
+  $('installHint').hidden = false;
+  $('installClose').onclick = () => { $('installHint').hidden = true; try { localStorage.setItem('installHint', '1'); } catch (e) {} };
 })();
 </script>
 </body>
