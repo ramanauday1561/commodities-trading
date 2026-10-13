@@ -97,7 +97,22 @@ with nothing the same query goes to Google News RSS instead (the source is shown
 [NewsMCP](https://github.com/pranciskus/newsmcp) was the first choice, but the service was shut down in October 2026
 (its API answers every request with HTTP 410), so its MCP server no longer works either.
 
-## Reliable scheduling
+## Rerun analysis / Recheck buttons
+
+The page header has two buttons that start runs on demand:
+
+- **Rerun analysis** starts `predict.yml` (fresh news, prices, all forecasts and today's call; about 10-15 minutes).
+  Started before about 09:00 IST, its call is recorded as the day's pre-open call.
+- **Recheck** starts `intraday.yml` (price so far, news, today's call; 1-3 minutes). The Today's call card then
+  says whether to **stick** with the morning call, **switch** (the session has moved against it by enough that such
+  moves usually held to the close) or that it is **wavering**.
+
+GitHub Pages is static, so the page starts these through the GitHub API with a token you create:
+GitHub → Settings → Developer settings → Fine-grained tokens → only this repository → Repository permissions
+**Actions: Read and write** (nothing else). The page asks for it on first use, keeps it only in that browser
+(localStorage) and sends it only to api.github.com. Without a token, use the "run it on GitHub" link
+(Actions → workflow → Run workflow).
+
 
 GitHub's `schedule` trigger is best-effort: runs are often late and sometimes skipped. Each slot therefore has backup
 cron entries, and a `gate` job skips a run if another run on `main` finished or started in the last 90 minutes.
