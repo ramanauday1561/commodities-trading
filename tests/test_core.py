@@ -119,6 +119,16 @@ class Scoreboard(unittest.TestCase):
         self.assertEqual(b["models"]["base"]["all"]["days"], 1)
         self.assertEqual(b["models"]["blend"]["all"]["direction_accuracy"], 0.5)   # "no change" is not a directional call
 
+    def test_settlement_revisions_are_picked_up(self):
+        d = {"updated": "2026-10-12T04:00:00+00:00", "last_close": 91.85,
+             "models": {"gbm": {"forecast": [{"time": "2026-10-12", "close": 91.9}]}},
+             "candles": [{"time": "2026-10-09", "close": 91.85}, {"time": "2026-10-12", "close": 93.16}]}
+        recs = scoreboard.update_records([], d)
+        self.assertEqual((recs[0]["l"], recs[0]["a"]), (91.85, 93.16))
+        later = dict(d, models={}, candles=[{"time": "2026-10-09", "close": 91.8}, {"time": "2026-10-12", "close": 93.74}])
+        recs = scoreboard.update_records(recs, later)                 # Yahoo replaced last trade with settlement
+        self.assertEqual((recs[0]["l"], recs[0]["a"]), (91.8, 93.74))
+
     def test_latest_forecast_for_a_day_replaces_the_earlier_one(self):
         d = {"updated": "2026-10-12T03:00:00+00:00", "last_close": 100.0, "candles": [],
              "models": {"base": {"forecast": [{"time": "2026-10-13", "close": 101.0}]}}}
