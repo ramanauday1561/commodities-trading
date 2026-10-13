@@ -5,90 +5,109 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Kronos Forecast</title>
 <style>
-  /* Tokens. One ground, one ink, one accent; up/down/forecast are data colours. Surfaces differ by tone, never by lines. */
-  :root { --bg:#0b0d10; --card:#14181e; --card2:#1c222a; --line:#262d36; --text:#e8ebf0; --mute:#a3acb9;
-          --up:#2bb3a3; --down:#f2615e; --pred:#f5a623; --accent:#6aa6ff; --warn:#e8b04a;
-          --s-display:clamp(48px, 7.2vw, 96px); --s-title:22px; --s-body:16px; --s-small:14px; }
-  * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:var(--s-body)/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
-  main { max-width:1080px; margin:0 auto; padding:20px 20px 64px; }
+  /* Glass on a dark ground: translucent panels over soft colour glows. Phone sizes first, desktop scales up. */
+  :root { --bg:#070a12; --text:#eef1f6; --mute:#9aa6b8; --line:rgba(255,255,255,.08);
+          --glass:rgba(255,255,255,.055); --glass2:rgba(255,255,255,.08); --edge:rgba(255,255,255,.10);
+          --up:#34d1bf; --down:#ff6b6b; --pred:#f5a623; --accent:#7cb4ff; --warn:#f2c14e;
+          --s-display:36px; --s-title:17px; --s-body:15px; --s-small:13px; --r:20px; }
+  @media (min-width:720px) { :root { --s-display:64px; --s-title:20px; --s-body:16px; --s-small:14px; } }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; background:var(--bg); color:var(--text); font:var(--s-body)/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; min-height:100svh; }
+  .glow { position:fixed; inset:0; z-index:-1; overflow:hidden; pointer-events:none; }
+  .glow i { position:absolute; border-radius:50%; filter:blur(80px); opacity:.55; }
+  .glow i:nth-child(1) { width:70vw; height:70vw; max-width:620px; max-height:620px; background:#1d4ed8; top:-20vw; left:-25vw; }
+  .glow i:nth-child(2) { width:60vw; height:60vw; max-width:520px; max-height:520px; background:#0f766e; top:35vh; right:-25vw; }
+  .glow i:nth-child(3) { width:55vw; height:55vw; max-width:480px; max-height:480px; background:#0e5a8a; bottom:-20vw; left:10vw; opacity:.35; }
+  .glass { background:var(--glass); border:1px solid var(--edge); border-radius:var(--r);
+           -webkit-backdrop-filter:blur(22px) saturate(160%); backdrop-filter:blur(22px) saturate(160%); }  /* glass edge: taste-skill-ignore */
+  main { max-width:980px; margin:0 auto; padding:10px 14px 48px; }
   a { color:var(--accent); }
   .up { color:var(--up); } .down { color:var(--down); } .warn { color:var(--warn); }
 
-  /* Header: name, markets, actions */
-  header { display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
-  h1 { font-size:var(--s-title); margin:0; letter-spacing:-.01em; }
-  .sub { color:var(--mute); font-size:var(--s-small); margin-top:2px; }
+  /* Top bar */
+  header { position:sticky; top:8px; z-index:10; display:flex; justify-content:space-between; align-items:center; gap:10px;
+           padding:10px 10px 10px 16px; margin-bottom:12px; border-radius:16px; }
+  h1 { font-size:var(--s-title); margin:0; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .sub { color:var(--mute); font-size:12px; margin-top:1px; }
   .badge { display:none; }
-  .btns { display:flex; gap:8px; flex-wrap:wrap; }
-  button { background:var(--card2); color:var(--text); border:0; border-radius:8px; padding:8px 14px; font:inherit; font-size:var(--s-small); cursor:pointer; }
-  button:hover { background:#252c36; } button:disabled { opacity:.5; cursor:default; }
-  button.on { background:var(--accent); color:#0b0d10; font-weight:600; }
+  .btns { display:flex; gap:6px; flex-wrap:wrap; }
+  header > div:first-child { min-width:0; }
+  header .btns { flex-wrap:nowrap; flex:none; }
+  header button { padding:6px 11px; }
+  button { background:var(--glass2); color:var(--text); border:1px solid var(--edge);  /* glass edge: taste-skill-ignore */
+           border-radius:999px; padding:7px 12px; font:inherit; font-size:var(--s-small); cursor:pointer; }
+  button:hover { background:rgba(255,255,255,.14); } button:disabled { opacity:.5; cursor:default; }
+  button.on { background:var(--text); color:#0b0f18; border-color:transparent; font-weight:600; }
   button:focus-visible, summary:focus-visible, .tip:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  nav { display:flex; gap:8px; flex-wrap:wrap; margin:4px 0 28px; }
-  .grp { display:contents; } .grp > .k { display:none; } .chips { display:contents; }
-  .chip { display:flex; align-items:baseline; gap:8px; padding:10px 16px; font-size:var(--s-body); }
-  .chip small { font-size:var(--s-small); font-variant-numeric:tabular-nums; }
-  .chip.on small { color:#0b0d10; }
+  .lg { display:none; } @media (min-width:720px) { .lg { display:inline; } .sm { display:none; } }
 
-  /* The answer */
-  .answer { margin-bottom:28px; }
-  .display { font-size:var(--s-display); line-height:1; letter-spacing:-.035em; font-weight:700; margin:0; font-variant-numeric:tabular-nums; }
-  .statement { font-size:clamp(18px, 2vw, 24px); line-height:1.4; max-width:40ch; margin:14px 0 0; }
-  .callline { font-size:clamp(18px, 2vw, 22px); margin:18px 0 0; max-width:52ch; }
-  .facts { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:24px; }
-  .fact { background:var(--card); border-radius:10px; padding:14px 16px; }
+  /* Market selector: four across, never wraps */
+  nav { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-bottom:12px; }
+  .chip { display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:9px 10px; border-radius:14px; font-size:var(--s-small); font-weight:600; min-width:0; text-align:left; }
+  .chip small { font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; }
+  .chip.on small { color:#0b0f18; }
+  @media (min-width:720px) { .chip { flex-direction:row; align-items:baseline; gap:8px; padding:10px 16px; font-size:var(--s-body); } }
+
+  /* Hero */
+  .answer { padding:16px 18px 18px; margin-bottom:10px; }
+  .pricerow { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:2px; }
+  .display { font-size:var(--s-display); line-height:1.05; letter-spacing:-.03em; font-weight:700; margin:0; font-variant-numeric:tabular-nums; }
+  .pill { font-size:var(--s-small); font-weight:700; padding:3px 10px; border-radius:999px; background:var(--glass2); font-variant-numeric:tabular-nums; }
+  .pill.up { background:rgba(52,209,191,.16); } .pill.down { background:rgba(255,107,107,.16); }
+  .statement { font-size:var(--s-body); color:var(--mute); margin:6px 0 0; }
+  .statement b { color:var(--text); font-weight:600; }
+  .callline { display:flex; gap:10px; align-items:flex-start; font-size:var(--s-body); margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line); }  /* divider inside the card: taste-skill-ignore */
+  .callline .dot { flex:none; width:8px; height:8px; border-radius:50%; background:var(--accent); margin-top:8px; }
+  .facts { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin-bottom:10px; }
+  .fact { padding:11px 12px; border-radius:16px; min-width:0; }
   .fact b { display:block; font-size:var(--s-title); font-variant-numeric:tabular-nums; }
-  .fact span { color:var(--mute); font-size:var(--s-small); }
-  @media (max-width:720px) { .facts { grid-template-columns:1fr; } }
-  .notice { background:#2a2110; color:var(--text); border-radius:10px; padding:10px 14px; margin-top:18px; font-size:var(--s-small); max-width:66ch; }
+  .fact span { display:block; color:var(--mute); font-size:12px; line-height:1.35; margin-top:2px; }
+  .notice { background:rgba(242,193,78,.10); border-radius:12px; padding:9px 12px; margin-top:12px; font-size:var(--s-small); }
 
   /* Cards and sections */
-  .card { background:var(--card); border-radius:12px; padding:18px 20px; margin-bottom:14px; }
+  .card { background:var(--glass); border-radius:16px; padding:14px 16px; margin-bottom:10px; }
   .k { color:var(--mute); font-size:var(--s-small); font-weight:600; }
   .about, details p, details li { font-size:var(--s-body); color:var(--text); margin:8px 0 0; max-width:66ch; }
   .note { color:var(--mute); font-size:var(--s-small); }
   .big { font-size:var(--s-title); font-weight:700; margin:2px 0; }
-  .row { display:flex; gap:20px; flex-wrap:wrap; margin-top:8px; }
+  .row { display:flex; gap:16px; flex-wrap:wrap; margin-top:8px; }
   .row div span { display:block; } .row .v { font-size:var(--s-body); font-weight:600; }
-  .hero { display:grid; grid-template-columns:1.2fr 1fr; gap:14px; margin-bottom:14px; } .hero .card { margin-bottom:0; }
-  @media (max-width:720px) { .hero { grid-template-columns:1fr; } }
   .meter { height:8px; border-radius:6px; background:var(--down); overflow:hidden; margin-top:8px; }
   .meter i { display:block; height:100%; background:var(--up); }
-  .more { margin-top:8px; }
-  .more > details { background:var(--card); border-radius:12px; margin-bottom:10px; }
-  .more > details > summary { padding:16px 20px; font-size:var(--s-title); font-weight:600; cursor:pointer; list-style:none; display:flex; justify-content:space-between; gap:12px; }
+  .more > details { margin-bottom:8px; }
+  .more > details.glass { border-radius:16px; }
+  .more > details > summary { padding:14px 16px; font-size:var(--s-body); font-weight:600; cursor:pointer; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:12px; }
   .more > details > summary::-webkit-details-marker { display:none; }
-  .more > details > summary::after { content:'+'; color:var(--mute); font-weight:400; }
-  .more > details[open] > summary::after { content:'–'; }
-  .more > details > summary small { display:block; color:var(--mute); font-size:var(--s-small); font-weight:400; margin-top:2px; }
-  .more > details > .inner { padding:0 20px 18px; }
-  @media (max-width:720px) { .more > details > summary small { display:none; } }
-  .more > details .card { background:var(--card2); }
+  .more > details > summary::after { content:''; flex:none; width:8px; height:8px; border-right:2px solid var(--mute); border-bottom:2px solid var(--mute); transform:rotate(45deg); margin:-4px 4px 0 0; transition:transform .2s; }
+  .more > details[open] > summary::after { transform:rotate(-135deg); margin-top:4px; }
+  .more > details > summary small { display:block; color:var(--mute); font-size:var(--s-small); font-weight:400; margin-top:1px; }
+  @media (max-width:719px) { .more > details > summary small { display:none; } }
+  .more > details > .inner { padding:0 12px 12px; }
   #guide details { padding:6px 0; }
   #guide summary { cursor:pointer; font-weight:600; }
   details svg { max-width:100%; height:auto; display:block; margin:8px 0; }
 
   /* Chart */
-  .chartwrap { padding:12px; }
-  .tools { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:2px 4px 10px; }
-  #ranges button { padding:6px 10px; }
-  #readout { font-size:var(--s-small); color:var(--mute); min-height:21px; font-variant-numeric:tabular-nums; }
-  #chart { height:420px; }
-  @media (max-width:720px) { #chart { height:320px; } }
-  .legend { display:flex; gap:16px; flex-wrap:wrap; color:var(--mute); font-size:var(--s-small); padding:10px 4px 0; }
-  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; vertical-align:-1px; }
-  .legend i.dash { height:3px; width:16px; background:var(--pred); vertical-align:3px; }
-  .legend i.dot { height:3px; width:16px; background:#5c6675; vertical-align:3px; }
+  .chartwrap { padding:10px 8px 10px; margin-bottom:10px; }
+  .tools { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding:2px 6px 8px; }
+  #ranges { gap:4px; flex-wrap:nowrap; }
+  #ranges button { padding:5px 9px; font-size:12px; }
+  #readout { font-size:12px; color:var(--mute); min-height:18px; font-variant-numeric:tabular-nums; }
+  #chart { height:260px; }
+  @media (min-width:720px) { #chart { height:400px; } }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; color:var(--mute); font-size:12px; padding:8px 6px 0; }
+  .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
+  .legend i.dash { height:3px; width:14px; background:var(--pred); vertical-align:3px; }
+  .legend i.dot { height:3px; width:14px; background:#6b778a; vertical-align:3px; }
 
-  /* Real tables keep their rules */
+  /* Tables */
   table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:var(--s-small); }
-  th { text-align:right; color:var(--mute); font-weight:600; padding:8px; border-bottom:1px solid var(--line); }
-  td { white-space:nowrap; text-align:right; padding:10px 8px; border-bottom:1px solid var(--line); }
+  th { text-align:right; color:var(--mute); font-weight:600; padding:7px 8px; border-bottom:1px solid var(--line); }
+  td { white-space:nowrap; text-align:right; padding:9px 8px; border-bottom:1px solid var(--line); }
   th:first-child, td:first-child { text-align:left; } tr:last-child td { border-bottom:0; }
   .tablewrap { overflow-x:auto; }
-  td .mini, .mini { color:var(--mute); font-size:var(--s-small); }
-  .pbar { display:inline-block; width:54px; height:6px; border-radius:4px; background:var(--down); vertical-align:middle; margin-right:6px; overflow:hidden; }
+  td .mini, .mini { color:var(--mute); font-size:12px; }
+  .pbar { display:inline-block; width:48px; height:6px; border-radius:4px; background:var(--down); vertical-align:middle; margin-right:6px; overflow:hidden; }
   .pbar i { display:block; height:100%; background:var(--up); }
   .wbar { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:8px 0 4px; background:var(--line); }
   .wbar i { display:block; height:100%; }
@@ -97,39 +116,41 @@
   ul.news { margin:8px 0; padding-left:18px; } ul.news li { margin-bottom:12px; line-height:1.45; } ul.news a { color:var(--text); text-decoration:none; } ul.news a:hover { text-decoration:underline; }
 
   /* Small helpers */
-  .lvl { display:inline-block; font-size:var(--s-small); padding:2px 10px; border-radius:999px; background:var(--card2); color:var(--warn); }
+  .lvl { display:inline-block; font-size:12px; padding:2px 10px; border-radius:999px; background:var(--glass2); color:var(--warn); }
   .lvl.good { color:var(--up); } .lvl.none { color:var(--mute); }
   .summary p { margin:8px 0; }
   .live .pulse { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--up); margin-right:6px; animation:pulse 1.6s infinite; }
   @keyframes pulse { 0%{opacity:1} 50%{opacity:.3} 100%{opacity:1} }
-  @media (prefers-reduced-motion: reduce) { .live .pulse { animation:none; } }
-  .tip { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; margin-left:6px; border-radius:50%; background:var(--card2);
-         color:var(--mute); font:italic 700 13px/1 Georgia,serif; cursor:help; vertical-align:1px; }
+  @media (prefers-reduced-motion: reduce) { .live .pulse { animation:none; } .more > details > summary::after { transition:none; } }
+  .tip { display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; margin-left:5px; border-radius:50%; background:var(--glass2);
+         color:var(--mute); font:italic 700 12px/1 Georgia,serif; cursor:help; vertical-align:1px; }
   .tip:hover, .tip:focus { color:var(--text); outline:none; }
-  #tooltip { position:fixed; z-index:20; max-width:290px; background:#232a33; color:var(--text); border-radius:8px; padding:10px 12px;
-             font-size:var(--s-small); line-height:1.45; box-shadow:0 8px 28px rgba(0,0,0,.55); display:none; pointer-events:none; }  /* floats: taste-skill-ignore */
-  .foot { color:var(--mute); font-size:var(--s-small); margin-top:24px; line-height:1.6; max-width:66ch; }
+  #tooltip { position:fixed; z-index:30; max-width:280px; background:rgba(22,28,40,.92); color:var(--text); border-radius:12px; padding:10px 12px;
+             font-size:var(--s-small); line-height:1.45; box-shadow:0 8px 28px rgba(0,0,0,.55); display:none; pointer-events:none;  /* overlay: taste-skill-ignore */
+             -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); }  /* floats: taste-skill-ignore */
+  .foot { color:var(--mute); font-size:12px; margin-top:18px; line-height:1.6; max-width:66ch; }
   #err { color:var(--down); margin-top:10px; font-size:var(--s-small); }
   .skeleton { color:var(--mute); padding:40px; text-align:center; }
-  .runstatus { background:var(--card2); border-radius:10px; padding:10px 14px; margin-bottom:12px; font-size:var(--s-small); }
+  .runstatus { background:var(--glass2); border-radius:12px; padding:10px 14px; margin-bottom:10px; font-size:var(--s-small); }
   .runstatus a { color:var(--mute); }
-  .modal { position:fixed; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:14px; z-index:50; }
   .modal[hidden], .runstatus[hidden] { display:none; }
-  .modalcard { max-width:520px; width:100%; }
-  input[type=password] { background:var(--card2); color:var(--text); border:0; border-radius:8px; padding:9px 12px; font:inherit; }
+  .modalcard { max-width:520px; width:100%; background:rgba(20,26,38,.85); max-height:90vh; overflow:auto; }
+  input[type=password] { background:var(--glass2); color:var(--text); border:1px solid var(--edge); border-radius:10px; padding:9px 12px; font:inherit; }
 </style>
 </head>
 <body>
+<div class="glow" aria-hidden="true"><i></i><i></i><i></i></div>
 <main>
-  <header>
+  <header class="glass">
     <div>
       <h1 id="title">Kronos forecast</h1>
       <div class="sub" id="sub">Loading…</div>
     </div>
     <div class="btns"><div class="badge" id="badge"></div>
-      <button id="rerunBtn" class="act" title="Run the full analysis again now: fresh news, prices, all forecasts and today's call (about 10-15 minutes). Best before 9:00 IST so the call is recorded before the open.">Rerun analysis</button>
+      <button id="rerunBtn" class="act" title="Run the full analysis again now: fresh news, prices, all forecasts and today's call (about 10-15 minutes). Best before 9:00 IST so the call is recorded before the open."><span class="lg">Rerun analysis</span><span class="sm">Rerun</span></button>
       <button id="recheckBtn" class="act" title="Quick mid-day check (1-3 minutes): price so far, news and today's call, and whether the session still agrees with the morning call.">Recheck</button>
-      <button id="helpBtn" title="How to read this page">Guide</button></div>
+      <button id="helpBtn" title="How to read this page"aria-label="Guide"><span class="lg">Guide</span><span class="sm">?</span></button></div>
   </header>
   <div id="runStatus" class="runstatus" hidden></div>
 
@@ -140,7 +161,7 @@
 </main>
 <div id="tooltip" role="tooltip"></div>
 <div id="tokenModal" class="modal" hidden>
-  <div class="card modalcard" role="dialog" aria-modal="true" aria-labelledby="tokTitle">
+  <div class="card glass modalcard" role="dialog" aria-modal="true" aria-labelledby="tokTitle">
     <div class="k" id="tokTitle">Connect the buttons to GitHub</div>
     <p class="about">These buttons start the same jobs that run on a schedule (GitHub Actions in this site's repository). To start
       them from this page, it needs a GitHub token that is allowed to run them. The token is kept only in this browser and
@@ -586,7 +607,7 @@ function callLine(d) {
     msg = p.close.tier === 'none' ? "Today's call: no clear direction from overnight markets."
       : `Today's call: close ${word(p.close.direction)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time.`;
   }
-  return msg ? `<p class="callline">${msg}</p>` : '';
+  return msg ? `<p class="callline"><span class="dot"></span><span>${msg}</span></p>` : '';
 }
 
 /* ---------------- render ---------------- */
@@ -599,8 +620,8 @@ function render(d) {
   const lo = r => cal ? r.cal_p10 : r.close_p10, hi = r => cal ? r.cal_p90 : r.close_p90;
   const about = (manifest.find(m => m.key === d.key) || {}).about;
 
-  $('title').textContent = `${d.symbol} forecast`;
-  $('sub').textContent = `Last close ${d.last_date} · updated ${new Date(d.updated).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`;
+  $('title').innerHTML = `${esc(d.symbol)}<span class="lg"> forecast</span>`;
+  $('sub').textContent = `Updated ${new Date(d.updated).toLocaleString([], { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`;
   $('badge').textContent = sel.label;
 
   const chg1 = first.close - last, chgN = end.close - last;
@@ -609,29 +630,30 @@ function render(d) {
   const toggle = models.length > 1 ? `<div class="k" style="margin-bottom:6px">Model ${tip('model')}</div><div class="btns" id="models" style="margin-bottom:12px">${models.map(k => `<button data-m="${k}">${d.models[k].label} · ${d.models[k].ctx_text || d.models[k].context + 'c'}</button>`).join('')}${d.models.blend ? '' : '<button data-m="avg">Average</button>'}</div>` : '';
 
   const stale = d.data_check && d.data_check.stale
-    ? `<div class="notice"><b class="warn">Data may be out of date.</b> The latest finished session (${d.data_check.expected}) was not yet available from the data source, so this is based on the close of ${d.data_check.last_date}. It refreshes on the next run.</div>` : '';
+    ? `<div class="notice"><b class="warn">Data may be out of date.</b> The ${d.data_check.expected} close is not in yet, so this uses ${d.data_check.last_date}. It refreshes on the next run.</div>` : '';
   const tr = track(d, sel.keys);
   const when = d.starts_today ? 'today' : `on ${first.time}`;
   const facts = [
-    [`${upPct}%`, 'chance it closes higher', upPct >= 50 ? 'up' : 'down'],
-    d.risk ? [`${Math.round(d.risk.p * 100)}%`, `chance of a move over ±${d.risk.threshold_pct}% (usually ${Math.round(d.risk.base_rate * 100)}%)`, d.risk.p >= 1.5 * d.risk.base_rate ? 'warn' : '']
+    [`${upPct}%`, 'chance higher', upPct >= 50 ? 'up' : 'down'],
+    d.risk ? [`${Math.round(d.risk.p * 100)}%`, `move over ±${d.risk.threshold_pct}% (usual ${Math.round(d.risk.base_rate * 100)}%)`, d.risk.p >= 1.5 * d.risk.base_rate ? 'warn' : '']
            : [`${f(end.close)}`, `${fc.length}-day target (${pc(chgN / last * 100)})`, cls(chgN)],
-    [tr.level === 'good' ? 'Some edge' : tr.level === 'none' ? 'No proven edge' : 'Not tested', 'track record in past tests', tr.level === 'good' ? 'up' : ''],
+    [tr.level === 'good' ? 'Some' : tr.level === 'none' ? 'None' : 'n/a', 'edge in past tests', tr.level === 'good' ? 'up' : ''],
   ];
   const today = todayCard(d) + nowcastCard(d);
-  const sec = (title, hint, body, id = '') => body.trim() ? `<details${id ? ` id="${id}"` : ''}><summary><span>${title}<small>${hint}</small></span></summary><div class="inner">${body}</div></details>` : '';
+  const sec = (title, hint, body, id = '') => body.trim() ? `<details class="glass"${id ? ` id="${id}"` : ''}><summary><span>${title}<small>${hint}</small></span></summary><div class="inner">${body}</div></details>` : '';
   const insight = typicalRange(d);
 
   $('app').innerHTML = `
-    <section class="answer">
-      <p class="display ${cls(chg1)}">${f(first.close)}</p>
-      <p class="statement">Expected close ${when}: <b class="${cls(chg1)}">${pc(chg1 / last * 100)}</b> from ${f(last)}. Anywhere from ${f(lo(first))} to ${f(hi(first))} would be normal.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>
+    <section class="answer glass">
+      <div class="k">Expected close ${when}</div>
+      <div class="pricerow"><p class="display">${f(first.close)}</p><span class="pill ${cls(chg1)}">${pc(chg1 / last * 100)}</span></div>
+      <p class="statement">From ${f(last)}. Likely between <b>${f(lo(first))}</b> and <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>
       ${callLine(d)}
       ${stale}
-      <div class="facts">${facts.map(([v, t, c]) => `<div class="fact"><b class="${c}">${v}</b><span>${t}</span></div>`).join('')}</div>
     </section>
+    <div class="facts">${facts.map(([v, t, c]) => `<div class="fact glass"><b class="${c}">${v}</b><span>${t}</span></div>`).join('')}</div>
 
-    <div class="card chartwrap">
+    <div class="chartwrap glass">
       <div class="tools">
         <div class="btns" id="ranges"></div>
         <div id="readout">Hover or tap a candle for details</div>
@@ -674,10 +696,10 @@ function render(d) {
   // ---------- chart ----------
   chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
-    layout: { background: { color: '#14181e' }, textColor: '#8791a0', fontSize: 12 },
-    grid: { vertLines: { color: '#1b2128' }, horzLines: { color: '#1b2128' } },
-    rightPriceScale: { borderColor: '#232a33' },
-    timeScale: { borderColor: '#232a33', rightOffset: 3 },
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9aa6b8', fontSize: 11 },
+    grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.05)' } },
+    rightPriceScale: { borderColor: 'rgba(255,255,255,.08)' },
+    timeScale: { borderColor: 'rgba(255,255,255,.08)', rightOffset: 3 },
     crosshair: { mode: 0 },
   });
   const hist = chart.addCandlestickSeries({
