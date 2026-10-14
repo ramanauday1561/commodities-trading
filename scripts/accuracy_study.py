@@ -233,6 +233,53 @@ def early_checkpoints(nd):
     return out
 
 
+FUTURES_CHECKS_IST = ("09:30", "12:30", "15:30", "17:30", "19:00", "20:30")
+
+
+def futures_intraday(ticker):
+    """8. Gold / silver / crude: does the move since the previous settlement, seen at a time of the Indian day, keep its
+    sign to today's settlement (~23:00 IST)? Hourly bars (~2 years); the daily close of a future is its settlement.
+    "rest_continues" asks the tradable question: does the rest of the day (checkpoint -> settlement) go the same way?"""
+    nd = daily(ticker)
+    bars = hourly(ticker)
+    prev = nd["close"].shift(1)
+    out = {}
+    for label in FUTURES_CHECKS_IST:
+        h, m = map(int, label.split(":"))
+        mv, fin = [], []
+        for d in nd.index:
+            if pd.isna(prev.loc[d]):
+                continue
+            t = pd.Timestamp(d.date()).tz_localize("Asia/Kolkata") + pd.Timedelta(hours=h, minutes=m)
+            t = t.tz_convert("UTC")
+            seg = bars.loc[t - pd.Timedelta(hours=3):t]                  # need a fresh price, not yesterday's
+            if not len(seg) or t < bars.index[0]:
+                continue
+            mv.append(float(seg.iloc[-1]) / prev.loc[d] - 1)
+            fin.append(nd["close"].loc[d] / prev.loc[d] - 1)
+        x, f = np.array(mv), np.array(fin)
+        rest = (1 + f) / (1 + x) - 1                                       # from the checkpoint to the settlement
+        res = {"days": len(x), "accuracy_all": round(float((np.sign(x) == np.sign(f)).mean()), 3) if len(x) else None,
+               "up_rate": round(float((f > 0).mean()), 3) if len(x) else None,
+               "rest_continues_all": round(float((np.sign(x) == np.sign(rest)).mean()), 3) if len(x) else None}
+        for thr in (0.0025, 0.005, 0.01):
+            sel = np.abs(x) > thr
+            res[f"over_{thr * 100:.2f}pct"] = {"share": round(float(sel.mean()), 3),
+                                               "accuracy": round(float((np.sign(x[sel]) == np.sign(f[sel])).mean()), 3) if sel.any() else None,
+                                               "rest_continues": round(float((np.sign(x[sel]) == np.sign(rest[sel])).mean()), 3) if sel.any() else None,
+                                               "rest_mean_same_side_pct": round(float((np.sign(x[sel]) * rest[sel]).mean() * 100), 3) if sel.any() else None}
+        out[label] = res
+    return out
+
+
+def commodity(key):
+    inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
+    try:
+        print(f"STUDY futures_intraday {key} " + json.dumps(futures_intraday(inst["ticker"])), flush=True)
+    except Exception as e:
+        print(f"STUDY futures_intraday {key} failed: {e!r}", flush=True)
+
+
 def improve():
     nd = daily(NIFTY)
     for name, fn in (("overnight_variants", lambda: overnight_variants(nd)), ("after_big_day", lambda: after_big_day(nd)),
