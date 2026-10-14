@@ -4,6 +4,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "variants" (default): LightGBM variants for the expected close
   mode "risk": big-move probability and likely-range methods (see risk_and_range)
   mode "accuracy": NIFTY only, see accuracy_study.py
+  mode "improve": NIFTY only, extra pre-open inputs and intraday patterns (see accuracy_study.improve)
   mode "dailyfill": daily candles rebuilt from 15-minute bars vs Yahoo's own daily rows (last ~55 sessions)
 
 Every variant is retrained walk-forward (only data known before each test day) and scored on the same test days:
@@ -168,10 +169,10 @@ def dailyfill_check(inst):
 
 
 def main(key, test_days=750, step=2, mode="variants"):
-    if mode == "accuracy":                     # NIFTY-only study of where direction calls are most reliable
+    if mode in ("accuracy", "improve"):        # NIFTY-only studies of where direction calls are most reliable
         if key == "nifty":
             import accuracy_study
-            accuracy_study.main()
+            accuracy_study.main() if mode == "accuracy" else accuracy_study.improve()
         return
     inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
     if mode == "dailyfill":

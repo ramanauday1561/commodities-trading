@@ -3,15 +3,16 @@ name: Intraday nowcast
 # During the NSE session: predict today's close from the 15-minute candles so far and republish the site
 # (the latest full forecasts are read from the `site-data` branch written by the main workflow).
 on:
-  schedule:
-    - cron: "35 3 * * 1-5"     # 09:05 IST: pre-open "Today's call" (recorded only if made before the 09:15 open)
-    - cron: "30 4 * * 1-5"     # 10:00 IST
-    - cron: "0 6 * * 1-5"      # 11:30 IST
-    - cron: "30 7 * * 1-5"     # 13:00 IST
-    - cron: "0 9 * * 1-5"      # 14:30 IST
+  schedule:                    # fallback only: keeper.yml starts this at fixed times; these skip if a run just happened
+    - cron: "23 3 * * 1-5"     # 08:53 IST: pre-open "Today's call" (recorded only if made before the 09:15 open)
+    - cron: "51 4 * * 1-5"     # 10:21 IST
+    - cron: "41 6 * * 1-5"     # 12:11 IST
+    - cron: "51 7 * * 1-5"     # 13:21 IST
+    - cron: "37 8 * * 1-5"     # 14:07 IST
   workflow_dispatch:
 
 permissions:
+  actions: read                # the fallback check looks at recent runs
   contents: write                # the live record of "Today's call" is saved to the scoreboard branch
   pages: write
   id-token: write
@@ -29,16 +30,33 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Fallback run? Skip if the keeper (or anyone) ran this in the last 25 minutes
+        id: gate
+        run: |
+          go=true
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            since=$(date -u -d '25 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
+            recent=$(gh api "repos/${{ github.repository }}/actions/workflows/intraday.yml/runs?per_page=10" \
+              --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }} and .created_at >= \"$since\" and (.conclusion == \"success\" or .status != \"completed\"))] | length" || echo 0)
+            if [ "$recent" != "0" ]; then go=false; echo "a run happened in the last 25 minutes; skipping"; fi
+          fi
+          echo "go=$go" >> "$GITHUB_OUTPUT"
+      - if: steps.gate.outputs.go == 'true'
+        uses: actions/checkout@v4
+      - if: steps.gate.outputs.go == 'true'
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: pip install yfinance pandas numpy exchange_calendars
+      - if: steps.gate.outputs.go == 'true'
+        run: pip install yfinance pandas numpy exchange_calendars
       - name: Latest published data
+        if: steps.gate.outputs.go == 'true'
         run: bash scripts/store.sh pull site-data docs/data
       - name: Nowcast
+        if: steps.gate.outputs.go == 'true'
         run: python scripts/intraday.py nifty
       - name: Today's call (pre-open and intraday direction calls, live record)
+        if: steps.gate.outputs.go == 'true'
         continue-on-error: true
         timeout-minutes: 8
         run: |
@@ -46,10 +64,12 @@ jobs:
           python -u scripts/todaycall.py store docs/data
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then bash scripts/store.sh push scoreboard store; fi
       - name: Refresh news headlines (history is only recorded by the daily run)
+        if: steps.gate.outputs.go == 'true'
         continue-on-error: true
         timeout-minutes: 4
         run: python -u scripts/news.py docs/data "$RUNNER_TEMP/news-store"
       - id: have
+        if: steps.gate.outputs.go == 'true'
         run: |
           if [ -f docs/data/index.json ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
       - if: steps.have.outputs.ok == 'true'
