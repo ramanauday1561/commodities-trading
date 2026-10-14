@@ -626,6 +626,28 @@ function callLine(d) {
   return msg ? `<p class="callline"><span class="dot"></span><span>${msg}</span></p>` : '';
 }
 
+// What the top of the page leads with. A confident call when there is one; otherwise, when the forecast is close to a
+// coin flip, say so plainly instead of showing a price that reads like a prediction (lesson from 14 Oct 2026).
+const NO_EDGE = 5;                // percentage points around 50% that count as "no edge"
+function headline(d, first, last, upPct) {
+  const t = d._today, todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+  const pct = x => `${Math.round(x * 100)}%`, likely = dir => ({ word: dir === 'up' ? 'Likely higher' : 'Likely lower', cls: dir === 'up' ? 'up' : 'down' });
+  if (t && t.date === todayIst && d.starts_today) {
+    const p = t.preopen, i = t.intraday;
+    if (i && t.status === 'open' && i.accuracy != null && i.accuracy >= 0.85)
+      return { ...likely(i.direction), pill: `${pct(i.accuracy)} held`, from: 'call',
+               text: `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day. When it was this far ${i.direction === 'up' ? 'up' : 'down'} at this time, it closed on the same side ${pct(i.accuracy)} of the time.` };
+    if (p && p.close.tier !== 'none' && t.status !== 'closed')
+      return { ...likely(p.close.direction), pill: `${pct(p.close.tiers[p.close.tier].accuracy)} right`, from: 'call',
+               text: `Today's call from overnight markets: close ${p.close.direction === 'up' ? 'higher' : 'lower'} than ${f(p.prev_close)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time in past tests.` };
+  }
+  const chg = (first.close / last - 1) * 100;
+  if (Math.abs(upPct - 50) < NO_EDGE)
+    return { word: 'No clear direction', cls: '', pill: `${upPct}% up`, from: 'noedge',
+             text: `Best guess ${f(first.close)} (${pc(chg)}), but that is within normal day-to-day noise. No edge: stand aside unless a mid-day update gives a call.` };
+  return null;
+}
+
 /* ---------------- render ---------------- */
 function render(d) {
   currentData = d;
@@ -657,16 +679,19 @@ function render(d) {
            : [`${f(end.close)}`, `${fc.length}-day target (${pc(chgN / last * 100)})`, cls(chgN)],
     [tr.level === 'good' ? 'Some' : tr.level === 'none' ? 'None' : 'n/a', 'edge in past tests', tr.level === 'good' ? 'up' : ''],
   ];
+  const head = headline(d, first, last, upPct);
   const today = todayCard(d) + nowcastCard(d);
   const sec = (title, hint, body, id = '') => body.trim() ? `<details class="glass"${id ? ` id="${id}"` : ''}><summary><span>${title}<small>${hint}</small></span></summary><div class="inner">${body}</div></details>` : '';
   const insight = typicalRange(d);
 
   $('app').innerHTML = `
     <section class="answer glass">
-      <div class="k">Expected close ${when}</div>
-      <div class="pricerow"><p class="display">${f(first.close)}</p><span class="pill ${cls(chg1)}">${pc(chg1 / last * 100)}</span></div>
-      <p class="statement">From ${f(last)}. Likely between <b>${f(lo(first))}</b> and <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>
-      ${callLine(d)}
+      <div class="k">${head ? `${d.symbol} ${d.starts_today ? 'today' : `on ${first.time}`}` : `Expected close ${when}`}</div>
+      ${head ? `<div class="pricerow"><p class="display ${head.cls}">${head.word}</p><span class="pill">${head.pill}</span></div>
+      <p class="statement">${head.text} Likely range <b>${f(lo(first))}</b> to <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>`
+      : `<div class="pricerow"><p class="display">${f(first.close)}</p><span class="pill ${cls(chg1)}">${pc(chg1 / last * 100)}</span></div>
+      <p class="statement">From ${f(last)}. Likely between <b>${f(lo(first))}</b> and <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>`}
+      ${head && head.from === 'call' ? '' : callLine(d)}
       ${stale}
     </section>
     <div class="facts">${facts.map(([v, t, c]) => `<div class="fact glass"><b class="${c}">${v}</b><span>${t}</span></div>`).join('')}</div>
