@@ -367,6 +367,93 @@ def extreme():
         print(f"STUDY extreme_days failed: {e!r}", flush=True)
 
 
+COST_PCT = 0.03                  # round trip for NIFTY futures: brokerage, STT, exchange fees, slippage (approximate)
+
+
+def _wf_tiers(X, y):
+    """Walk-forward predictions and each day's tier from the confidence of earlier calls (same rule as the live card)."""
+    preds = tc.walk_forward(X, y)
+    tiers = np.array(["na"] * len(y), dtype=object)
+    for i in range(tc.MIN_HIST, len(y)):
+        past = np.abs(preds[tc.MIN_HIST:i])
+        if len(past) < 20:
+            continue
+        tiers[i] = "none"
+        for name, top in TIER_TOP:
+            if abs(preds[i]) >= np.quantile(past, 1 - top):
+                tiers[i] = name
+                break
+    return preds, tiers
+
+
+def _trades(side, ret):
+    """side: +1 long, -1 short, 0 no trade; ret: the move the trade earns. Returns per-trade stats after costs."""
+    m = side != 0
+    if not m.any():
+        return {"trades": 0}
+    pnl = side[m] * ret[m] * 100 - COST_PCT
+    cum = np.cumsum(pnl)
+    dd = float(np.max(np.maximum.accumulate(cum) - cum)) if len(cum) else 0.0
+    return {"trades": int(m.sum()), "share_of_days": round(float(m.mean()), 3),
+            "win_rate": round(float((pnl > 0).mean()), 3), "avg_pct_after_costs": round(float(pnl.mean()), 3),
+            "total_pct": round(float(pnl.sum()), 1), "max_drawdown_pct": round(dd, 1),
+            "sharpe_like": round(float(pnl.mean() / (pnl.std() + 1e-12) * np.sqrt(252 * m.mean())), 2)}
+
+
+def strategy(nd):
+    """10. Trading rules, scored on what a trade could actually earn (not 'right vs yesterday's close'):
+    entry at the 09:15 open or at the 10:15 price, exit at the close, minus ~0.03% costs. Walk-forward throughout."""
+    series = {k: hourly(t) for k, t in {**OVERNIGHT, **tc.INDIA}.items()}
+    df = tc.history(nd, series)
+    bars = hourly(NIFTY)
+    p1015 = []
+    for d in df.index:
+        day = pd.Timestamp(d.date()).tz_localize("UTC")
+        seg = bars.loc[day:day + pd.Timedelta(hours=4, minutes=45)]
+        p1015.append(float(seg.iloc[-1]) if len(seg) else np.nan)
+    prev = nd["close"].shift(1).reindex(df.index).values
+    close = nd["close"].reindex(df.index).values
+    opn = nd["open"].reindex(df.index).values
+    p1015 = np.array(p1015)
+    ok = ~np.isnan(p1015)
+    o2c, m2c = close / opn - 1, close / p1015 - 1          # open -> close, 10:15 -> close
+    move1015 = p1015 / prev - 1                             # where NIFTY is at 10:15 vs yesterday's close
+    gap_pred, gap_tier = _wf_tiers(df[tc.GAP_FEATS].values, df["gap"].values)
+    day_pred, day_tier = _wf_tiers(df[tc.FEATS].values, df["day"].values)
+    valid = ok & (day_tier != "na")
+    sgn = np.sign(day_pred)
+    at = lambda tiers: np.isin(day_tier, tiers) & valid
+    early = (np.abs(move1015) > 0.0025) & valid
+    rules = {
+        "A_open_close_call_all_days": (np.where(valid, sgn, 0), o2c),
+        "B_open_close_call_strong_plus": (np.where(at(["very_strong", "strong"]), sgn, 0), o2c),
+        "C_open_close_call_very_strong": (np.where(at(["very_strong"]), sgn, 0), o2c),
+        "D_1015_follow_the_move": (np.where(early, np.sign(move1015), 0), m2c),
+        "E_1015_fade_the_move": (np.where(early, -np.sign(move1015), 0), m2c),
+        "F_1015_call_and_move_agree": (np.where(early & at(["very_strong", "strong", "lean"]) & (np.sign(move1015) == sgn), sgn, 0), m2c),
+        "G_1015_call_and_move_disagree_follow_move": (np.where(early & at(["very_strong", "strong", "lean"]) & (np.sign(move1015) != sgn), np.sign(move1015), 0), m2c),
+        "H_open_gap_call_fade": (np.where(valid & np.isin(gap_tier, ["very_strong", "strong"]), -np.sign(gap_pred), 0), o2c),
+    }
+    out = {"days": int(valid.sum()), "from": str(df.index[valid][0].date()), "cost_pct": COST_PCT,
+           "buy_and_hold_open_close": _trades(np.where(valid, 1, 0), o2c)}
+    for name, (side, ret) in rules.items():
+        out[name] = _trades(np.nan_to_num(side).astype(int), np.nan_to_num(ret))
+    # how did the 'right vs yesterday' accuracy compare with what the trade earned, for the strong close calls?
+    m = at(["very_strong", "strong"])
+    out["strong_calls_close_vs_prev_accuracy"] = round(float((np.sign(df["day"].values[m]) == sgn[m]).mean()), 3)
+    out["strong_calls_open_to_close_accuracy"] = round(float((np.sign(o2c[m]) == sgn[m]).mean()), 3)
+    return out
+
+
+def strategy_main():
+    nd = daily(NIFTY)
+    try:
+        print("STUDY strategy " + json.dumps(strategy(nd)), flush=True)
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        print(f"STUDY strategy failed: {e!r}", flush=True)
+
+
 def improve():
     nd = daily(NIFTY)
     for name, fn in (("overnight_variants", lambda: overnight_variants(nd)), ("after_big_day", lambda: after_big_day(nd)),
