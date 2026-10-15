@@ -638,6 +638,21 @@ function fromOpen(tier) {
     : `Traded from the 09:15 open, calls like this won ${pct(o.win_rate)} of the time (${pc(o.avg_pct_after_costs)} per trade after costs) on few days, so treat it with caution.`;
 }
 
+// US releases that move these markets most; scheduled weeks ahead (scripts/us_events.py).
+const EVENT_NAME = { cpi: 'US inflation (CPI)', jobs: 'US jobs report', fomc: 'Fed rate decision' };
+function eventLine(d) {
+  const e = d.us_events && d.us_events.before_next_close;
+  const names = e ? Object.keys(EVENT_NAME).filter(k => e[k]).map(k => EVENT_NAME[k]) : [];
+  return names.length ? `<p class="callline"><span class="dot" style="background:var(--warn)"></span><span><b>${names.join(' and ')}</b> before the next close. Moves are usually bigger around these releases, so expect a wider swing than normal and do not lean on the direction.</span></p>` : '';
+}
+function upcomingEvents(d) {
+  const u = (d.us_events && d.us_events.upcoming) || [];
+  if (!u.length) return '';
+  const fmt = s => new Date(s + 'T12:00:00Z').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  return `<div class="card"><div class="k">Upcoming US events</div><ul class="news">${u.map(x => `<li>${fmt(x.date)}: ${EVENT_NAME[x.kind] || esc(x.kind)}</li>`).join('')}</ul>
+    <p class="note">Released 08:30 New York time (18:00 or 19:00 IST); Fed decisions 14:00 New York time (23:30 or 00:30 IST).</p></div>`;
+}
+
 // What the top of the page leads with. A confident call when there is one; otherwise, when the forecast is close to a
 // coin flip, say so plainly instead of showing a price that reads like a prediction (lesson from 14 Oct 2026).
 const NO_EDGE = 5;                // percentage points around 50% that count as "no edge"
@@ -708,6 +723,7 @@ function render(d) {
       : `<div class="pricerow"><p class="display">${f(first.close)}</p><span class="pill ${cls(chg1)}">${pc(chg1 / last * 100)}</span></div>
       <p class="statement">From ${f(last)}. Likely between <b>${f(lo(first))}</b> and <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>`}
       ${head && head.from === 'call' ? '' : callLine(d)}
+      ${eventLine(d)}
       ${stale}
     </section>
     <div class="facts">${facts.map(([v, t, c]) => `<div class="fact glass"><b class="${c}">${v}</b><span>${t}</span></div>`).join('')}</div>
@@ -725,6 +741,7 @@ function render(d) {
       ${sec("Today's call in detail", 'Pre-open call, mid-day update and the live record', today)}
       ${sec('Day by day', `Open, high, low and close for the next ${fc.length} days`, `
         ${toggle}
+        ${upcomingEvents(d)}
         <div class="card">
           ${d.today_live ? `<p class="note" style="margin:0 0 8px">Live so far: open ${f(d.today_live.open)}, high ${f(d.today_live.high)}, low ${f(d.today_live.low)}, now ${f(d.today_live.close)}</p>` : ''}
           ${d.inr ? `<p class="note" style="margin:0 0 8px">In rupees: ${inrText(d, first.close)} (last close ${inrText(d, last)}) ${tip('inr')}</p>` : ''}
