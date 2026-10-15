@@ -38,7 +38,7 @@ _M = "|".join(MONTHS)
 _ABBR = {m[:3]: i + 1 for i, m in enumerate(MONTHS)}
 # "January 27-28", "March 17-18*", "Apr/May 30-1", "October 28-29" (a meeting's days; the decision is on the last day)
 _MEETING = re.compile(rf"\b({_M}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec))"
-                      rf"\s+(\d{{1,2}})(?!\d)(?:\s*-\s*(\d{{1,2}})(?!\d))?\*?(?!\s*,\s*\d{{4}})")
+                      rf"\s+(\d{{1,2}})(?!\d)(?:\s*-\s*(\d{{1,2}})(?!\d))?(?!\s*-)\*?(?!\s*,\s*\d{{4}})")
 
 
 def _get(url, timeout=40):
@@ -67,7 +67,7 @@ def parse_fomc_current(html):
     parts = re.split(r"(\d{4}) FOMC Meetings", text)
     out = {}
     for i in range(1, len(parts) - 1, 2):
-        year, block = int(parts[i]), parts[i + 1]
+        year, block = int(parts[i]), parts[i + 1].split("Note:")[0]   # the note names next year's first meeting
         days = []
         for m in _MEETING.finditer(block):
             tail = re.split(rf"\b(?:{_M}|[A-Z][a-z]{{2}}/)", block[m.end():m.end() + 40])[0].lower()   # up to the next meeting

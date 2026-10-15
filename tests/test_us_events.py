@@ -10,13 +10,16 @@ import us_events as ue  # noqa: E402
 
 PAGE = """<h4>2026 FOMC Meetings</h4><div>January</div><div>27-28</div> Statement: PDF | HTML
 Minutes: (Released February 18, 2026) <div>March</div> <div>17-18*</div> <div>Apr/May</div><div>30-1</div>
-<div>October</div><div>6</div> (unscheduled) <h4>2025 FOMC Meetings</h4> January 28-29 Statement"""
+<div>October</div><div>6</div> (unscheduled) <div>December</div><div>8-9*</div>
+* Meeting associated with a Summary of Economic Projections. Note: A two-day meeting is scheduled for January 26-27, 2027.
+<h4>2025 FOMC Meetings</h4> January 28-29 Statement"""
 
 
 class Events(unittest.TestCase):
     def test_current_page(self):
         y = ue.parse_fomc_current(PAGE)
-        self.assertEqual(y[2026], [date(2026, 1, 28), date(2026, 3, 18), date(2026, 5, 1)])   # unscheduled dropped
+        self.assertEqual(y[2026], [date(2026, 1, 28), date(2026, 3, 18), date(2026, 5, 1), date(2026, 12, 9)])
+        # unscheduled dropped; "January 26-27, 2027" in the note is not a 2026 meeting
         self.assertEqual(y[2025], [date(2025, 1, 29)])
 
     def test_historical_page(self):

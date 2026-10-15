@@ -36,6 +36,7 @@
   "key": "gold",
   "name": "Gold",
   "group": "Metals",
+  "event_inputs": true,
   "event_timing": "us_session",
   "ticker": "GC=F",
   "unit": "USD/oz",

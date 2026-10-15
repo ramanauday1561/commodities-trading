@@ -643,7 +643,7 @@ const EVENT_NAME = { cpi: 'US inflation (CPI)', jobs: 'US jobs report', fomc: 'F
 function eventLine(d) {
   const e = d.us_events && d.us_events.before_next_close;
   const names = e ? Object.keys(EVENT_NAME).filter(k => e[k]).map(k => EVENT_NAME[k]) : [];
-  return names.length ? `<p class="callline"><span class="dot" style="background:var(--warn)"></span><span><b>${names.join(' and ')}</b> before the next close. Moves are usually bigger around these releases, so expect a wider swing than normal and do not lean on the direction.</span></p>` : '';
+  return names.length ? `<p class="callline"><span class="dot" style="background:var(--warn)"></span><span><b>${names.join(' and ')}</b> before the next close. A surprise can move markets sharply (as US inflation data did on 15 Oct 2026), so do not lean on the direction.${d.us_events.in_model ? ' The likely range and big-move chance already account for it.' : ''}</span></p>` : '';
 }
 function upcomingEvents(d) {
   const u = (d.us_events && d.us_events.upcoming) || [];

@@ -229,8 +229,9 @@ def main(key):
         # US CPI / jobs / Fed decisions between a close and the next one (scheduled ahead, so no lookahead)
         ev = us_events.features(full.index, future[0], events, inst.get("event_timing", "after_close"))
         if len(ev.columns):
-            exo = ev if exo is None else pd.concat([exo, ev], axis=1)
             ev_next = {c[3:]: bool(ev[c].iloc[-1]) for c in ev.columns if c != "ev_any"}
+            if inst.get("event_inputs"):                 # only where the backtest showed a gain (experiment mode "events")
+                exo = ev if exo is None else pd.concat([exo, ev], axis=1)
         n_exo = 0 if exo is None else exo.shape[1]
         res = run_gbm(full, future, last_close, wide, exo, inst.get("big_move_pct"))
         half_widths, risk = res["half_widths"], res["risk"]
@@ -288,7 +289,7 @@ def main(key):
         "blend": blend_info, "expected_range_pct": None if exp_range is None else round(exp_range * 100, 3),
         "settings": {"kronos_t": TEMP, "n_exo": n_exo},
         "news_feature": news_feature, "risk": risk, "range_method": range_info,
-        "us_events": {"before_next_close": ev_next,
+        "us_events": {"before_next_close": ev_next, "in_model": bool(inst.get("event_inputs")),
                       "upcoming": us_events.upcoming(events, full.index[-1].date()) if events else []},
         "inr": ({**inst["inr"], **fx} if inst.get("inr") and (fx := usd_inr()) else None),
         "candles": candles, "models": models, "backtest": backtests, "today_live": today_live,
