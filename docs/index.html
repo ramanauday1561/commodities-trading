@@ -428,7 +428,7 @@ function todayCard(d) {
     const body = c.tier === 'none'
       ? `<span class="mini">${TIER.none}: overnight signals point ${c.direction === 'up' ? 'up' : 'down'} only weakly (all calls together were right ${Math.round(all.accuracy * 100)}%).</span>`
       : `${arrow(c.direction)} <span class="lvl ${c.tier === 'lean' ? '' : 'good'}" style="margin-left:6px">${TIER[c.tier]}</span>
-         <div class="sub" style="margin-top:3px">Calls this strong were right <b>${Math.round(ti.accuracy * 100)}%</b> of the time in past tests (they come on ${Math.round(ti.share * 100)}% of days).</div>`;
+         <div class="sub" style="margin-top:3px">Calls this strong were right <b>${Math.round(ti.accuracy * 100)}%</b> of the time in past tests (they come on ${Math.round(ti.share * 100)}% of days). ${fromOpen(ti)}</div>`;
     return `<div style="margin:8px 0"><div class="k" style="margin-bottom:2px">${label}</div>${body}</div>`;
   };
   const p = t.preopen;
@@ -627,6 +627,17 @@ function callLine(d) {
   return msg ? `<p class="callline"><span class="dot"></span><span>${msg}</span></p>` : '';
 }
 
+// Being right about the close vs yesterday is mostly the opening gap, which nobody can trade (lesson from 15 Oct 2026):
+// say what following the call from the 09:15 open actually earned in the walk-forward test.
+function fromOpen(tier) {
+  const o = tier && tier.from_open;
+  if (!o) return '';
+  const pct = x => `${Math.round(x * 100)}%`;
+  return o.win_rate < 0.53
+    ? `Most of that move happens at the 09:15 open: traded from the open, calls like this won only ${pct(o.win_rate)} of the time (${pc(o.avg_pct_after_costs)} per trade after costs), so it is not a reason to trade after the open.`
+    : `Traded from the 09:15 open, calls like this won ${pct(o.win_rate)} of the time (${pc(o.avg_pct_after_costs)} per trade after costs) on few days, so treat it with caution.`;
+}
+
 // What the top of the page leads with. A confident call when there is one; otherwise, when the forecast is close to a
 // coin flip, say so plainly instead of showing a price that reads like a prediction (lesson from 14 Oct 2026).
 const NO_EDGE = 5;                // percentage points around 50% that count as "no edge"
@@ -644,7 +655,7 @@ function headline(d, first, last, upPct) {
                text: `The pre-open call was ${p.close.direction === 'up' ? 'higher' : 'lower'}, but at ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} vs yesterday's close (${f(p.prev_close)}). Do not lean on the morning call; the next update uses the live move instead.` };
     if (p && p.close.tier !== 'none' && t.status !== 'closed')
       return { ...likely(p.close.direction), pill: `${pct(p.close.tiers[p.close.tier].accuracy)} right`, from: 'call',
-               text: `Today's call from overnight markets: close ${p.close.direction === 'up' ? 'higher' : 'lower'} than ${f(p.prev_close)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time in past tests.` };
+               text: `Today's call from overnight markets: close ${p.close.direction === 'up' ? 'higher' : 'lower'} than yesterday's ${f(p.prev_close)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time in past tests. ${fromOpen(p.close.tiers[p.close.tier])}` };
   }
   const chg = (first.close / last - 1) * 100;
   if (Math.abs(upPct - 50) < NO_EDGE)

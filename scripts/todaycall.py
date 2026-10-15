@@ -64,9 +64,14 @@ def utc_at(day, hm):
     return pd.Timestamp(day).tz_localize("UTC") + pd.Timedelta(hours=hm[0], minutes=hm[1])
 
 
-def share_table(conf, correct, up, levels=(1.0, 0.5, 0.3, 0.2, 0.1), min_hist=60):
+TRADE_COST_PCT = 0.03           # round trip for NIFTY futures (brokerage, STT, fees, slippage), approximate
+
+
+def share_table(conf, correct, up, levels=(1.0, 0.5, 0.3, 0.2, 0.1), min_hist=60, pnl=None):
     """Accuracy when only the most confident calls are made. The cut-off for day i is the (1-c) quantile of the
-    confidence of days before i, so it never looks ahead."""
+    confidence of days before i, so it never looks ahead. With pnl (what following the call from the 09:15 open earned,
+    as a fraction), each level also reports how that trade did after costs: being right about the close vs
+    yesterday is mostly the opening gap, which cannot be traded (strong calls: 77% right, but 49% from the open)."""
     conf, correct, up = map(np.asarray, (conf, correct, up))
     out = {}
     for c in levels:
@@ -77,6 +82,10 @@ def share_table(conf, correct, up, levels=(1.0, 0.5, 0.3, 0.2, 0.1), min_hist=60
         out[f"top_{int(c * 100)}pct"] = {"days": n, "share": round(n / max(len(conf) - min_hist, 1), 3),
                                          "accuracy": round(float(correct[take].mean()), 3) if n else None,
                                          "always_up_same_days": round(float(up[take].mean()), 3) if n else None}
+        if pnl is not None and n:
+            net = np.asarray(pnl)[take] * 100 - TRADE_COST_PCT
+            out[f"top_{int(c * 100)}pct"]["from_open"] = {"win_rate": round(float((net > 0).mean()), 3),
+                                                          "avg_pct_after_costs": round(float(net.mean()), 3)}
     return out
 
 
@@ -132,13 +141,15 @@ def tier_of(conf, past_conf):
     return "none"
 
 
-def call_block(X, y, x_today):
-    """Today's call for one target plus the walk-forward accuracy of each confidence tier."""
+def call_block(X, y, x_today, open_to_close=None):
+    """Today's call for one target plus the walk-forward accuracy of each confidence tier (and, for the close call,
+    what following it from the open earned)."""
     wf = walk_forward(X, y)
     ok = ~np.isnan(wf)
     p, t = wf[ok], y[ok]
+    pnl = np.sign(p) * np.asarray(open_to_close)[ok] if open_to_close is not None else None
     table = share_table(np.abs(p), (np.sign(p) == np.sign(t)).astype(float), (t > 0).astype(float),
-                        levels=(1.0, 0.5, 0.2, 0.1), min_hist=20)
+                        levels=(1.0, 0.5, 0.2, 0.1), min_hist=20, pnl=pnl)
     tiers = {"very_strong": table["top_10pct"], "strong": table["top_20pct"], "lean": table["top_50pct"],
              "all_days": table["top_100pct"]}
     pred = ridge_predict(ridge_fit(X, y), x_today)
@@ -240,7 +251,7 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         x_gap, x_day = np.array([f[k] for k in GAP_FEATS]), np.array([f[k] for k in FEATS])
         pre = {"cutoff_ist": cutoff.tz_convert(IST).strftime("%H:%M"), "prev_close": round(float(nd["close"].iloc[-1]), 2),
                "moves_pct": {k: round(v * 100, 2) for k, v in f.items()},
-               "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FEATS].values, day, x_day),
+               "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FEATS].values, day, x_day, (1 + day) / (1 + gap) - 1),
                "since": str(df.index[0].date())}
         out["preopen"] = pre
         made_before_open = (now.hour, now.minute) < OPEN_IST
