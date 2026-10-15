@@ -1,29 +1,23 @@
-"""Temporary: which official calendar sources answer from a GitHub runner?"""
+"""Temporary: which official calendar sources answer from a GitHub runner? (second try)"""
 import re
 import urllib.request
 
-UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36",
-      "Accept-Language": "en-US,en;q=0.9"}
+H = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9",
+     "Referer": "https://www.bls.gov/", "Connection": "keep-alive"}
 URLS = [
-    "https://www.federalreserve.gov/monetarypolicy/fomccalendars.htm",
-    "https://www.federalreserve.gov/monetarypolicy/fomchistorical2019.htm",
-    "https://www.bls.gov/schedule/news_release/cpi.htm",
-    "https://www.bls.gov/schedule/news_release/empsit.htm",
-    "https://www.bls.gov/bls/news-release/cpi.htm",
-    "https://www.bls.gov/bls/news-release/empsit.htm",
-    "https://alfred.stlouisfed.org/series/downloaddata?seid=CPIAUCSL",
-    "https://fred.stlouisfed.org/releases/dates?rid=10",
-    "https://www.bls.gov/schedule/2023/home.htm",
+    ("https://www.bls.gov/schedule/news_release/bls.ics", H),
+    ("https://www.bls.gov/schedule/news_release/cpi.htm", H),
+    ("https://www.bls.gov/cpi/", H),
+    ("https://api.stlouisfed.org/fred/series/vintagedates?series_id=CPIAUCSL&file_type=json", {"User-Agent": "Mozilla/5.0"}),
+    ("https://fred.stlouisfed.org/graph/fredgraph.csv?id=CPIAUCSL", {"User-Agent": "Mozilla/5.0"}),
+    ("https://alfred.stlouisfed.org/graph/alfredgraph.csv?id=CPIAUCSL", {"User-Agent": "Mozilla/5.0"}),
+    ("https://www.federalreserve.gov/releases/h15/", {"User-Agent": "Mozilla/5.0"}),
 ]
-for u in URLS:
+for u, h in URLS:
     try:
-        req = urllib.request.Request(u, headers=UA)
-        body = urllib.request.urlopen(req, timeout=30).read().decode("utf-8", "ignore")
-        text = re.sub(r"<[^>]+>", " ", body)
-        text = re.sub(r"\s+", " ", text)
-        dates = re.findall(r"(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.? \d{1,2},? \d{4}", text)
-        print(f"PROBE OK {u} len={len(body)} dates={len(dates)} sample={dates[:6]}")
-        i = text.find("2024")
-        print("   text:", text[max(0, i - 300):i + 500][:800])
+        body = urllib.request.urlopen(urllib.request.Request(u, headers=h), timeout=60).read().decode("utf-8", "ignore")
+        print(f"PROBE OK {u} len={len(body)}")
+        print("   head:", re.sub(r"\s+", " ", body[:700]))
     except Exception as e:
-        print(f"PROBE FAIL {u} {e!r}")
+        print(f"PROBE FAIL {u} {e!r} {getattr(e, 'read', lambda: b'')()[:200]!r}")
