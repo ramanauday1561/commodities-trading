@@ -193,6 +193,20 @@ def main(key, test_days=750, step=2, mode="variants"):
             import accuracy_study
             accuracy_study.commodity(key)
         return
+    if mode == "calendar":                               # just print the parsed US event calendar
+        if key == "nifty":
+            import us_events
+            from collections import Counter
+            ev = us_events.fetch_all()
+            for k, v in ev.items():
+                print(f"CAL {k} per year " + json.dumps(dict(sorted(Counter(d.year for d in v).items()))), flush=True)
+                for y in sorted({d.year for d in v})[-3:]:
+                    print(f"CAL {k} {y}: " + ", ".join(d.isoformat() for d in v if d.year == y), flush=True)
+            html = us_events._get(us_events.FOMC_CURRENT)
+            t = us_events._text(html)
+            i = t.find("2027 FOMC Meetings")
+            print("CAL 2027 text: " + t[i:i + 900], flush=True)
+        return
     if mode == "strategy":
         if key == "nifty":
             import accuracy_study
