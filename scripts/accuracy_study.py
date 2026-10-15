@@ -280,6 +280,93 @@ def commodity(key):
         print(f"STUDY futures_intraday {key} failed: {e!r}", flush=True)
 
 
+INDIA = ["hdb", "ibn", "infy", "crude", "usdinr"]
+FEATURE_SETS = {"live": [], "sox": ["sox"], "india": INDIA, "india_sox": INDIA + ["sox"]}
+TIER_TOP = (("very_strong", 0.10), ("strong", 0.20), ("lean", 0.50))
+
+
+def _tiers_with_cap(X, y, cap_z):
+    """Walk-forward calls like the live card, with each day's tier from the confidence of earlier calls. With cap_z,
+    a day whose inputs sit more than cap_z standard deviations from the training data gets at most "lean"."""
+    preds = tc.walk_forward(X, y)
+    rows = []
+    for i in range(tc.MIN_HIST, len(y)):
+        past = np.abs(preds[tc.MIN_HIST:i])
+        if len(past) < 20:
+            continue
+        mu, sd = X[:i].mean(0), X[:i].std(0) + 1e-12
+        z = float(np.max(np.abs((X[i] - mu) / sd)))
+        tier = "none"
+        for name, top in TIER_TOP:
+            if abs(preds[i]) >= np.quantile(past, 1 - top):
+                tier = name
+                break
+        if cap_z is not None and z > cap_z and tier in ("very_strong", "strong"):
+            tier = "lean"
+        rows.append((tier, z, float(np.sign(preds[i]) == np.sign(y[i]))))
+    return rows
+
+
+def _summ(rows, extreme_z=4.0):
+    out = {}
+    order = ["very_strong", "strong", "lean", "none"]
+    for i, name in enumerate(order[:-1]):                    # cumulative, like the page: "calls at least this strong"
+        hit = [r[2] for r in rows if r[0] in order[:i + 1]]
+        out[name] = {"days": len(hit), "accuracy": round(float(np.mean(hit)), 3) if hit else None}
+    ext = [r for r in rows if r[1] > extreme_z]
+    out["extreme_days"] = {"days": len(ext), "accuracy_all": round(float(np.mean([r[2] for r in ext])), 3) if ext else None,
+                           "top_tier_calls": sum(r[0] in ("very_strong", "strong") for r in ext),
+                           "top_tier_accuracy": round(float(np.mean([r[2] for r in ext if r[0] in ("very_strong", "strong")])), 3)
+                           if any(r[0] in ("very_strong", "strong") for r in ext) else None}
+    out["all_days"] = {"days": len(rows), "accuracy": round(float(np.mean([r[2] for r in rows])), 3)}
+    return out
+
+
+def extreme_days(nd):
+    """9. After 15 Oct 2026 (KOSPI -7.6%, Nikkei -4.9% in a chip-led sell-off; NIFTY rose ~1.9% after a 'very strong'
+    call for lower): India-specific inputs, the semiconductor index, and a cap on confidence when inputs are extreme."""
+    extra = {"hdb": "HDB", "ibn": "IBN", "infy": "INFY", "crude": "CL=F", "usdinr": "INR=X", "sox": "^SOX"}
+    series = {k: hourly(t) for k, t in {**OVERNIGHT, **extra}.items()}
+    df = tc.history(nd, series)
+    cols = list(OVERNIGHT) + list(extra) + ["prev_day"]
+    df[cols] = df[cols].fillna(0.0)
+    out = {"days": len(df), "from": str(df.index[0].date())}
+    # how extreme were this morning's inputs (overnight to 09:10 IST on the last day in the data + 1)?
+    today = pd.Timestamp.now(tz="Asia/Kolkata").normalize().tz_localize(None)
+    for name, extra_feats in FEATURE_SETS.items():
+        feats = tc.FEATS + extra_feats
+        X = df[feats].values
+        res = {}
+        for target in ("gap", "day"):
+            y = df[target].values
+            res[target] = {"no_cap": _summ(_tiers_with_cap(X, y, None)),
+                           "cap_z4": _summ(_tiers_with_cap(X, y, 4.0)),
+                           "cap_z3": _summ(_tiers_with_cap(X, y, 3.0))}
+        # replay this morning's call with this feature set
+        try:
+            prev_day = nd.index[-1].date()
+            f = tc.overnight_features(series, prev_day, today.date(), tc.utc_at(today.date(), tc.CUTOFF),
+                                      nd["close"].iloc[-1] / nd["close"].iloc[-2] - 1)
+            x = np.array([f[k] for k in feats])
+            mu, sd = X.mean(0), X.std(0) + 1e-12
+            res["today"] = {"date": str(today.date()), "max_abs_z": round(float(np.max(np.abs((x - mu) / sd))), 2),
+                            "z_by_input": {k: round(float(v), 2) for k, v in zip(feats, (x - mu) / sd)},
+                            "gap_pred_pct": round(tc.ridge_predict(tc.ridge_fit(X, df["gap"].values), x) * 100, 3),
+                            "close_pred_pct": round(tc.ridge_predict(tc.ridge_fit(X, df["day"].values), x) * 100, 3)}
+        except Exception as e:
+            res["today"] = repr(e)
+        out[name] = res
+    return out
+
+
+def extreme():
+    nd = daily(NIFTY)
+    try:
+        print("STUDY extreme_days " + json.dumps(extreme_days(nd)), flush=True)
+    except Exception as e:
+        print(f"STUDY extreme_days failed: {e!r}", flush=True)
+
+
 def improve():
     nd = daily(NIFTY)
     for name, fn in (("overnight_variants", lambda: overnight_variants(nd)), ("after_big_day", lambda: after_big_day(nd)),
