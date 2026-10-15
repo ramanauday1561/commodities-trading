@@ -59,6 +59,18 @@ class Calls(unittest.TestCase):
         self.assertEqual(tc.value_at(s, pd.Timestamp("2026-10-13 03:59", tz="UTC")), 1.0)
         self.assertTrue(np.isnan(tc.value_at(s, pd.Timestamp("2026-10-13 02:00", tz="UTC"))))
 
+    def test_history_has_every_input_and_no_gaps(self):
+        days = pd.bdate_range("2026-09-01", "2026-09-30")
+        nd = pd.DataFrame({"open": np.linspace(100, 110, len(days)), "close": np.linspace(100.5, 110.5, len(days))},
+                          index=days)
+        hours = pd.date_range("2026-08-30", "2026-10-01", freq="h", tz="UTC")
+        series = {k: pd.Series(np.linspace(1, 2, len(hours)), index=hours) for k in {**tc.OVERNIGHT, **tc.INDIA}}
+        series["usdinr"] = pd.Series(dtype=float)                       # a missing input becomes 0, not NaN
+        df = tc.history(nd, series)
+        self.assertTrue(set(tc.GAP_FEATS) <= set(df.columns))
+        self.assertFalse(df[tc.GAP_FEATS].isna().any().any())
+        self.assertTrue((df["usdinr"] == 0).all())
+
 
 if __name__ == "__main__":
     unittest.main()

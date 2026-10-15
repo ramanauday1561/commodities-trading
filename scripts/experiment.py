@@ -5,6 +5,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "risk": big-move probability and likely-range methods (see risk_and_range)
   mode "accuracy": NIFTY only, see accuracy_study.py
   mode "improve": NIFTY only, extra pre-open inputs and intraday patterns (see accuracy_study.improve)
+  mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
   mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
   mode "dailyfill": daily candles rebuilt from 15-minute bars vs Yahoo's own daily rows (last ~55 sessions)
 
@@ -174,6 +175,11 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key != "nifty":
             import accuracy_study
             accuracy_study.commodity(key)
+        return
+    if mode == "extreme":
+        if key == "nifty":
+            import accuracy_study
+            accuracy_study.extreme()
         return
     if mode in ("accuracy", "improve"):        # NIFTY-only studies of where direction calls are most reliable
         if key == "nifty":

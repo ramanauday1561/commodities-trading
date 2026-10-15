@@ -1,6 +1,8 @@
 """NIFTY "Today's call": direction calls that use information arriving overnight and during the session.
 
-Pre-open (from US index futures, Nikkei, KOSPI and Hang Seng between NIFTY's previous close and 09:10 IST):
+Pre-open (from US index futures, Nikkei, KOSPI and Hang Seng between NIFTY's previous close and 09:10 IST; the gap
+call also uses the New York-listed Indian ADRs HDB/IBN/INFY, crude oil and USD/INR, which lifted its walk-forward
+accuracy from 71% to 76% of all days, see accuracy_study.extreme_days):
   * the opening gap: will NIFTY open above or below yesterday's close?
   * today's close: will it close above or below yesterday's close?
   A ridge regression refitted on the past ~2.5 years makes each call; its confidence is ranked against its own past
@@ -30,6 +32,8 @@ NIFTY = "^NSEI"
 IST = ZoneInfo("Asia/Kolkata")
 OVERNIGHT = {"es": "ES=F", "nq": "NQ=F", "nikkei": "^N225", "kospi": "^KS11", "hangseng": "^HSI"}
 FEATS = list(OVERNIGHT) + ["prev_day"]
+INDIA = {"hdb": "HDB", "ibn": "IBN", "infy": "INFY", "crude": "CL=F", "usdinr": "INR=X"}
+GAP_FEATS = FEATS + list(INDIA)                  # the close call keeps FEATS: the extra inputs did not help it
 CUTOFF = (3, 40)                 # 09:10 IST in UTC: the latest information a pre-open call may use
 PREV_CLOSE = (10, 0)             # 15:30 IST in UTC
 OPEN_IST = (9, 15)
@@ -97,7 +101,8 @@ def history(nd, series):
         rows.append({"d": days[i], **f, "gap": nd["open"].iloc[i] / nd["close"].iloc[i - 1] - 1,
                      "day": nd["close"].iloc[i] / nd["close"].iloc[i - 1] - 1})
     df = pd.DataFrame(rows).set_index("d").replace([np.inf, -np.inf], np.nan)
-    df[FEATS] = df[FEATS].fillna(0.0)
+    cols = [c for c in df.columns if c not in ("gap", "day")]
+    df[cols] = df[cols].fillna(0.0)
     return df[df["gap"].abs() > 1e-6]                   # days where Yahoo's open equals the previous close are unusable
 
 
@@ -226,16 +231,16 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         out["status"] = "holiday"
     else:
         nd = nd_all[nd_all.index.date < today]                             # completed sessions only
-        series = {k: hourly(t) for k, t in OVERNIGHT.items()}
+        series = {k: hourly(t) for k, t in {**OVERNIGHT, **INDIA}.items()}
         df = history(nd, series)
-        X, gap, day = df[FEATS].values, df["gap"].values, df["day"].values
+        gap, day = df["gap"].values, df["day"].values
         cutoff = min(pd.Timestamp(now).tz_convert("UTC"), utc_at(today, CUTOFF))
         prev_day = nd.index[-1].date()
         f = overnight_features(series, prev_day, today, cutoff, nd["close"].iloc[-1] / nd["close"].iloc[-2] - 1)
-        x = np.array([f[k] for k in FEATS])
+        x_gap, x_day = np.array([f[k] for k in GAP_FEATS]), np.array([f[k] for k in FEATS])
         pre = {"cutoff_ist": cutoff.tz_convert(IST).strftime("%H:%M"), "prev_close": round(float(nd["close"].iloc[-1]), 2),
                "moves_pct": {k: round(v * 100, 2) for k, v in f.items()},
-               "gap": call_block(X, gap, x), "close": call_block(X, day, x),
+               "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FEATS].values, day, x_day),
                "since": str(df.index[0].date())}
         out["preopen"] = pre
         made_before_open = (now.hour, now.minute) < OPEN_IST

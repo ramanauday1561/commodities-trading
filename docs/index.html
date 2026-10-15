@@ -432,8 +432,9 @@ function todayCard(d) {
     return `<div style="margin:8px 0"><div class="k" style="margin-bottom:2px">${label}</div>${body}</div>`;
   };
   const p = t.preopen;
-  const mv = p ? Object.entries({ es: 'US S&P futures', nq: 'US Nasdaq futures', nikkei: 'Nikkei', kospi: 'KOSPI', hangseng: 'Hang Seng' })
-      .map(([k, n]) => `${n} ${pc(p.moves_pct[k])}`).join(' · ') : '';
+  const mv = p ? Object.entries({ es: 'US S&P futures', nq: 'US Nasdaq futures', nikkei: 'Nikkei', kospi: 'KOSPI', hangseng: 'Hang Seng',
+        hdb: 'HDFC Bank ADR', ibn: 'ICICI ADR', infy: 'Infosys ADR', crude: 'crude oil', usdinr: 'USD/INR' })
+      .filter(([k]) => p.moves_pct[k] != null).map(([k, n]) => `${n} ${pc(p.moves_pct[k])}`).join(' · ') : '';
   const pre = p ? `${line(`Opening at 9:15 vs yesterday's close (${f(p.prev_close)})`, p.gap)}${line('Close today vs yesterday\'s close', p.close)}
     <div class="sub">Based on markets up to ${esc(p.cutoff_ist)} IST since NIFTY's last close: ${mv}. Tested on ${p.close.test_days} days since ${esc(p.since)}.</div>` : '';
   const i = t.intraday;
@@ -637,6 +638,10 @@ function headline(d, first, last, upPct) {
     if (i && t.status === 'open' && i.accuracy != null && i.accuracy >= 0.85)
       return { ...likely(i.direction), pill: `${pct(i.accuracy)} held`, from: 'call',
                text: `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day. When it was this far ${i.direction === 'up' ? 'up' : 'down'} at this time, it closed on the same side ${pct(i.accuracy)} of the time.` };
+    // Once the session is moving against the morning call, stop showing it as the answer (lesson from 15 Oct 2026).
+    if (p && p.close.tier !== 'none' && i && t.status === 'open' && i.direction !== p.close.direction && Math.abs(i.move_pct) >= 0.25)
+      return { word: 'Morning call in doubt', cls: 'warn', pill: `${pc(i.move_pct)} now`, from: 'call',
+               text: `The pre-open call was ${p.close.direction === 'up' ? 'higher' : 'lower'}, but at ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} vs yesterday's close (${f(p.prev_close)}). Do not lean on the morning call; the next update uses the live move instead.` };
     if (p && p.close.tier !== 'none' && t.status !== 'closed')
       return { ...likely(p.close.direction), pill: `${pct(p.close.tiers[p.close.tier].accuracy)} right`, from: 'call',
                text: `Today's call from overnight markets: close ${p.close.direction === 'up' ? 'higher' : 'lower'} than ${f(p.prev_close)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time in past tests.` };

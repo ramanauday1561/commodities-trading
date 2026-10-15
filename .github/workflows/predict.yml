@@ -57,6 +57,26 @@ jobs:
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
           echo "skip=$skip"
 
+  start-keeper:
+    # GitHub skips scheduled runs at busy times (on 15 Oct 2026 every morning keeper/nowcast schedule was dropped), so
+    # the morning forecast run - scheduled, or the page's Rerun button - also starts the market-day keeper. The keeper
+    # itself exits on holidays and when one is already running.
+    needs: gate
+    if: ${{ needs.gate.outputs.skip != 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - run: |
+          hm=$(TZ=Asia/Kolkata date +%H%M)
+          if [ "$hm" -ge 0700 ] && [ "$hm" -le 1430 ]; then
+            gh workflow run keeper.yml --repo "${{ github.repository }}" --ref main && echo "keeper started at $hm IST"
+          else
+            echo "outside market hours ($hm IST); keeper not started"
+          fi
+
   setup:
     needs: gate
     if: ${{ needs.gate.outputs.skip != 'true' }}
