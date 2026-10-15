@@ -22,7 +22,7 @@ permissions:
 jobs:
   keep:
     runs-on: ubuntu-latest
-    timeout-minutes: 355       # GitHub's limit is 6 hours; the last update is at 14:50 IST
+    timeout-minutes: 355       # GitHub's limit is 6 hours; the last update is at 14:50 IST, then the post-close forecast at 15:50
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
@@ -41,4 +41,6 @@ jobs:
           if [ "$others" = "0" ] && [ "$day" = "1" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
       - name: Start the nowcast at each update time
         if: steps.go.outputs.ok == 'true'
+        env:
+          HANDOFF: ${{ github.event.inputs.handoff }}
         run: python -u scripts/keeper.py
