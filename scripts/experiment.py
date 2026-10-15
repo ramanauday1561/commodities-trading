@@ -177,6 +177,10 @@ def main(key, test_days=750, step=2, mode="variants"):
             import accuracy_study
             accuracy_study.commodity(key)
         return
+    if mode == "probe":
+        if key == "nifty":
+            import probe_sources  # noqa: F401
+        return
     if mode == "strategy":
         if key == "nifty":
             import accuracy_study
