@@ -24,6 +24,14 @@ def dispatch(label):
           flush=True)
 
 
+def hand_over():
+    """Near the job's time limit: start a fresh keeper for the remaining update times, then exit."""
+    r = subprocess.run(["gh", "workflow", "run", "keeper.yml", "--ref", "main", "-f", "handoff=1"],
+                       capture_output=True, text=True)
+    print(f"{datetime.now(IST):%H:%M:%S} IST  handed over to a new keeper: "
+          f"{'ok' if r.returncode == 0 else 'FAILED ' + r.stderr.strip()}", flush=True)
+
+
 def main():
     start = datetime.now(IST)
     slots = [at(start, t) for t in TIMES]
@@ -33,7 +41,7 @@ def main():
         dispatch(f"catch-up for {passed[-1]:%H:%M}")
     for s in due:
         if s - start > MAX_RUN:
-            print(f"stopping: {s:%H:%M} is past this job's time limit", flush=True)
+            hand_over()
             break
         time.sleep(max(0.0, (s - datetime.now(IST)).total_seconds()))
         dispatch(f"{s:%H:%M}")

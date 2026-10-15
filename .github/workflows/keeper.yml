@@ -9,6 +9,11 @@ on:
     - cron: "7 3 * * 1-5"      # 08:37 IST
     - cron: "19 3 * * 1-5"     # 08:49 IST (backup start; exits if a keeper is already running)
   workflow_dispatch:
+    inputs:
+      handoff:
+        description: "Started by a keeper reaching its time limit (skips the one-keeper check)"
+        required: false
+        default: ""
 
 permissions:
   actions: write               # start the nowcast workflow
@@ -29,6 +34,7 @@ jobs:
       - name: Only one keeper, only on NSE trading days
         id: go
         run: |
+          if [ -n "${{ github.event.inputs.handoff }}" ]; then sleep 60; fi    # let the previous keeper exit first
           others=$(gh run list --workflow keeper.yml --status in_progress --json databaseId --jq "[.[] | select(.databaseId != ${{ github.run_id }})] | length")
           day=$(PYTHONPATH=scripts python -c "from datetime import datetime; from zoneinfo import ZoneInfo; from calendars import is_session; print(int(is_session(datetime.now(ZoneInfo('Asia/Kolkata')).date(), 'XBOM')))")
           echo "other keepers running: $others, trading day: $day"
