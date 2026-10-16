@@ -63,6 +63,7 @@
   "key": "silver",
   "name": "Silver",
   "group": "Metals",
+  "event_inputs": true,
   "event_timing": "us_session",
   "ticker": "SI=F",
   "unit": "USD/oz",
