@@ -435,7 +435,7 @@ function todayCard(d) {
   const mv = p ? Object.entries({ es: 'US S&P futures', nq: 'US Nasdaq futures', nikkei: 'Nikkei', kospi: 'KOSPI', hangseng: 'Hang Seng',
         hdb: 'HDFC Bank ADR', ibn: 'ICICI ADR', infy: 'Infosys ADR', crude: 'crude oil', usdinr: 'USD/INR' })
       .filter(([k]) => p.moves_pct[k] != null).map(([k, n]) => `${n} ${pc(p.moves_pct[k])}`).join(' · ') : '';
-  const pre = p ? `${line(`Opening at 9:15 vs yesterday's close (${f(p.prev_close)})`, p.gap)}${line('Close today vs yesterday\'s close', p.close)}
+  const pre = p ? `${line(`Opening at 9:15 vs yesterday's close (${f(p.prev_close)})`, p.gap)}${line('Close today vs yesterday\'s close', p.close)}${openSignal(p)}
     <div class="sub">${p.recorded ? `<b>${p.recorded.final ? 'Final call' : 'Latest call'}: made at ${esc(p.recorded.made_at)} IST.</b> ` : ''}Based on markets up to ${esc(p.cutoff_ist)} IST since NIFTY's last close: ${mv}. Tested on ${p.close.test_days} days since ${esc(p.since)}.</div>` : '';
   const i = t.intraday;
   let intr = '';
@@ -466,7 +466,8 @@ function todayCard(d) {
   const r = t.record || {};
   const recLine = kind => Object.entries(r[kind] || {}).filter(([k]) => k !== 'none')
       .map(([k, v]) => `${TIER[k].toLowerCase()} ${v.hits}/${v.calls}`).join(', ');
-  const rec = r.days ? `Live record (${r.days} days): opening calls ${recLine('gap') || 'none yet'}; close calls ${recLine('close') || 'none yet'}.` : 'The live record starts with today\'s pre-open call.';
+  const fo = r.from_open, foLine = fo && fo.days ? ` From-open signal: ${fo.trades ? `${fo.wins}/${fo.trades} trades won, ${pc(fo.total_pct)} in total after costs` : 'no trades yet'} (${fo.days} days).` : '';
+  const rec = r.days ? `Live record (${r.days} days): opening calls ${recLine('gap') || 'none yet'}; close calls ${recLine('close') || 'none yet'}.${foLine}` : 'The live record starts with today\'s pre-open call.';
   return `<div class="card live"><div class="k"><span class="pulse"></span>Today's call · ${esc(t.date)} ${tip('todaycall')}</div>
     ${pre}${intr}
     <p class="note" style="margin-top:10px">${rec} Overnight markets explain most of the opening gap but not surprises during the day, and no call is a guarantee.</p></div>`;
@@ -630,7 +631,7 @@ function callLine(d) {
     msg = `Today's call was ${word(p.close.direction)}; it closed ${pc(i.move_pct)}, so the call was ${(p.close.direction === 'up') === (i.move_pct > 0) ? '<b class="up">right</b>' : '<b class="down">wrong</b>'}.`;
   } else if (p) {
     msg = (p.close.tier === 'none' ? "Today's call: no clear direction from overnight markets."
-      : `Today's call: close ${word(p.close.direction)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time.`) + callStamp(p);
+      : `Today's call: close ${word(p.close.direction)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time.`) + openSignalShort(p) + callStamp(p);
   }
   return msg ? `<p class="callline"><span class="dot"></span><span>${msg}</span></p>` : '';
 }
@@ -644,6 +645,24 @@ function fromOpen(tier) {
   return o.win_rate < 0.53
     ? `Most of that move happens at the 09:15 open: traded from the open, calls like this won only ${pct(o.win_rate)} of the time (${pc(o.avg_pct_after_costs)} per trade after costs), so it is not a reason to trade after the open.`
     : `Traded from the 09:15 open, calls like this won ${pct(o.win_rate)} of the time (${pc(o.avg_pct_after_costs)} per trade after costs) on few days, so treat it with caution.`;
+}
+
+// The from-open signal (scripts/todaycall.py from_open_block): trained on the 09:15 open -> close move and only trades
+// on its top-20% most confident days. Every other day says "no trade" plainly: buying the open every day lost money.
+function openSignal(p) {
+  const o = p && p.from_open;
+  if (!o) return '';
+  const s = o.trade_stats || {}, fo = s.from_open || {};
+  const stats = s.days ? `In past tests it traded on ${s.days} of ${o.test_days} days, won ${Math.round((fo.win_rate || 0) * 100)}% and made ${pc(fo.avg_pct_after_costs || 0)} per trade after costs. That edge is small and not proven yet; the live record below tracks it.` : '';
+  const body = o.trade
+    ? `${o.direction === 'up' ? '<b class="up">▲ Buy at the open</b>' : '<b class="down">▼ Sell at the open</b>'}, exit at the close <span class="lvl good" style="margin-left:6px">Signal</span>`
+    : `<b>No trade today.</b> <span class="mini">The model leans ${o.direction === 'up' ? 'up' : 'down'} from the open, but not strongly enough to trade (it trades only on its most confident days, ranked against its own past calls).</span>`;
+  return `<div style="margin:8px 0"><div class="k" style="margin-bottom:2px">Trading from the 09:15 open</div>${body}<div class="sub" style="margin-top:3px">${stats}</div></div>`;
+}
+function openSignalShort(p) {
+  const o = p && p.from_open;
+  if (!o) return '';
+  return o.trade ? ` From-open signal: <b>${o.direction === 'up' ? 'buy' : 'sell'} at the open</b> (rare, small edge).` : ' From-open signal: no trade today.';
 }
 
 // US releases that move these markets most; scheduled weeks ahead (scripts/us_events.py).

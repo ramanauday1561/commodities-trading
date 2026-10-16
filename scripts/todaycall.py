@@ -7,6 +7,11 @@ accuracy from 71% to 76% of all days, see accuracy_study.extreme_days):
   * today's close: will it close above or below yesterday's close?
   A ridge regression refitted on the past ~2.5 years makes each call; its confidence is ranked against its own past
   walk-forward calls, and the page shows only the accuracy of that confidence tier in the walk-forward test.
+From-open signal: for trading from the 09:15 open. A ridge on the gap call's inputs trained on the move from the open to
+  the close (not vs yesterday's close), and a trade only on its top-20% most confident days (ranked against its own
+  past walk-forward calls); every other day is "no trade". Backtest (open_study.py, ~600 days): 42 trades, 55% won,
+  +0.16% per trade after costs, positive in both halves but not statistically proven (t 1.2), so it is recorded and
+  scored from the open in the live record before anyone should trust it. Buying the open every day lost ~0.07%/day.
 During the session (from 10:15 IST): today's close direction from the move so far, with the historical accuracy of
   "the sign of the move at this time of day, for moves at least this big".
 
@@ -40,6 +45,7 @@ OPEN_IST = (9, 15)
 CHECKPOINTS = [(4, 45), (5, 45), (6, 45), (7, 45), (8, 45)]       # 10:15 ... 14:15 IST (UTC bar ends)
 BUCKETS = (0.0, 0.0025, 0.005, 0.0075, 0.01)
 TIERS = (("very_strong", 0.10), ("strong", 0.20), ("lean", 0.50))
+TRADE_TIERS = ("very_strong", "strong")          # from-open signal: trade only on the top-20% most confident days
 RIDGE = 5.0
 MIN_HIST = 60
 
@@ -157,6 +163,14 @@ def call_block(X, y, x_today, open_to_close=None):
             "tier": tier_of(abs(pred), np.abs(p)), "tiers": tiers, "test_days": int(ok.sum())}
 
 
+def from_open_block(X, o2c, x_today):
+    """The from-open signal: trained on open -> close, so its tier stats are what a trade from the open earned."""
+    c = call_block(X, o2c, x_today, o2c)
+    c["trade"] = c["tier"] in TRADE_TIERS
+    c["trade_stats"] = c["tiers"]["strong"]              # top 20% (cumulative): the days it trades
+    return c
+
+
 def intraday_table(nd, bars):
     """Accuracy of 'today closes on the side of yesterday's close where it trades now', by time and move size."""
     prev_close = nd["close"].shift(1)
@@ -200,6 +214,10 @@ def resolve(record, nd, today, now):
         r["result"] = {"open": round(float(o), 2), "close": round(float(c), 2), "prev_close": round(float(pc), 2),
                        "gap_hit": bool((o > pc) == (r["gap"]["direction"] == "up")),
                        "close_hit": bool((c > pc) == (r["close"]["direction"] == "up"))}
+        fo = r.get("from_open")
+        if fo and fo.get("trade"):                      # scored the way it is traded: 09:15 open to close, after costs
+            side = 1 if fo["direction"] == "up" else -1
+            r["result"]["from_open_pct"] = round(side * (c / o - 1) * 100 - TRADE_COST_PCT, 3)
     return record
 
 
@@ -215,9 +233,13 @@ def summarize_record(record):
             by[t]["calls"] += 1
             by[t]["hits"] += int(r["result"][f"{kind}_hit"])
         out[kind] = by
+    trades = [r["result"]["from_open_pct"] for r in record if "from_open_pct" in r.get("result", {})]
+    out["from_open"] = {"trades": len(trades), "wins": sum(x > 0 for x in trades),
+                        "total_pct": round(float(sum(trades)), 3), "days": sum("result" in r and "from_open" in r for r in record)}
     out["days"] = sum("result" in r for r in record)
     out["recent"] = [{"d": r["d"], "gap": r["gap"]["direction"], "gap_tier": r["gap"]["tier"],
-                      "close": r["close"]["direction"], "close_tier": r["close"]["tier"], **r["result"]}
+                      "close_call": r["close"]["direction"], "close_tier": r["close"]["tier"],   # "close" is the price
+                      "from_open_trade": bool((r.get("from_open") or {}).get("trade")), **r["result"]}
                      for r in record if "result" in r][-10:][::-1]
     return out
 
@@ -245,6 +267,7 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         series = {k: hourly(t) for k, t in {**OVERNIGHT, **INDIA}.items()}
         df = history(nd, series)
         gap, day = df["gap"].values, df["day"].values
+        o2c = (1 + day) / (1 + gap) - 1                                      # 09:15 open -> close
         cutoff = min(pd.Timestamp(now).tz_convert("UTC"), utc_at(today, CUTOFF))
         prev_day = nd.index[-1].date()
         f = overnight_features(series, prev_day, today, cutoff, nd["close"].iloc[-1] / nd["close"].iloc[-2] - 1)
@@ -252,6 +275,7 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         pre = {"cutoff_ist": cutoff.tz_convert(IST).strftime("%H:%M"), "prev_close": round(float(nd["close"].iloc[-1]), 2),
                "moves_pct": {k: round(v * 100, 2) for k, v in f.items()},
                "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FEATS].values, day, x_day, (1 + day) / (1 + gap) - 1),
+               "from_open": from_open_block(df[GAP_FEATS].values, o2c, x_gap),
                "since": str(df.index[0].date())}
         out["preopen"] = pre
         made_before_open = (now.hour, now.minute) < OPEN_IST
@@ -259,12 +283,14 @@ def run(store_dir="store", out_dir="docs/data", now=None):
             record = [r for r in record if r["d"] != today.isoformat()]
             record.append({"d": today.isoformat(), "made_at": now.strftime("%H:%M"), "cutoff": pre["cutoff_ist"],
                            "gap": {k: pre["gap"][k] for k in ("direction", "tier", "pred_pct")},
-                           "close": {k: pre["close"][k] for k in ("direction", "tier", "pred_pct")}})
+                           "close": {k: pre["close"][k] for k in ("direction", "tier", "pred_pct")},
+                           "from_open": {k: pre["from_open"][k] for k in ("direction", "tier", "pred_pct", "trade")}})
         out["status"] = "pre_open" if made_before_open else ("open" if (now.hour, now.minute) < (15, 30) else "closed")
         rec_today = next((r for r in record if r["d"] == today.isoformat()), None)
         if rec_today:                                       # the call that is scored: the last one made before 09:15
             pre["recorded"] = {"made_at": rec_today["made_at"], "final": not made_before_open,
-                               "gap": rec_today["gap"], "close": rec_today["close"]}
+                               "gap": rec_today["gap"], "close": rec_today["close"],
+                               "from_open": rec_today.get("from_open")}
         # during the session: the move so far
         if out["status"] in ("open", "closed"):
             bars = hourly(NIFTY)

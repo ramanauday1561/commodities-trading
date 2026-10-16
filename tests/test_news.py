@@ -37,6 +37,17 @@ class News(unittest.TestCase):
         items, _ = news.summarize([art("x", "evil.com", url="javascript:alert(1)"), art("y", "ok.com")])
         self.assertEqual([i["domain"] for i in items], ["ok.com"])
 
+    def test_off_topic_headlines_are_not_shown_but_still_counted(self):
+        arts = [art("Silver price rises above $57", "a.com"), art("Cardinals rule out rookie RB for Week 6", "b.com"),
+                art("Silver futures slip", "c.com")]
+        items, feat = news.summarize(arts, ["silver"])
+        self.assertEqual(sorted(i["domain"] for i in items), ["a.com", "c.com"])
+        self.assertEqual(feat["articles"], 3)               # the recorded history is unchanged by the filter
+        self.assertTrue(news.relevant("Indian stocks rally", ["stock"]))
+        self.assertFalse(news.relevant("Livestock fair opens", ["stock"]))   # matched at the start of a word only
+        items, _ = news.summarize([art("Cardinals rule out rookie", "b.com")], ["silver"])
+        self.assertEqual(len(items), 1)                     # nothing matches: show what there is rather than nothing
+
     def test_tone(self):
         self.assertGreater(news.tone("Stocks surge to record high"), 0)
         self.assertLess(news.tone("Markets plunge on war fears"), 0)

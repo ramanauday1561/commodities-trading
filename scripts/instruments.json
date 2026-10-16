@@ -27,7 +27,25 @@
    "close": "15:30"
   },
   "news": {
-   "query": "(nifty OR sensex OR \"indian stocks\" OR \"indian shares\" OR \"indian equities\" OR \"reserve bank of india\" OR \"dalal street\") sourcelang:english"
+   "query": "(nifty OR sensex OR \"indian stocks\" OR \"indian shares\" OR \"indian equities\" OR \"reserve bank of india\" OR \"dalal street\") sourcelang:english",
+   "title_words": [
+    "nifty",
+    "sensex",
+    "stock",
+    "share",
+    "market",
+    "equit",
+    "dalal",
+    "rbi",
+    "reserve bank",
+    "sebi",
+    "ipo",
+    "india",
+    "rupee",
+    "fii",
+    "bse",
+    "nse"
+   ]
   },
   "big_move_pct": 1.0,
   "calendar": "XBOM"
@@ -50,7 +68,11 @@
    "^TNX"
   ],
   "news": {
-   "query": "(\"gold price\" OR \"gold prices\" OR \"gold futures\" OR \"spot gold\" OR bullion) sourcelang:english"
+   "query": "(\"gold price\" OR \"gold prices\" OR \"gold futures\" OR \"spot gold\" OR bullion) sourcelang:english",
+   "title_words": [
+    "gold",
+    "bullion"
+   ]
   },
   "big_move_pct": 1.5,
   "calendar": "XNYS",
@@ -77,7 +99,10 @@
    "^TNX"
   ],
   "news": {
-   "query": "(\"silver price\" OR \"silver prices\" OR \"silver futures\" OR \"spot silver\") sourcelang:english"
+   "query": "(\"silver price\" OR \"silver prices\" OR \"silver futures\" OR \"spot silver\") sourcelang:english",
+   "title_words": [
+    "silver"
+   ]
   },
   "big_move_pct": 3.0,
   "calendar": "XNYS",
@@ -103,7 +128,16 @@
    "^TNX"
   ],
   "news": {
-   "query": "(\"oil price\" OR \"oil prices\" OR \"crude oil\" OR \"brent crude\" OR \"wti crude\" OR opec) sourcelang:english"
+   "query": "(\"oil price\" OR \"oil prices\" OR \"crude oil\" OR \"brent crude\" OR \"wti crude\" OR opec) sourcelang:english",
+   "title_words": [
+    "oil",
+    "crude",
+    "opec",
+    "brent",
+    "wti",
+    "petrol",
+    "fuel"
+   ]
   },
   "big_move_pct": 3.0,
   "calendar": "XNYS",
