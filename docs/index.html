@@ -436,7 +436,7 @@ function todayCard(d) {
         hdb: 'HDFC Bank ADR', ibn: 'ICICI ADR', infy: 'Infosys ADR', crude: 'crude oil', usdinr: 'USD/INR' })
       .filter(([k]) => p.moves_pct[k] != null).map(([k, n]) => `${n} ${pc(p.moves_pct[k])}`).join(' · ') : '';
   const pre = p ? `${line(`Opening at 9:15 vs yesterday's close (${f(p.prev_close)})`, p.gap)}${line('Close today vs yesterday\'s close', p.close)}
-    <div class="sub">Based on markets up to ${esc(p.cutoff_ist)} IST since NIFTY's last close: ${mv}. Tested on ${p.close.test_days} days since ${esc(p.since)}.</div>` : '';
+    <div class="sub">${p.recorded ? `<b>${p.recorded.final ? 'Final call' : 'Latest call'}: made at ${esc(p.recorded.made_at)} IST.</b> ` : ''}Based on markets up to ${esc(p.cutoff_ist)} IST since NIFTY's last close: ${mv}. Tested on ${p.close.test_days} days since ${esc(p.since)}.</div>` : '';
   const i = t.intraday;
   let intr = '';
   if (i && t.status === 'open') {
@@ -609,6 +609,14 @@ function backtestCard(d) {
 }
 
 // One line for the top of the page: today's NIFTY call in plain words (empty for other markets or other days).
+// When was the morning call made, and is it the final one? (the last call made before 09:15 is the one scored)
+function callStamp(p) {
+  const r = p && p.recorded;
+  if (!r) return p ? ` (markets up to ${esc(p.cutoff_ist)} IST)` : '';
+  return r.final ? ` Final pre-open call, made at ${esc(r.made_at)} IST.`
+                 : ` Updated ${esc(r.made_at)} IST; the last update before 09:15 is the one that counts.`;
+}
+
 function callLine(d) {
   const t = d._today, todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
   if (!t || t.date !== todayIst || t.status === 'holiday') return '';
@@ -621,8 +629,8 @@ function callLine(d) {
   } else if (i && t.status === 'closed' && p && p.close.tier !== 'none') {
     msg = `Today's call was ${word(p.close.direction)}; it closed ${pc(i.move_pct)}, so the call was ${(p.close.direction === 'up') === (i.move_pct > 0) ? '<b class="up">right</b>' : '<b class="down">wrong</b>'}.`;
   } else if (p) {
-    msg = p.close.tier === 'none' ? "Today's call: no clear direction from overnight markets."
-      : `Today's call: close ${word(p.close.direction)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time.`;
+    msg = (p.close.tier === 'none' ? "Today's call: no clear direction from overnight markets."
+      : `Today's call: close ${word(p.close.direction)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time.`) + callStamp(p);
   }
   return msg ? `<p class="callline"><span class="dot"></span><span>${msg}</span></p>` : '';
 }
@@ -670,7 +678,7 @@ function headline(d, first, last, upPct) {
                text: `The pre-open call was ${p.close.direction === 'up' ? 'higher' : 'lower'}, but at ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} vs yesterday's close (${f(p.prev_close)}). Do not lean on the morning call; the next update uses the live move instead.` };
     if (p && p.close.tier !== 'none' && t.status !== 'closed')
       return { ...likely(p.close.direction), pill: `${pct(p.close.tiers[p.close.tier].accuracy)} right`, from: 'call',
-               text: `Today's call from overnight markets: close ${p.close.direction === 'up' ? 'higher' : 'lower'} than yesterday's ${f(p.prev_close)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time in past tests. ${fromOpen(p.close.tiers[p.close.tier])}` };
+               text: `Today's call from overnight markets: close ${p.close.direction === 'up' ? 'higher' : 'lower'} than yesterday's ${f(p.prev_close)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time in past tests. ${fromOpen(p.close.tiers[p.close.tier])}${callStamp(p)}` };
   }
   const chg = (first.close / last - 1) * 100;
   if (Math.abs(upPct - 50) < NO_EDGE)
