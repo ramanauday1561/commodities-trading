@@ -5,6 +5,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "risk": big-move probability and likely-range methods (see risk_and_range)
   mode "accuracy": NIFTY only, see accuracy_study.py
   mode "improve": NIFTY only, extra pre-open inputs and intraday patterns (see accuracy_study.improve)
+  mode "events": big-move risk and ranges with and without US CPI / jobs / Fed calendar inputs
   mode "strategy": NIFTY only, trading rules scored on what an open or 10:15 entry earns to the close, after costs
   mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
   mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
@@ -81,7 +82,7 @@ def interval_score(lo, hi, y, alpha=0.2):
     return (hi - lo) + 2 / alpha * np.maximum(lo - y, 0) + 2 / alpha * np.maximum(y - hi, 0)
 
 
-def risk_and_range(key, inst, full, X, tests):
+def risk_and_range(key, inst, full, X, tests, flag=None, label=""):
     """Big-move probability (|next-day move| > big_move_pct) and 80% ranges for the next close, walk-forward."""
     n = len(full)
     logc = np.log(full["close"].values)
@@ -138,7 +139,22 @@ def risk_and_range(key, inst, full, X, tests):
     for name, iv in rng.items():
         iv = np.array(iv)
         out["range"][name]["width_vs_move_corr"] = round(float(np.corrcoef(iv[:, 1] - iv[:, 0], np.abs(y))[0, 1]), 3)
-    print(f"RISK {key} " + json.dumps(out), flush=True)
+    if flag is not None:                                 # the same scores on event days only, e.g. US CPI / Fed / jobs days
+        f = np.array([bool(flag[t - 1]) for t in tests])
+        if f.any():
+            ev = {"days": int(f.sum()), "big_day_rate": round(float(yb[f].mean()), 3)}
+            for name in ("climatology", "model"):
+                p = np.array(p_clim if name == "climatology" else p_model)[f]
+                ev[f"brier_{name}"] = round(float(((p - yb[f]) ** 2).mean()), 4)
+                ev[f"mean_p_{name}"] = round(float(p.mean()), 3)
+            iv = np.array(rng["quantile_calibrated"])[f]
+            ev["range_coverage"] = round(float(((y[f] >= iv[:, 0]) & (y[f] <= iv[:, 1])).mean()), 3)
+            ev["range_width_pct"] = round(float((iv[:, 1] - iv[:, 0]).mean() * 100), 3)
+            ev["interval_score"] = round(float(interval_score(iv[:, 0], iv[:, 1], y[f]).mean() * 100), 4)
+            ev["avg_abs_move_pct"] = round(float(np.abs(y[f]).mean() * 100), 3)
+            ev["avg_abs_move_other_days_pct"] = round(float(np.abs(y[~f]).mean() * 100), 3)
+            out["event_days"] = ev
+    print(f"RISK {key} {label}" + json.dumps(out), flush=True)
     return out
 
 
@@ -177,6 +193,20 @@ def main(key, test_days=750, step=2, mode="variants"):
             import accuracy_study
             accuracy_study.commodity(key)
         return
+    if mode == "calendar":                               # just print the parsed US event calendar
+        if key == "nifty":
+            import us_events
+            from collections import Counter
+            ev = us_events.fetch_all()
+            for k, v in ev.items():
+                print(f"CAL {k} per year " + json.dumps(dict(sorted(Counter(d.year for d in v).items()))), flush=True)
+                for y in sorted({d.year for d in v})[-3:]:
+                    print(f"CAL {k} {y}: " + ", ".join(d.isoformat() for d in v if d.year == y), flush=True)
+            html = us_events._get(us_events.FOMC_CURRENT)
+            t = us_events._text(html)
+            i = t.find("2027 FOMC Meetings")
+            print("CAL 2027 text: " + t[i:i + 900], flush=True)
+        return
     if mode == "strategy":
         if key == "nifty":
             import accuracy_study
@@ -210,6 +240,22 @@ def main(key, test_days=750, step=2, mode="variants"):
 
     if mode == "risk":
         return risk_and_range(key, inst, full, X_exo, tests)
+    if mode == "events":                                 # US CPI / jobs / Fed calendar as extra inputs (us_events.py)
+        import us_events
+        from calendars import next_sessions
+        events = us_events.fetch_all()
+        if key == "nifty":                               # print the parsed calendar once, to check it by eye
+            from collections import Counter
+            print("FOMC per year " + json.dumps(dict(sorted(Counter(d.year for d in events.get("fomc", [])).items()))), flush=True)
+            for y in (2008, 2019, 2024, 2026):
+                print(f"FOMC {y}: " + ", ".join(d.isoformat() for d in events.get("fomc", []) if d.year == y), flush=True)
+        nxt = next_sessions(full.index[-1].date(), 1, inst.get("calendar"))[0]
+        ev = us_events.features(full.index, nxt, events, inst.get("event_timing", "after_close"))
+        print(f"{key}: event columns {list(ev.columns)}, event share {ev.get('ev_any', pd.Series([0])).mean():.3f}", flush=True)
+        X_ev = gbm.features(full, ev if exo is None else pd.concat([exo, ev], axis=1)).values
+        flag = ev["ev_any"].values if "ev_any" in ev else None
+        risk_and_range(key, inst, full, X_exo, tests, flag, "without_events ")
+        return risk_and_range(key, inst, full, X_ev, tests, flag, "with_events ")
 
     variants = {
         "current": dict(X=X_exo),

@@ -130,6 +130,7 @@ jobs:
       - name: Run prediction
         env:
           KRONOS_T: ${{ github.event.inputs.kronos_t }}
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}      # optional: US CPI / jobs release dates (us_events.py)
         run: mkdir -p docs/data && python scripts/predict.py ${{ matrix.key }}
       - uses: actions/upload-artifact@v4
         with:
