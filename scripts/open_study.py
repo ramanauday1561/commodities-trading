@@ -90,6 +90,7 @@ def trades(side, ret):
     return {"trades": int(m.sum()), "win_rate": round(float((pnl > 0).mean()), 3),
             "avg_pct": round(float(pnl.mean()), 3), "total_pct": round(float(pnl.sum()), 1),
             "max_dd_pct": round(float(np.max(np.maximum.accumulate(cum) - cum)), 1),
+            "t_stat": round(float(pnl.mean() / (pnl.std(ddof=1) / np.sqrt(len(pnl)))), 2) if len(pnl) > 2 else None,
             "first_half_avg": round(float(pnl[:half].mean()), 3) if half else None,
             "second_half_avg": round(float(pnl[half:].mean()), 3) if half else None}
 
@@ -184,6 +185,17 @@ def study():
     out["agree_m1015_at_open"] = by_level(np.where(agree, np.nan_to_num(preds["m1015"]), 0.0), rest, valid & agree)
     agree3 = agree & (np.sign(np.nan_to_num(preds["open_now"])) == np.sign(np.nan_to_num(preds["m1015"])))
     out["agree_all_three"] = by_level(np.where(agree3, np.nan_to_num(preds["m1015"]), 0.0), rest, valid & agree3)
+    # B as a plain rule: short from the open on expiry days (and, for comparison, on other days)
+    wk = df["weekly_exp"].values > 0
+    out["short_open_weekly_expiry"] = trades(np.where(valid & wk, -1, 0), o2c)
+    out["short_open_monthly_expiry"] = trades(np.where(valid & (df["monthly_exp"].values > 0), -1, 0), o2c)
+    out["short_open_not_expiry"] = trades(np.where(valid & ~wk, -1, 0), o2c)
+    out["expiry_by_weekday"] = {("thursday_era" if era else "tuesday_era"): trades(
+        np.where(valid & wk & ((df.index < TUESDAY_FROM) == era), -1, 0), o2c) for era in (True, False)}
+    # the two pre-open models pointing the same way
+    both = np.sign(np.nan_to_num(preds["open_target"])) == np.sign(np.nan_to_num(preds["open_now"]))
+    out["agree_open_target_open_now"] = by_level(np.where(both, np.nan_to_num(preds["open_target"]), 0.0), o2c,
+                                                 valid & both)
     return out
 
 
