@@ -261,6 +261,10 @@ def run(store_dir="store", out_dir="docs/data", now=None):
                            "gap": {k: pre["gap"][k] for k in ("direction", "tier", "pred_pct")},
                            "close": {k: pre["close"][k] for k in ("direction", "tier", "pred_pct")}})
         out["status"] = "pre_open" if made_before_open else ("open" if (now.hour, now.minute) < (15, 30) else "closed")
+        rec_today = next((r for r in record if r["d"] == today.isoformat()), None)
+        if rec_today:                                       # the call that is scored: the last one made before 09:15
+            pre["recorded"] = {"made_at": rec_today["made_at"], "final": not made_before_open,
+                               "gap": rec_today["gap"], "close": rec_today["close"]}
         # during the session: the move so far
         if out["status"] in ("open", "closed"):
             bars = hourly(NIFTY)
