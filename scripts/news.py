@@ -141,8 +141,15 @@ def _iso(seen):
         return None
 
 
-def summarize(articles):
-    """Group syndicated copies of the same headline; more outlets = more prominent story."""
+def relevant(title, words):
+    """Does the headline name the market (a word in the list, matched at the start of a word: "stock" -> "stocks")?
+    Google News also matches article bodies, so off-topic stories slip in (a football injury report under silver)."""
+    return not words or re.search(r"\b(?:" + "|".join(map(re.escape, words)) + ")", title or "", re.I) is not None
+
+
+def summarize(articles, words=None):
+    """Group syndicated copies of the same headline; more outlets = more prominent story. `words` only filters the
+    headlines shown; the recorded counts and tone use every article, so the news history stays comparable."""
     stories = {}
     for a in articles:
         url, key = a.get("url") or "", _norm(a.get("title"))
@@ -152,7 +159,8 @@ def summarize(articles):
                                      "seen": _iso(a.get("seendate")), "outlets": set(), "tone": tone(a["title"])})
         s["outlets"].add(a.get("domain") or url)
     ranked = sorted(stories.values(), key=lambda s: (len(s["outlets"]), s["seen"] or ""), reverse=True)
-    items = [{**{k: v for k, v in s.items() if k != "outlets"}, "sources": len(s["outlets"])} for s in ranked[:SHOW]]
+    shown = [s for s in ranked if relevant(s["title"], words)] or ranked
+    items = [{**{k: v for k, v in s.items() if k != "outlets"}, "sources": len(s["outlets"])} for s in shown[:SHOW]]
     w = [len(s["outlets"]) for s in ranked]
     feat = {"articles": len(articles), "stories": len(ranked), "sources": sum(w),
             "tone": round(sum(s["tone"] * x for s, x in zip(ranked, w)) / sum(w), 3) if ranked else 0.0}
@@ -177,7 +185,7 @@ def main(data_dir, store_dir):
         if not arts:
             print(f"news {inst['key']}: nothing from either source, keeping the previous file", flush=True)
             continue
-        items, feat = summarize(arts)
+        items, feat = summarize(arts, inst["news"].get("title_words"))
         json.dump({"updated": now.isoformat(timespec="seconds"), "hours": HOURS, "source": source,
                    "stats": feat, "items": items},
                   open(os.path.join(data_dir, f"news-{inst['key']}.json"), "w"), separators=(",", ":"))

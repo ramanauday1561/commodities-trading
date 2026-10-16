@@ -54,6 +54,29 @@ class Calls(unittest.TestCase):
         self.assertEqual(s["gap"]["strong"], {"calls": 1, "hits": 1})
         self.assertEqual(s["close"]["lean"], {"calls": 1, "hits": 0})
 
+    def test_from_open_signal_is_scored_from_the_open(self):
+        nd = pd.DataFrame({"open": [100.0, 101.0, 100.0], "close": [100.0, 99.0, 101.0]},
+                          index=pd.to_datetime(["2026-10-12", "2026-10-13", "2026-10-14"]))
+        call = {"direction": "up", "tier": "none"}
+        rec = [{"d": "2026-10-13", "gap": call, "close": call,
+                "from_open": {"direction": "down", "tier": "strong", "pred_pct": -0.2, "trade": True}},
+               {"d": "2026-10-14", "gap": call, "close": call,
+                "from_open": {"direction": "up", "tier": "lean", "pred_pct": 0.05, "trade": False}}]
+        tc.resolve(rec, nd, date(2026, 10, 14), datetime(2026, 10, 14, 16, 0))
+        # sold at 101, closed at 99: +1.98% minus costs (not "right vs yesterday's close")
+        self.assertAlmostEqual(rec[0]["result"]["from_open_pct"], round(-(99 / 101 - 1) * 100 - tc.TRADE_COST_PCT, 3))
+        self.assertNotIn("from_open_pct", rec[1]["result"])          # no trade: nothing to score
+        s = tc.summarize_record(rec)
+        self.assertEqual((s["from_open"]["trades"], s["from_open"]["wins"], s["from_open"]["days"]), (1, 1, 2))
+
+    def test_from_open_block_trades_only_top_days(self):
+        rng = np.random.default_rng(2)
+        X = rng.normal(size=(300, 2))
+        y = 0.01 * X[:, 0] + rng.normal(0, 0.004, 300)
+        self.assertTrue(tc.from_open_block(X, y, np.array([2.5, 0.0]))["trade"])
+        self.assertFalse(tc.from_open_block(X, y, np.array([0.01, 0.0]))["trade"])
+        self.assertIn("from_open", tc.from_open_block(X, y, np.array([0.0, 0.0]))["trade_stats"])
+
     def test_value_at_uses_only_finished_bars(self):
         s = pd.Series([1.0, 2.0], index=pd.to_datetime(["2026-10-13 03:00", "2026-10-13 04:00"]).tz_localize("UTC"))
         self.assertEqual(tc.value_at(s, pd.Timestamp("2026-10-13 03:59", tz="UTC")), 1.0)
