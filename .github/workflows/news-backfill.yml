@@ -28,8 +28,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance exchange_calendars
@@ -50,7 +50,7 @@ jobs:
           closes = {d.strftime("%Y-%m-%d"): float(c) for d, c in px["Close"].dropna().items()}
           print(key, json.dumps(newsfeat.evaluate(newsfeat.load_rows(newsfeat.history_path("store", key)), closes)))
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: news-${{ matrix.key }}
           path: store/news-daily/${{ matrix.key }}.json
@@ -62,12 +62,12 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - run: pip install numpy
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: news-*
           path: fetched
