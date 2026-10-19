@@ -36,6 +36,7 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+import results_calendar as rc
 from calendars import is_session
 
 NIFTY = "^NSEI"
@@ -166,11 +167,12 @@ def tier_of(conf, past_conf):
     return "none"
 
 
-def call_block(X, y, x_today, open_to_close=None):
+def call_block(X, y, x_today, open_to_close=None, exclude=None):
     """Today's call for one target plus the walk-forward accuracy of each confidence tier (and, for the close call,
-    what following it from the open earned)."""
+    what following it from the open earned). `exclude` drops days (e.g. after heavyweight results) from the tier
+    statistics only."""
     wf = walk_forward(X, y)
-    ok = ~np.isnan(wf)
+    ok = ~np.isnan(wf) & (~np.asarray(exclude, bool) if exclude is not None else True)
     p, t = wf[ok], y[ok]
     pnl = np.sign(p) * np.asarray(open_to_close)[ok] if open_to_close is not None else None
     table = share_table(np.abs(p), (np.sign(p) == np.sign(t)).astype(float), (t > 0).astype(float),
@@ -182,10 +184,12 @@ def call_block(X, y, x_today, open_to_close=None):
             "tier": tier_of(abs(pred), np.abs(p)), "tiers": tiers, "test_days": int(ok.sum())}
 
 
-def from_open_block(X, o2c, x_today):
-    """The from-open signal: trained on open -> close, so its tier stats are what a trade from the open earned."""
-    c = call_block(X, o2c, x_today, o2c)
-    c["trade"] = c["tier"] in TRADE_TIERS
+def from_open_block(X, o2c, x_today, results_hist=None, results_today=False):
+    """The from-open signal: trained on open -> close, so its tier stats are what a trade from the open earned. It
+    stands aside after heavyweight results (results_calendar), and its stats leave those sessions out too."""
+    c = call_block(X, o2c, x_today, o2c, exclude=results_hist)
+    c["trade"] = c["tier"] in TRADE_TIERS and not results_today
+    c["skipped_for_results"] = bool(results_today and c["tier"] in TRADE_TIERS)
     c["trade_stats"] = c["tiers"]["strong"]              # top 20% (cumulative): the days it trades
     return c
 
@@ -291,11 +295,20 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         prev_day = nd.index[-1].date()
         f = overnight_features(series, prev_day, today, cutoff, nd["close"].iloc[-1] / nd["close"].iloc[-2] - 1)
         x_gap, x_fresh = np.array([f[k] for k in GAP_FEATS]), np.array([f[k] for k in FRESH_FEATS])
+        cal = rc.fetch(os.path.join(store_dir, "results", "nifty.json"))
+        res_hist = rc.flags(nd.index, cal).reindex(df.index).fillna(False).values.astype(bool) if cal else None
+        res_now = rc.since(cal, prev_day, today) if cal else []
         pre = {"cutoff_ist": cutoff.tz_convert(IST).strftime("%H:%M"), "prev_close": round(float(nd["close"].iloc[-1]), 2),
                "moves_pct": {k: round(v * 100, 2) for k, v in f.items()},
                "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FRESH_FEATS].values, day, x_fresh, (1 + day) / (1 + gap) - 1),
-               "from_open": from_open_block(df[FRESH_FEATS].values, o2c, x_fresh),
+               "from_open": from_open_block(df[FRESH_FEATS].values, o2c, x_fresh, res_hist, bool(res_now)),
                "since": str(df.index[0].date())}
+        if cal and res_hist is not None and res_hist.any():
+            big = np.abs(day) > 0.01                        # how often NIFTY moved more than 1% after results vs not
+            pre["results"] = {"since": res_now, "upcoming": rc.upcoming(cal, today),
+                              "big_day_pct": {"results": round(float(big[res_hist].mean()) * 100),
+                                              "other": round(float(big[~res_hist].mean()) * 100),
+                                              "results_days": int(res_hist.sum())}}
         out["preopen"] = pre
         made_before_open = (now.hour, now.minute) < OPEN_IST
         if made_before_open:                                # the latest call made before the open is the one scored

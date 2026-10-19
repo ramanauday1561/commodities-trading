@@ -77,6 +77,18 @@ class Calls(unittest.TestCase):
         self.assertFalse(tc.from_open_block(X, y, np.array([0.01, 0.0]))["trade"])
         self.assertIn("from_open", tc.from_open_block(X, y, np.array([0.0, 0.0]))["trade_stats"])
 
+    def test_from_open_stands_aside_after_heavyweight_results(self):
+        rng = np.random.default_rng(2)
+        X = rng.normal(size=(300, 2))
+        y = 0.01 * X[:, 0] + rng.normal(0, 0.004, 300)
+        hist = np.zeros(300, bool)
+        hist[::10] = True
+        b = tc.from_open_block(X, y, np.array([2.5, 0.0]), hist, True)
+        self.assertFalse(b["trade"])
+        self.assertTrue(b["skipped_for_results"])
+        self.assertTrue(tc.from_open_block(X, y, np.array([2.5, 0.0]), hist, False)["trade"])
+        self.assertLess(b["trade_stats"]["days"], tc.from_open_block(X, y, np.array([2.5, 0.0]))["trade_stats"]["days"])
+
     def test_value_at_uses_only_finished_bars(self):
         s = pd.Series([1.0, 2.0], index=pd.to_datetime(["2026-10-13 03:00", "2026-10-13 04:00"]).tz_localize("UTC"))
         self.assertEqual(tc.value_at(s, pd.Timestamp("2026-10-13 03:59", tz="UTC")), 1.0)
