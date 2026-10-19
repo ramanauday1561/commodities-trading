@@ -220,3 +220,23 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+HEAVY = ["HDFCBANK.NS", "ICICIBANK.NS", "RELIANCE.NS", "INFY.NS", "TCS.NS", "AXISBANK.NS", "KOTAKBANK.NS", "SBIN.NS"]
+
+
+def earnings_probe():
+    """Can past and upcoming results dates of NIFTY heavyweights be read from Yahoo (for an event-risk input)?"""
+    out = {}
+    for t in HEAVY:
+        try:
+            ed = yf.Ticker(t).get_earnings_dates(limit=60)
+            if ed is None or not len(ed):
+                out[t] = "none"
+                continue
+            idx = pd.DatetimeIndex(ed.index)
+            out[t] = {"rows": len(ed), "first": str(idx.min().date()), "last": str(idx.max().date()),
+                      "recent": [str(x.date()) for x in sorted(idx)[-6:]]}
+        except Exception as e:
+            out[t] = repr(e)[:200]
+    print("STUDY earnings " + json.dumps(out), flush=True)
