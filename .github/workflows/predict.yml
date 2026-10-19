@@ -91,7 +91,7 @@ jobs:
     outputs:
       keys: ${{ steps.m.outputs.keys }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - id: m
         env:
           ONLY: ${{ github.event.inputs.keys }}
@@ -112,8 +112,8 @@ jobs:
       matrix:
         key: ${{ fromJson(needs.setup.outputs.keys) }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -125,7 +125,7 @@ jobs:
       - name: Get Kronos
         run: git clone --depth 1 https://github.com/shiyu-coder/Kronos.git Kronos
       - name: Cache Hugging Face models
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/huggingface
           key: hf-kronos-base
@@ -139,7 +139,7 @@ jobs:
           KRONOS_T: ${{ github.event.inputs.kronos_t }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}      # optional: US CPI / jobs release dates (us_events.py)
         run: mkdir -p docs/data && python scripts/predict.py ${{ matrix.key }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: data-${{ matrix.key }}
           path: docs/data/${{ matrix.key }}.json
@@ -157,16 +157,16 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_first.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - run: pip install numpy
       - name: Last published data (fallback for any instrument that failed this time)
         run: bash scripts/store.sh pull site-data docs/data
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: data-*
           path: docs/data
@@ -195,9 +195,15 @@ jobs:
           bash scripts/store.sh push scoreboard store
           mkdir -p site-snap && cp docs/data/*.json site-snap/ && rm -f site-snap/intraday-*.json
           bash scripts/store.sh push site-data site-snap --squash
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: docs
+      - id: deploy_first             # GitHub's Pages API sometimes fails for a moment (14 Oct 2026: "Fetching artifact
+        continue-on-error: true       # metadata failed"); one retry a minute later, on the older proven v4
+        uses: actions/deploy-pages@v5
+      - if: steps.deploy_first.outcome == 'failure'
+        run: sleep 60
       - id: deploy
+        if: steps.deploy_first.outcome == 'failure'
         uses: actions/deploy-pages@v4

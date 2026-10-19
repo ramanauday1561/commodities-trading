@@ -46,9 +46,9 @@ jobs:
           fi
           echo "go=$go" >> "$GITHUB_OUTPUT"
       - if: steps.gate.outputs.go == 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - if: steps.gate.outputs.go == 'true'
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - if: steps.gate.outputs.go == 'true'
@@ -84,9 +84,9 @@ jobs:
         run: |
           if [ -f docs/data/index.json ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
       - if: steps.have.outputs.ok == 'true'
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
       - if: steps.have.outputs.ok == 'true'
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: docs
 
@@ -96,7 +96,13 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_first.outputs.page_url }}
     steps:
+      - id: deploy_first             # GitHub's Pages API sometimes fails for a moment (14 Oct 2026: "Fetching artifact
+        continue-on-error: true       # metadata failed"); one retry a minute later, on the older proven v4
+        uses: actions/deploy-pages@v5
+      - if: steps.deploy_first.outcome == 'failure'
+        run: sleep 60
       - id: deploy
+        if: steps.deploy_first.outcome == 'failure'
         uses: actions/deploy-pages@v4

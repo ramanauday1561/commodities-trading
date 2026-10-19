@@ -25,8 +25,8 @@ jobs:
       matrix:
         key: [nifty, gold, silver, crude]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance lightgbm exchange_calendars
