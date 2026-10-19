@@ -74,7 +74,7 @@ def add_features(df, nd, series, vix, bank):
         r["bank_rel"] = float(pb.iloc[-1] / pb.iloc[-2] - 1 - nret) if len(pb) > 2 and pb.index[-1] == days[i - 1] else 0.0
         rows.append(r)
     extra = pd.DataFrame(rows, index=df.index).replace([np.inf, -np.inf], np.nan).fillna(0.0)
-    return pd.concat([df, extra], axis=1)
+    return pd.concat([df.drop(columns=[c for c in extra.columns if c in df.columns]), extra], axis=1)
 
 
 def daily(symbol):
@@ -222,7 +222,71 @@ if __name__ == "__main__":
     main()
 
 
-HEAVY = ["HDFCBANK.NS", "ICICIBANK.NS", "RELIANCE.NS", "INFY.NS", "TCS.NS", "AXISBANK.NS", "KOTAKBANK.NS", "SBIN.NS"]
+HEAVY = ["HDFCBANK.NS", "ICICIBANK.NS", "RELIANCE.NS", "INFY.NS", "TCS.NS", "AXISBANK.NS", "KOTAKBANK.NS", "SBIN.NS",
+         "BHARTIARTL.NS", "LT.NS", "ITC.NS"]
+
+
+def results_dates():
+    out = {}
+    for t in HEAVY:
+        try:
+            ed = yf.Ticker(t).get_earnings_dates(limit=80)
+            out[t] = sorted({pd.Timestamp(x).tz_localize(None).normalize() if pd.Timestamp(x).tzinfo else
+                             pd.Timestamp(x).normalize() for x in ed.index})
+        except Exception as e:
+            print(f"results {t}: {e!r}", flush=True)
+    return out
+
+
+def results_study():
+    """Days after heavyweight results (dated from the previous session up to the day before): bigger moves? Are the
+    pre-open calls less reliable then? Results are dated by Yahoo; a release during market hours is counted for the
+    next session, which is when most of the reaction shows in a close-to-close or open-to-close move anyway."""
+    nd = daily(NIFTY)
+    series = {k: tc.hourly(t) for k, t in {**OVERNIGHT, **tc.INDIA}.items()}
+    df = tc.history(nd, series)
+    df = add_features(df, nd, series, daily_close("^INDIAVIX"), daily_close("^NSEBANK"))
+    df["o2c"] = (1 + df["day"]) / (1 + df["gap"]) - 1
+    rd = results_dates()
+    days = list(nd.index)
+    pos = {d: i for i, d in enumerate(days)}
+    who = []
+    for d in df.index:
+        prev = days[pos[d] - 1]
+        who.append([t.split(".")[0] for t, ds in rd.items() if any(prev <= x < d for x in ds)])
+    df["n_results"] = [len(w) for w in who]
+    res = df["n_results"] > 0
+    out = {"days": len(df), "results_days": int(res.sum()),
+           "abs_day_pct": {"results": round(float(df.loc[res, "day"].abs().mean() * 100), 3),
+                           "other": round(float(df.loc[~res, "day"].abs().mean() * 100), 3)},
+           "abs_o2c_pct": {"results": round(float(df.loc[res, "o2c"].abs().mean() * 100), 3),
+                           "other": round(float(df.loc[~res, "o2c"].abs().mean() * 100), 3)},
+           "big_day_rate_over_1pct": {"results": round(float((df.loc[res, "day"].abs() > 0.01).mean()), 3),
+                                      "other": round(float((df.loc[~res, "day"].abs() > 0.01).mean()), 3)},
+           "last_results_days": {str(d.date()): w for d, w in zip(df.index[-60:], who[-60:]) if w}}
+    for target, fs in (("day", tc.FRESH_FEATS), ("o2c", tc.FRESH_FEATS), ("gap", tc.GAP_FEATS)):
+        p = tc.walk_forward(df[fs].values, df[target].values)
+        ok = ~np.isnan(p)
+        y = df[target].values
+        right = np.sign(p) == np.sign(y)
+        conf = np.abs(p)
+        top = np.zeros(len(p), bool)                        # top-20% confidence by earlier days only
+        seen = []
+        for i in range(len(p)):
+            if not ok[i]:
+                continue
+            if len(seen) >= 20:
+                top[i] = conf[i] >= np.quantile(seen, 0.8)
+            seen.append(conf[i])
+        r = {}
+        for name, m in (("results", res.values & ok), ("other", ~res.values & ok)):
+            r[name] = {"days": int(m.sum()), "accuracy": round(float(right[m].mean()), 3),
+                       "top20_days": int((m & top).sum()),
+                       "top20_accuracy": round(float(right[m & top].mean()), 3) if (m & top).any() else None}
+            if target == "o2c":
+                r[name]["top20_trades"] = trades(np.where(m & top, np.sign(p), 0).astype(int), df["o2c"].values)
+        out[target] = r
+    print("STUDY results " + json.dumps(out), flush=True)
 
 
 def earnings_probe():

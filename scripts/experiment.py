@@ -214,10 +214,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             import accuracy_study
             accuracy_study.strategy_main()
         return
-    if mode in ("preopen", "earnings"):
+    if mode in ("preopen", "earnings", "results"):
         if key == "nifty":
             import preopen_study
-            preopen_study.main() if mode == "preopen" else preopen_study.earnings_probe()
+            {"preopen": preopen_study.main, "earnings": preopen_study.earnings_probe,
+             "results": preopen_study.results_study}[mode]()
         return
     if mode == "open":
         if key == "nifty":

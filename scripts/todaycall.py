@@ -7,11 +7,16 @@ accuracy from 71% to 76% of all days, see accuracy_study.extreme_days):
   * today's close: will it close above or below yesterday's close?
   A ridge regression refitted on the past ~2.5 years makes each call; its confidence is ranked against its own past
   walk-forward calls, and the page shows only the accuracy of that confidence tier in the walk-forward test.
-From-open signal: for trading from the 09:15 open. A ridge on the gap call's inputs trained on the move from the open to
+From-open signal: for trading from the 09:15 open. A ridge on the overnight inputs trained on the move from the open to
   the close (not vs yesterday's close), and a trade only on its top-20% most confident days (ranked against its own
-  past walk-forward calls); every other day is "no trade". Backtest (open_study.py, ~600 days): 42 trades, 55% won,
-  +0.16% per trade after costs, positive in both halves but not statistically proven (t 1.2), so it is recorded and
-  scored from the open in the live record before anyone should trust it. Buying the open every day lost ~0.07%/day.
+  past walk-forward calls); every other day is "no trade". Backtest with the fresh/stale split below (preopen_study.py,
+  ~680 days): 82 trades, 52% won, +0.12% per trade after costs, positive in both halves but not statistically proven
+  (t 1.1), so it is recorded and scored from the open in the live record. Buying the open every day lost ~0.07%/day.
+Fresh vs stale (after 19 Oct 2026, when Friday's ADR rise cancelled the weekend's fall in US futures and NIFTY lost
+  1.1%): the close call and the from-open signal split the US index futures move at the US cash close (16:00 New
+  York) into the part during the US session, which the ADRs also saw, and the part after it, which they did not.
+  Walk-forward (preopen_study.py, ~680 days): close call 61.7% -> 63.5% right (top 20%: 76.5% -> 77.5%), from-open
+  top-20% trades +0.08% -> +0.12% per trade. Small gains; the gap call keeps its inputs (no gain there).
 During the session (from 10:15 IST): today's close direction from the move so far, with the historical accuracy of
   "the sign of the move at this time of day, for moves at least this big".
 
@@ -24,7 +29,7 @@ Usage: python scripts/todaycall.py [store_dir] [out_dir]
 import json
 import os
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import numpy as np
@@ -39,6 +44,9 @@ OVERNIGHT = {"es": "ES=F", "nq": "NQ=F", "nikkei": "^N225", "kospi": "^KS11", "h
 FEATS = list(OVERNIGHT) + ["prev_day"]
 INDIA = {"hdb": "HDB", "ibn": "IBN", "infy": "INFY", "crude": "CL=F", "usdinr": "INR=X"}
 GAP_FEATS = FEATS + list(INDIA)                  # the close call keeps FEATS: the extra inputs did not help it
+SPLIT = ("es", "nq")                             # US index futures, split at the US cash close
+FRESH_FEATS = ["es_day", "es_night", "nq_day", "nq_night", "nikkei", "kospi", "hangseng", "prev_day"] + list(INDIA)
+NY = ZoneInfo("America/New_York")
 CUTOFF = (3, 40)                 # 09:10 IST in UTC: the latest information a pre-open call may use
 PREV_CLOSE = (10, 0)             # 15:30 IST in UTC
 OPEN_IST = (9, 15)
@@ -95,11 +103,22 @@ def share_table(conf, correct, up, levels=(1.0, 0.5, 0.3, 0.2, 0.1), min_hist=60
     return out
 
 
+def us_close(day):
+    """16:00 New York on `day`, in UTC (the US cash close; 20:00 or 21:00 UTC)."""
+    return pd.Timestamp(datetime.combine(day, time(16, 0), NY)).tz_convert("UTC")
+
+
 def overnight_features(series, prev_day, day, cutoff, prev_ret):
     t_prev, f = utc_at(prev_day, PREV_CLOSE), {}
     for k, s in series.items():
         a, b = value_at(s, t_prev), value_at(s, cutoff)
         f[k] = b / a - 1 if a and np.isfinite(a) and np.isfinite(b) else 0.0
+    t_us = min(us_close(prev_day), cutoff)
+    for k in SPLIT:                     # NIFTY close -> US close (the ADRs saw it), US close -> cutoff (they did not)
+        s = series.get(k)
+        a, m, b = (value_at(s, t) for t in (t_prev, t_us, cutoff)) if s is not None else (np.nan,) * 3
+        ok = all(np.isfinite(v) and v for v in (a, m, b))
+        f[f"{k}_day"], f[f"{k}_night"] = (m / a - 1, b / m - 1) if ok else (0.0, 0.0)
     f["prev_day"] = prev_ret
     return f
 
@@ -271,11 +290,11 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         cutoff = min(pd.Timestamp(now).tz_convert("UTC"), utc_at(today, CUTOFF))
         prev_day = nd.index[-1].date()
         f = overnight_features(series, prev_day, today, cutoff, nd["close"].iloc[-1] / nd["close"].iloc[-2] - 1)
-        x_gap, x_day = np.array([f[k] for k in GAP_FEATS]), np.array([f[k] for k in FEATS])
+        x_gap, x_fresh = np.array([f[k] for k in GAP_FEATS]), np.array([f[k] for k in FRESH_FEATS])
         pre = {"cutoff_ist": cutoff.tz_convert(IST).strftime("%H:%M"), "prev_close": round(float(nd["close"].iloc[-1]), 2),
                "moves_pct": {k: round(v * 100, 2) for k, v in f.items()},
-               "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FEATS].values, day, x_day, (1 + day) / (1 + gap) - 1),
-               "from_open": from_open_block(df[GAP_FEATS].values, o2c, x_gap),
+               "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FRESH_FEATS].values, day, x_fresh, (1 + day) / (1 + gap) - 1),
+               "from_open": from_open_block(df[FRESH_FEATS].values, o2c, x_fresh),
                "since": str(df.index[0].date())}
         out["preopen"] = pre
         made_before_open = (now.hour, now.minute) < OPEN_IST
