@@ -157,7 +157,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      url: ${{ steps.deploy.outputs.page_url || steps.deploy_first.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -199,5 +199,11 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+      - id: deploy_first             # GitHub's Pages API sometimes fails for a moment (14 Oct 2026: "Fetching artifact
+        continue-on-error: true       # metadata failed"); one retry a minute later instead of a failed run
+        uses: actions/deploy-pages@v4
+      - if: steps.deploy_first.outcome == 'failure'
+        run: sleep 60
       - id: deploy
+        if: steps.deploy_first.outcome == 'failure'
         uses: actions/deploy-pages@v4

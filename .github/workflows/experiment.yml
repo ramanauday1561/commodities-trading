@@ -1,7 +1,6 @@
 name: Model experiments
 
-# TEMPORARY (test branch only): checks which newer action versions exist. Steps never run (if: false); a missing
-# version fails at "Set up job" when GitHub resolves the action.
+# TEMPORARY (test branch only): runs newer action versions to see which still target Node 20.
 on:
   workflow_dispatch:
     inputs:
@@ -12,112 +11,66 @@ on:
         required: false
         default: "x"
 
-permissions:
-  contents: read
-
 jobs:
-  v0:
-    name: "actions/checkout@v5"
+  low:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     steps:
-      - if: ${{ false }}
-        uses: actions/checkout@v5
-      - run: echo resolved actions/checkout@v5
-  v1:
-    name: "actions/checkout@v6"
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v5
+        with:
+          path: /tmp/probe-cache
+          key: probe-low-${{ github.run_id }}
+      - run: mkdir -p out site && echo '{"a":1}' > out/data-x.json && echo hi > site/index.html
+      - uses: actions/upload-artifact@v5
+        with:
+          name: data-low
+          path: out/data-x.json
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: data-low*
+          path: got
+          merge-multiple: true
+      - run: ls -R got && cat got/data-x.json
+      - uses: actions/configure-pages@v6
+        continue-on-error: true
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+          name: pages-low
+  high:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: read
     steps:
-      - if: ${{ false }}
-        uses: actions/checkout@v6
-      - run: echo resolved actions/checkout@v6
-  v2:
-    name: "actions/setup-python@v6"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/setup-python@v6
-      - run: echo resolved actions/setup-python@v6
-  v3:
-    name: "actions/cache@v5"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/cache@v5
-      - run: echo resolved actions/cache@v5
-  v4:
-    name: "actions/upload-artifact@v5"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/upload-artifact@v5
-      - run: echo resolved actions/upload-artifact@v5
-  v5:
-    name: "actions/upload-artifact@v6"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/upload-artifact@v6
-      - run: echo resolved actions/upload-artifact@v6
-  v6:
-    name: "actions/download-artifact@v5"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/download-artifact@v5
-      - run: echo resolved actions/download-artifact@v5
-  v7:
-    name: "actions/download-artifact@v6"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/download-artifact@v6
-      - run: echo resolved actions/download-artifact@v6
-  v8:
-    name: "actions/download-artifact@v7"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/download-artifact@v7
-      - run: echo resolved actions/download-artifact@v7
-  v9:
-    name: "actions/configure-pages@v6"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/configure-pages@v6
-      - run: echo resolved actions/configure-pages@v6
-  v10:
-    name: "actions/deploy-pages@v5"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/deploy-pages@v5
-      - run: echo resolved actions/deploy-pages@v5
-  v11:
-    name: "actions/upload-pages-artifact@v4"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/upload-pages-artifact@v4
-      - run: echo resolved actions/upload-pages-artifact@v4
-  v12:
-    name: "actions/upload-pages-artifact@v5"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/upload-pages-artifact@v5
-      - run: echo resolved actions/upload-pages-artifact@v5
-  v13:
-    name: "actions/upload-artifact@v7"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/upload-artifact@v7
-      - run: echo resolved actions/upload-artifact@v7
-  v14:
-    name: "actions/cache@v6"
-    runs-on: ubuntu-latest
-    steps:
-      - if: ${{ false }}
-        uses: actions/cache@v6
-      - run: echo resolved actions/cache@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - uses: actions/cache@v6
+        with:
+          path: /tmp/probe-cache
+          key: probe-high-${{ github.run_id }}
+      - run: mkdir -p out site && echo '{"a":1}' > out/data-x.json && echo hi > site/index.html
+      - uses: actions/upload-artifact@v7
+        with:
+          name: data-high
+          path: out/data-x.json
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: data-high*
+          path: got
+          merge-multiple: true
+      - run: ls -R got && cat got/data-x.json
+      - uses: actions/configure-pages@v6
+        continue-on-error: true
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+          name: pages-high
