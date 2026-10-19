@@ -4,6 +4,9 @@ name: Market-day keeper
 # started, and others ran up to 2 hours late). This job starts before the open, stays up through the session and
 # starts the "Intraday nowcast" workflow at fixed IST times. The nowcast's own cron entries remain as a fallback and
 # skip themselves when a run has just happened.
+# 13-19 Oct 2026: every scheduled run of this repo started 2-5 hours late (the 08:37 keeper at 13:34), so the crons
+# below cannot be relied on to start the day. A scheduled task outside GitHub dispatches this workflow at 08:22 IST
+# on trading days; the crons stay as a last resort (a late keeper still catches up the most recent update).
 on:
   schedule:
     - cron: "7 3 * * 1-5"      # 08:37 IST
