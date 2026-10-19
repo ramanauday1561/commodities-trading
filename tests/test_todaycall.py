@@ -77,6 +77,18 @@ class Calls(unittest.TestCase):
         self.assertFalse(tc.from_open_block(X, y, np.array([0.01, 0.0]))["trade"])
         self.assertIn("from_open", tc.from_open_block(X, y, np.array([0.0, 0.0]))["trade_stats"])
 
+    def test_from_open_stands_aside_after_heavyweight_results(self):
+        rng = np.random.default_rng(2)
+        X = rng.normal(size=(300, 2))
+        y = 0.01 * X[:, 0] + rng.normal(0, 0.004, 300)
+        hist = np.zeros(300, bool)
+        hist[::10] = True
+        b = tc.from_open_block(X, y, np.array([2.5, 0.0]), hist, True)
+        self.assertFalse(b["trade"])
+        self.assertTrue(b["skipped_for_results"])
+        self.assertTrue(tc.from_open_block(X, y, np.array([2.5, 0.0]), hist, False)["trade"])
+        self.assertLess(b["trade_stats"]["days"], tc.from_open_block(X, y, np.array([2.5, 0.0]))["trade_stats"]["days"])
+
     def test_value_at_uses_only_finished_bars(self):
         s = pd.Series([1.0, 2.0], index=pd.to_datetime(["2026-10-13 03:00", "2026-10-13 04:00"]).tz_localize("UTC"))
         self.assertEqual(tc.value_at(s, pd.Timestamp("2026-10-13 03:59", tz="UTC")), 1.0)
@@ -90,9 +102,23 @@ class Calls(unittest.TestCase):
         series = {k: pd.Series(np.linspace(1, 2, len(hours)), index=hours) for k in {**tc.OVERNIGHT, **tc.INDIA}}
         series["usdinr"] = pd.Series(dtype=float)                       # a missing input becomes 0, not NaN
         df = tc.history(nd, series)
-        self.assertTrue(set(tc.GAP_FEATS) <= set(df.columns))
-        self.assertFalse(df[tc.GAP_FEATS].isna().any().any())
+        self.assertTrue(set(tc.GAP_FEATS) <= set(df.columns) and set(tc.FRESH_FEATS) <= set(df.columns))
+        self.assertFalse(df[tc.GAP_FEATS + tc.FRESH_FEATS].isna().any().any())
         self.assertTrue((df["usdinr"] == 0).all())
+
+    def test_us_futures_split_at_the_us_close(self):
+        # Fri 16 Oct 2026: NIFTY closes 10:00 UTC, the US cash session closes 20:00 UTC (EDT); Monday's call at 03:40 UTC
+        hours = pd.date_range("2026-10-16 00:00", "2026-10-19 04:00", freq="h", tz="UTC")
+        es = pd.Series(100.0, index=hours)
+        es[es.index >= "2026-10-16 15:00"] = 101.0                       # +1% during the US session
+        es[es.index >= "2026-10-18 23:00"] = 99.99                       # -1% after it (the weekend reaction)
+        f = tc.overnight_features({"es": es}, date(2026, 10, 16), date(2026, 10, 19),
+                                  pd.Timestamp("2026-10-19 03:40", tz="UTC"), 0.0)
+        self.assertAlmostEqual(f["es_day"], 0.01, places=6)
+        self.assertAlmostEqual(f["es_night"], -0.01, places=6)
+        self.assertAlmostEqual((1 + f["es_day"]) * (1 + f["es_night"]) - 1, f["es"], places=9)
+        self.assertEqual((f["nq_day"], f["nq_night"]), (0.0, 0.0))     # input missing: no signal, not an error
+        self.assertEqual(tc.us_close(date(2026, 12, 4)).hour, 21)        # EST in winter
 
 
 if __name__ == "__main__":

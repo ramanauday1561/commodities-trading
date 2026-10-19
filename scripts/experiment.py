@@ -7,6 +7,9 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "improve": NIFTY only, extra pre-open inputs and intraday patterns (see accuracy_study.improve)
   mode "events": big-move risk and ranges with and without US CPI / jobs / Fed calendar inputs
   mode "strategy": NIFTY only, trading rules scored on what an open or 10:15 entry earns to the close, after costs
+  mode "preopen": NIFTY only, missing pre-open inputs after 19 Oct 2026 (preopen_study.py); "results": calls on days
+    after heavyweight results; "earnings": can Yahoo serve results dates; "resultsrisk": results days as an input to
+    big-move risk and ranges (19 Oct 2026: slightly worse, not used)
   mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
   mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
   mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
@@ -213,6 +216,12 @@ def main(key, test_days=750, step=2, mode="variants"):
             import accuracy_study
             accuracy_study.strategy_main()
         return
+    if mode in ("preopen", "earnings", "results"):
+        if key == "nifty":
+            import preopen_study
+            {"preopen": preopen_study.main, "earnings": preopen_study.earnings_probe,
+             "results": preopen_study.results_study}[mode]()
+        return
     if mode == "open":
         if key == "nifty":
             import open_study
@@ -262,6 +271,27 @@ def main(key, test_days=750, step=2, mode="variants"):
         flag = ev["ev_any"].values if "ev_any" in ev else None
         risk_and_range(key, inst, full, X_exo, tests, flag, "without_events ")
         return risk_and_range(key, inst, full, X_ev, tests, flag, "with_events ")
+
+    if mode == "resultsrisk":                            # NIFTY: heavyweight results as an input to big-move risk and ranges
+        if key != "nifty":
+            return
+        import preopen_study
+        from calendars import next_sessions
+        rd = preopen_study.results_dates()
+        idx = pd.DatetimeIndex(full.index).normalize()
+        nxt = np.array(list(idx[1:]) + [pd.Timestamp(next_sessions(full.index[-1].date(), 1, inst.get("calendar"))[0])],
+                       dtype="datetime64[ns]")
+        n_res = np.zeros(len(idx))
+        for t, ds in rd.items():                         # dated between this close and the next one (after the close)
+            days = np.array(sorted(ds), dtype="datetime64[ns]")
+            n_res += (np.searchsorted(days, nxt, side="left") - np.searchsorted(days, idx.values, side="left")) > 0
+        ev = pd.DataFrame({"res_n": n_res, "res_any": (n_res > 0).astype(float)}, index=full.index)
+        print(f"nifty: results on {int(ev['res_any'].sum())} of {len(ev)} sessions; last: "
+              + ", ".join(str(d.date()) for d in ev.index[ev["res_any"] > 0][-5:]), flush=True)
+        X_res = gbm.features(full, ev if exo is None else pd.concat([exo, ev], axis=1)).values
+        flag = ev["res_any"].values
+        risk_and_range(key, inst, full, X_exo, tests, flag, "without_results ")
+        return risk_and_range(key, inst, full, X_res, tests, flag, "with_results ")
 
     variants = {
         "current": dict(X=X_exo),

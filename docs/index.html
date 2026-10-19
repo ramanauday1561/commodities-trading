@@ -257,6 +257,16 @@ function typicalRange(d) {
   return c.length ? c.reduce((a, x) => a + (x.high - x.low) / x.close, 0) / c.length * 100 : null;
 }
 
+// The average size of a day's close-to-close move over the last 60 sessions, in %: the forecast's middle is usually
+// much smaller than this, because ups and downs average out (19 Oct 2026: middle -0.25%, NIFTY fell 1.11%).
+function typicalMove(d) {
+  const c = d.candles.slice(-61);
+  if (c.length < 2) return null;
+  let s = 0;
+  for (let i = 1; i < c.length; i++) s += Math.abs(c[i].close / c[i - 1].close - 1);
+  return s / (c.length - 1) * 100;
+}
+
 function blendParts(d) {
   if (!d.blend) return null;
   const parts = Object.keys(d.blend.weights).map(k => ({ k, label: d.models[k] ? d.models[k].label : k, w: d.blend.weights[k] }));
@@ -432,11 +442,11 @@ function todayCard(d) {
     return `<div style="margin:8px 0"><div class="k" style="margin-bottom:2px">${label}</div>${body}</div>`;
   };
   const p = t.preopen;
-  const mv = p ? Object.entries({ es: 'US S&P futures', nq: 'US Nasdaq futures', nikkei: 'Nikkei', kospi: 'KOSPI', hangseng: 'Hang Seng',
+  const mv = p ? Object.entries({ es: 'US S&P futures', es_night: 'of which after the US close', nq: 'US Nasdaq futures', nq_night: 'of which after the US close', nikkei: 'Nikkei', kospi: 'KOSPI', hangseng: 'Hang Seng',
         hdb: 'HDFC Bank ADR', ibn: 'ICICI ADR', infy: 'Infosys ADR', crude: 'crude oil', usdinr: 'USD/INR' })
       .filter(([k]) => p.moves_pct[k] != null).map(([k, n]) => `${n} ${pc(p.moves_pct[k])}`).join(' · ') : '';
   const pre = p ? `${line(`Opening at 9:15 vs yesterday's close (${f(p.prev_close)})`, p.gap)}${line('Close today vs yesterday\'s close', p.close)}${openSignal(p)}
-    <div class="sub">${p.recorded ? `<b>${p.recorded.final ? 'Final call' : 'Latest call'}: made at ${esc(p.recorded.made_at)} IST.</b> ` : ''}Based on markets up to ${esc(p.cutoff_ist)} IST since NIFTY's last close: ${mv}. Tested on ${p.close.test_days} days since ${esc(p.since)}.</div>` : '';
+    <div class="sub">${p.recorded ? `<b>${p.recorded.final ? 'Final call' : 'Latest call'}: made at ${esc(p.recorded.made_at)} IST.</b> ` : ''}Based on markets up to ${esc(p.cutoff_ist)} IST since NIFTY's last close: ${mv}. Tested on ${p.close.test_days} days since ${esc(p.since)}.</div>${upcomingResults(p.results)}` : '';
   const i = t.intraday;
   let intr = '';
   if (i && t.status === 'open') {
@@ -656,13 +666,31 @@ function openSignal(p) {
   const stats = s.days ? `In past tests it traded on ${s.days} of ${o.test_days} days, won ${Math.round((fo.win_rate || 0) * 100)}% and made ${pc(fo.avg_pct_after_costs || 0)} per trade after costs. That edge is small and not proven yet; the live record below tracks it.` : '';
   const body = o.trade
     ? `${o.direction === 'up' ? '<b class="up">▲ Buy at the open</b>' : '<b class="down">▼ Sell at the open</b>'}, exit at the close <span class="lvl good" style="margin-left:6px">Signal</span>`
-    : `<b>No trade today.</b> <span class="mini">The model leans ${o.direction === 'up' ? 'up' : 'down'} from the open, but not strongly enough to trade (it trades only on its most confident days, ranked against its own past calls).</span>`;
+    : o.skipped_for_results
+      ? `<b>No trade today.</b> <span class="mini">The model would ${o.direction === 'up' ? 'buy' : 'sell'} at the open, but heavyweight results came out since the last close, and in past tests its trades on such days lost money. It stands aside.</span>`
+      : `<b>No trade today.</b> <span class="mini">The model leans ${o.direction === 'up' ? 'up' : 'down'} from the open, but not strongly enough to trade (it trades only on its most confident days, ranked against its own past calls).</span>`;
   return `<div style="margin:8px 0"><div class="k" style="margin-bottom:2px">Trading from the 09:15 open</div>${body}<div class="sub" style="margin-top:3px">${stats}</div></div>`;
 }
 function openSignalShort(p) {
   const o = p && p.from_open;
   if (!o) return '';
   return o.trade ? ` From-open signal: <b>${o.direction === 'up' ? 'buy' : 'sell'} at the open</b> (rare, small edge).` : ' From-open signal: no trade today.';
+}
+
+// Quarterly results of NIFTY's heaviest stocks (scripts/results_calendar.py): days after them move more.
+const listNames = a => a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}` : (a[0] || '');
+function resultsLine(d) {
+  const t = d._today, todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+  const r = t && t.date === todayIst && t.preopen && t.preopen.results;
+  if (!r || !r.since || !r.since.length) return '';
+  const b = r.big_day_pct;
+  return `<p class="callline"><span class="dot" style="background:var(--warn)"></span><span><b>Results since the last close: ${esc(listNames(r.since))}.</b> After heavyweight results NIFTY moved more than 1% on ${b.results}% of days (${b.other}% otherwise), in either direction, so expect a bigger move than usual.</span></p>`;
+}
+function upcomingResults(r) {
+  const u = (r && r.upcoming) || [];
+  if (!u.length) return '';
+  const fmt = s => new Date(s + 'T12:00:00Z').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+  return `<div class="sub" style="margin-top:8px">Coming results of NIFTY heavyweights: ${u.map(x => `${esc(x.name)} (${fmt(x.date)})`).join(', ')}.</div>`;
 }
 
 // US releases that move these markets most; scheduled weeks ahead (scripts/us_events.py).
@@ -699,11 +727,14 @@ function headline(d, first, last, upPct) {
       return { ...likely(p.close.direction), pill: `${pct(p.close.tiers[p.close.tier].accuracy)} right`, from: 'call',
                text: `Today's call from overnight markets: close ${p.close.direction === 'up' ? 'higher' : 'lower'} than yesterday's ${f(p.prev_close)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time in past tests. ${fromOpen(p.close.tiers[p.close.tier])}${callStamp(p)}` };
   }
-  const chg = (first.close / last - 1) * 100;
+  const chg = (first.close / last - 1) * 100, tm = typicalMove(d);
+  const size = tm ? ` A normal day moves about ${tm.toFixed(1)}% either way, so read this as a direction, not the size of the move.` : '';
   if (Math.abs(upPct - 50) < NO_EDGE)
     return { word: 'No clear direction', cls: '', pill: `${upPct}% up`, from: 'noedge',
-             text: `Best guess ${f(first.close)} (${pc(chg)}), but that is within normal day-to-day noise. No edge: stand aside unless a mid-day update gives a call.` };
-  return null;
+             text: `Middle estimate ${f(first.close)} (${pc(chg)}), within normal day-to-day noise. No edge: stand aside unless a mid-day update gives a call.${size}` };
+  const down = upPct < 50;
+  return { word: down ? 'Leaning lower' : 'Leaning higher', cls: down ? 'down' : 'up', pill: `${down ? 100 - upPct : upPct}% chance`,
+           from: 'lean', text: `Middle estimate ${f(first.close)} (${pc(chg)}).${size}` };
 }
 
 /* ---------------- render ---------------- */
@@ -751,6 +782,7 @@ function render(d) {
       <p class="statement">From ${f(last)}. Likely between <b>${f(lo(first))}</b> and <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>`}
       ${head && head.from === 'call' ? '' : callLine(d)}
       ${eventLine(d)}
+      ${resultsLine(d)}
       ${stale}
     </section>
     <div class="facts">${facts.map(([v, t, c]) => `<div class="fact glass"><b class="${c}">${v}</b><span>${t}</span></div>`).join('')}</div>
