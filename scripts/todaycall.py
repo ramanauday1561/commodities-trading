@@ -9,14 +9,17 @@ accuracy from 71% to 76% of all days, see accuracy_study.extreme_days):
   walk-forward calls, and the page shows only the accuracy of that confidence tier in the walk-forward test.
 From-open signal: for trading from the 09:15 open. A ridge on the overnight inputs trained on the move from the open to
   the close (not vs yesterday's close), and a trade only on its top-20% most confident days (ranked against its own
-  past walk-forward calls); every other day is "no trade". Backtest with the fresh/stale split below (preopen_study.py,
-  ~680 days): 82 trades, 52% won, +0.12% per trade after costs, positive in both halves but not statistically proven
-  (t 1.1), so it is recorded and scored from the open in the live record. Buying the open every day lost ~0.07%/day.
+  past walk-forward calls); every other day is "no trade", and so is any day after heavyweight results
+  (results_calendar.py). Backtest with the fresh/stale split below (preopen_study.py, ~680 days): 83 trades, 52% won,
+  +0.11% per trade after costs (t 1.0); leaving out the 8 trades after heavyweight results (-0.19% each): 74 trades,
+  +0.15% each. Positive in both halves but not statistically proven, so it is scored from the open in the live record.
+  Buying the open every day lost ~0.07%/day.
 Fresh vs stale (after 19 Oct 2026, when Friday's ADR rise cancelled the weekend's fall in US futures and NIFTY lost
   1.1%): the close call and the from-open signal split the US index futures move at the US cash close (16:00 New
   York) into the part during the US session, which the ADRs also saw, and the part after it, which they did not.
-  Walk-forward (preopen_study.py, ~680 days): close call 61.7% -> 63.5% right (top 20%: 76.5% -> 77.5%), from-open
-  top-20% trades +0.08% -> +0.12% per trade. Small gains; the gap call keeps its inputs (no gain there).
+  Walk-forward (preopen_study.py, ~680 days): close call 61.6% -> 63.5% right (top 20%: 76.3% -> 78.4%), from-open
+  top-20% trades +0.07% -> +0.11% per trade. Small gains; the gap call keeps its inputs (no gain there). India VIX,
+  Bank Nifty, crude in the close call and ADRs split by weekend were tested too and did not help.
 During the session (from 10:15 IST): today's close direction from the move so far, with the historical accuracy of
   "the sign of the move at this time of day, for moves at least this big".
 
