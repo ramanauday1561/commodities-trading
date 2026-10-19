@@ -35,6 +35,10 @@ jobs:
         run: |
           go=true
           if [ "${{ github.event_name }}" = "schedule" ]; then
+            # GitHub starts this repo's scheduled runs 2-5 hours late (13-19 Oct 2026: the 08:53 run started at 13:49,
+            # the 14:07 one at 18:58). A run that arrives outside the session has nothing to update.
+            hm=$(TZ=Asia/Kolkata date +%H%M)
+            if [ "$hm" -lt 0840 ] || [ "$hm" -gt 1535 ]; then echo "late scheduled run at $hm IST, outside the session; skipping"; echo "go=false" >> "$GITHUB_OUTPUT"; exit 0; fi
             since=$(date -u -d '25 minutes ago' +%Y-%m-%dT%H:%M:%SZ)
             recent=$(gh api "repos/${{ github.repository }}/actions/workflows/intraday.yml/runs?per_page=10" \
               --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }} and .created_at >= \"$since\" and (.conclusion == \"success\" or .status != \"completed\"))] | length" || echo 0)

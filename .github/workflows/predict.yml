@@ -47,6 +47,13 @@ jobs:
         run: |
           skip=false
           if [ "$EVENT" = "schedule" ]; then
+            # GitHub starts this repo's scheduled runs 2-5 hours late (the 08:30 IST run started at 13:19 on 15 and
+            # 16 Oct). During the session the keeper starts every update; a full forecast rebuild then only queues
+            # ahead of the intraday updates (same publishing queue), so a run arriving then is skipped.
+            hm=$(TZ=Asia/Kolkata date +%H%M)
+            if [ "$hm" -ge 0900 ] && [ "$hm" -le 1540 ]; then
+              echo "late scheduled run at $hm IST, during the session; skipping"; echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+            fi
             # another run on main already succeeded, or is running/queued, within the last 90 minutes -> this one is a duplicate
             n=$(gh api "repos/${{ github.repository }}/actions/workflows/predict.yml/runs?per_page=20" \
               --jq '[.workflow_runs[] | select(.id != ${{ github.run_id }}) | select(.head_branch == "main")
