@@ -7,6 +7,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "improve": NIFTY only, extra pre-open inputs and intraday patterns (see accuracy_study.improve)
   mode "events": big-move risk and ranges with and without US CPI / jobs / Fed calendar inputs
   mode "strategy": NIFTY only, trading rules scored on what an open or 10:15 entry earns to the close, after costs
+  mode "preopen": NIFTY only, missing pre-open inputs after 19 Oct 2026 (preopen_study.py)
   mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
   mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
   mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
@@ -212,6 +213,11 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key == "nifty":
             import accuracy_study
             accuracy_study.strategy_main()
+        return
+    if mode == "preopen":
+        if key == "nifty":
+            import preopen_study
+            preopen_study.main()
         return
     if mode == "open":
         if key == "nifty":
