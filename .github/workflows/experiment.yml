@@ -1,36 +1,123 @@
 name: Model experiments
 
-# Backtest LightGBM variants side by side (scripts/experiment.py). Nothing is deployed or saved; read the job logs.
+# TEMPORARY (test branch only): checks which newer action versions exist. Steps never run (if: false); a missing
+# version fails at "Set up job" when GitHub resolves the action.
 on:
   workflow_dispatch:
     inputs:
       test_days:
-        description: "Trading days to test (most recent)"
         required: false
-        default: "750"
+        default: "0"
       mode:
-        description: "variants (expected close), risk (big-move probability and ranges), accuracy (NIFTY direction study), improve (NIFTY: extra pre-open inputs, intraday patterns), commodity (futures: move so far vs settlement), extreme (NIFTY: extreme overnight days), strategy (NIFTY: trading rules after costs), open (NIFTY: from-open and 10:15 calls, expiry days), events (US CPI/jobs/Fed calendar) or dailyfill (candles rebuilt from 15m bars vs official)"
         required: false
-        default: "variants"
+        default: "x"
 
 permissions:
   contents: read
 
 jobs:
-  run:
+  v0:
+    name: "actions/checkout@v5"
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        key: [nifty, gold, silver, crude]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - run: pip install numpy pandas yfinance lightgbm exchange_calendars
-      - env:
-          PYTHONPATH: scripts
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-        run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2 ${{ github.event.inputs.mode || 'variants' }}
+      - if: ${{ false }}
+        uses: actions/checkout@v5
+      - run: echo resolved actions/checkout@v5
+  v1:
+    name: "actions/checkout@v6"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/checkout@v6
+      - run: echo resolved actions/checkout@v6
+  v2:
+    name: "actions/setup-python@v6"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/setup-python@v6
+      - run: echo resolved actions/setup-python@v6
+  v3:
+    name: "actions/cache@v5"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/cache@v5
+      - run: echo resolved actions/cache@v5
+  v4:
+    name: "actions/upload-artifact@v5"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/upload-artifact@v5
+      - run: echo resolved actions/upload-artifact@v5
+  v5:
+    name: "actions/upload-artifact@v6"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/upload-artifact@v6
+      - run: echo resolved actions/upload-artifact@v6
+  v6:
+    name: "actions/download-artifact@v5"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/download-artifact@v5
+      - run: echo resolved actions/download-artifact@v5
+  v7:
+    name: "actions/download-artifact@v6"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/download-artifact@v6
+      - run: echo resolved actions/download-artifact@v6
+  v8:
+    name: "actions/download-artifact@v7"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/download-artifact@v7
+      - run: echo resolved actions/download-artifact@v7
+  v9:
+    name: "actions/configure-pages@v6"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/configure-pages@v6
+      - run: echo resolved actions/configure-pages@v6
+  v10:
+    name: "actions/deploy-pages@v5"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/deploy-pages@v5
+      - run: echo resolved actions/deploy-pages@v5
+  v11:
+    name: "actions/upload-pages-artifact@v4"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/upload-pages-artifact@v4
+      - run: echo resolved actions/upload-pages-artifact@v4
+  v12:
+    name: "actions/upload-pages-artifact@v5"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/upload-pages-artifact@v5
+      - run: echo resolved actions/upload-pages-artifact@v5
+  v13:
+    name: "actions/upload-artifact@v7"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/upload-artifact@v7
+      - run: echo resolved actions/upload-artifact@v7
+  v14:
+    name: "actions/cache@v6"
+    runs-on: ubuntu-latest
+    steps:
+      - if: ${{ false }}
+        uses: actions/cache@v6
+      - run: echo resolved actions/cache@v6
