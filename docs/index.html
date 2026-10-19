@@ -257,6 +257,16 @@ function typicalRange(d) {
   return c.length ? c.reduce((a, x) => a + (x.high - x.low) / x.close, 0) / c.length * 100 : null;
 }
 
+// The average size of a day's close-to-close move over the last 60 sessions, in %: the forecast's middle is usually
+// much smaller than this, because ups and downs average out (19 Oct 2026: middle -0.25%, NIFTY fell 1.11%).
+function typicalMove(d) {
+  const c = d.candles.slice(-61);
+  if (c.length < 2) return null;
+  let s = 0;
+  for (let i = 1; i < c.length; i++) s += Math.abs(c[i].close / c[i - 1].close - 1);
+  return s / (c.length - 1) * 100;
+}
+
 function blendParts(d) {
   if (!d.blend) return null;
   const parts = Object.keys(d.blend.weights).map(k => ({ k, label: d.models[k] ? d.models[k].label : k, w: d.blend.weights[k] }));
@@ -699,11 +709,14 @@ function headline(d, first, last, upPct) {
       return { ...likely(p.close.direction), pill: `${pct(p.close.tiers[p.close.tier].accuracy)} right`, from: 'call',
                text: `Today's call from overnight markets: close ${p.close.direction === 'up' ? 'higher' : 'lower'} than yesterday's ${f(p.prev_close)}. Calls this strong were right ${pct(p.close.tiers[p.close.tier].accuracy)} of the time in past tests. ${fromOpen(p.close.tiers[p.close.tier])}${callStamp(p)}` };
   }
-  const chg = (first.close / last - 1) * 100;
+  const chg = (first.close / last - 1) * 100, tm = typicalMove(d);
+  const size = tm ? ` A normal day moves about ${tm.toFixed(1)}% either way, so read this as a direction, not the size of the move.` : '';
   if (Math.abs(upPct - 50) < NO_EDGE)
     return { word: 'No clear direction', cls: '', pill: `${upPct}% up`, from: 'noedge',
-             text: `Best guess ${f(first.close)} (${pc(chg)}), but that is within normal day-to-day noise. No edge: stand aside unless a mid-day update gives a call.` };
-  return null;
+             text: `Middle estimate ${f(first.close)} (${pc(chg)}), within normal day-to-day noise. No edge: stand aside unless a mid-day update gives a call.${size}` };
+  const down = upPct < 50;
+  return { word: down ? 'Leaning lower' : 'Leaning higher', cls: down ? 'down' : 'up', pill: `${down ? 100 - upPct : upPct}% chance`,
+           from: 'lean', text: `Middle estimate ${f(first.close)} (${pc(chg)}).${size}` };
 }
 
 /* ---------------- render ---------------- */
