@@ -270,6 +270,27 @@ def main(key, test_days=750, step=2, mode="variants"):
         risk_and_range(key, inst, full, X_exo, tests, flag, "without_events ")
         return risk_and_range(key, inst, full, X_ev, tests, flag, "with_events ")
 
+    if mode == "resultsrisk":                            # NIFTY: heavyweight results as an input to big-move risk and ranges
+        if key != "nifty":
+            return
+        import preopen_study
+        from calendars import next_sessions
+        rd = preopen_study.results_dates()
+        idx = pd.DatetimeIndex(full.index).normalize()
+        nxt = np.array(list(idx[1:]) + [pd.Timestamp(next_sessions(full.index[-1].date(), 1, inst.get("calendar"))[0])],
+                       dtype="datetime64[ns]")
+        n_res = np.zeros(len(idx))
+        for t, ds in rd.items():                         # dated between this close and the next one (after the close)
+            days = np.array(sorted(ds), dtype="datetime64[ns]")
+            n_res += (np.searchsorted(days, nxt, side="left") - np.searchsorted(days, idx.values, side="left")) > 0
+        ev = pd.DataFrame({"res_n": n_res, "res_any": (n_res > 0).astype(float)}, index=full.index)
+        print(f"nifty: results on {int(ev['res_any'].sum())} of {len(ev)} sessions; last: "
+              + ", ".join(str(d.date()) for d in ev.index[ev["res_any"] > 0][-5:]), flush=True)
+        X_res = gbm.features(full, ev if exo is None else pd.concat([exo, ev], axis=1)).values
+        flag = ev["res_any"].values
+        risk_and_range(key, inst, full, X_exo, tests, flag, "without_results ")
+        return risk_and_range(key, inst, full, X_res, tests, flag, "with_results ")
+
     variants = {
         "current": dict(X=X_exo),
         "no_exo": dict(X=X_px),
