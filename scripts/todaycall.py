@@ -14,8 +14,8 @@ From-open signal: for trading from the 09:15 open. A ridge on the overnight inpu
   +0.11% per trade after costs (t 1.0); leaving out the 8 trades after heavyweight results (-0.19% each): 74 trades,
   +0.15% each. Positive in both halves but not statistically proven, so it is scored from the open in the live record.
   Buying the open every day lost ~0.07%/day.
-Fresh vs stale (after 19 Oct 2026, when Friday's ADR rise cancelled the weekend's fall in US futures and NIFTY lost
-  1.1%): the close call and the from-open signal split the US index futures move at the US cash close (16:00 New
+Fresh vs stale (studied after 19 Oct 2026, when NIFTY lost 1.1% on bank results while the overnight inputs pointed
+  nowhere): the close call and the from-open signal split the US index futures move at the US cash close (16:00 New
   York) into the part during the US session, which the ADRs also saw, and the part after it, which they did not.
   Walk-forward (preopen_study.py, ~680 days): close call 61.6% -> 63.5% right (top 20%: 76.3% -> 78.4%), from-open
   top-20% trades +0.07% -> +0.11% per trade. Small gains; the gap call keeps its inputs (no gain there). India VIX,

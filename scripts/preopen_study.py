@@ -3,8 +3,10 @@ slid after weekend results and crude neared $109): which missing inputs would ha
 
 The pre-open inputs mix information of different ages. US index futures from NIFTY's close to 09:10 IST include both
 the US cash session and the hours after it (Asia, and on Mondays the whole weekend), while the New York-listed Indian
-ADRs stop at the US close. On 19 Oct the ADRs (+1.3 to +1.9%, Friday's session, before the bank results) cancelled
-the fresher futures and Asian markets (Nasdaq futures -1.2%, Nikkei -1.3%), so the call landed near zero.
+ADRs stop at the US close. On 19 Oct the inputs were mixed: Friday's US session fell (S&P futures -1.2%, Nasdaq
+-2.4%), the futures recovered after it (+0.75%, +1.2%), the ADRs rose 1-2% and the Nikkei fell 1.3%, so the call
+landed near zero. None of the variants would have called that day: the bank results were not in any price by 09:10
+(with the split adopted, the 19 Oct close call is +0.11% instead of -0.09%, both "no clear call").
 
 Variants (each compared with the live inputs on the same days, for the opening gap, the close vs yesterday and the
 tradable open -> close move):
