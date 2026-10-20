@@ -129,6 +129,24 @@ class Scoreboard(unittest.TestCase):
         recs = scoreboard.update_records(recs, later)                 # Yahoo replaced last trade with settlement
         self.assertEqual((recs[0]["l"], recs[0]["a"]), (91.8, 93.74))
 
+    def test_forecast_made_before_a_roll_is_scored_on_its_move(self):
+        # 19 Oct 2026: forecast on the November WTI contract (103.66); the page then rescales history to December (-5.2%)
+        d = {"updated": "2026-10-19T23:00:00+00:00", "last_close": 103.66,
+             "models": {"gbm": {"forecast": [{"time": "2026-10-20", "close": 103.65}]}},
+             "candles": [{"time": "2026-10-19", "close": 103.66}]}
+        recs = scoreboard.update_records([], d)
+        later = dict(d, models={}, candles=[{"time": "2026-10-19", "close": 98.24}, {"time": "2026-10-20", "close": 96.09}])
+        recs = scoreboard.update_records(recs, later)
+        self.assertAlmostEqual(recs[0]["p"], 98.24 * 103.65 / 103.66, places=2)
+        self.assertEqual((recs[0]["l"], recs[0]["a"]), (98.24, 96.09))
+
+    def test_old_records_without_a_move_are_migrated(self):
+        old = [{"m": "gbm", "d": "2026-10-13", "f": "2026-10-12T04:00:00+00:00", "l": 100.0, "p": 101.0}]
+        d = {"updated": "2026-10-14T04:00:00+00:00", "last_close": 50.0, "models": {},
+             "candles": [{"time": "2026-10-12", "close": 50.0}, {"time": "2026-10-13", "close": 50.4}]}
+        recs = scoreboard.update_records(old, d)                     # history halved by a roll since the forecast
+        self.assertEqual((recs[0]["l"], recs[0]["p"], recs[0]["a"]), (50.0, 50.5, 50.4))
+
     def test_latest_forecast_for_a_day_replaces_the_earlier_one(self):
         d = {"updated": "2026-10-12T03:00:00+00:00", "last_close": 100.0, "candles": [],
              "models": {"base": {"forecast": [{"time": "2026-10-13", "close": 101.0}]}}}
