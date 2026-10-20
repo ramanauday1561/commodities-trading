@@ -11,6 +11,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
     after heavyweight results; "earnings": can Yahoo serve results dates; "resultsrisk": results days as an input to
     big-move risk and ranges (19 Oct 2026: slightly worse, not used)
   mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
+  mode "rolls": futures history with and without the contract-roll adjustment; NIFTY calls without crude (roll_study.py)
   mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
   mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
   mode "dailyfill": daily candles rebuilt from 15-minute bars vs Yahoo's own daily rows (last ~55 sessions)
@@ -222,10 +223,9 @@ def main(key, test_days=750, step=2, mode="variants"):
             {"preopen": preopen_study.main, "earnings": preopen_study.earnings_probe,
              "results": preopen_study.results_study}[mode]()
         return
-    if mode == "rollprobe":
-        if key == "crude":
-            import rolls
-            rolls.probe()
+    if mode == "rolls":                                   # futures roll adjustment; NIFTY with / without crude
+        import roll_study
+        roll_study.main(key)
         return
     if mode == "open":
         if key == "nifty":
