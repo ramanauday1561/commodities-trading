@@ -106,6 +106,10 @@ class Calls(unittest.TestCase):
         self.assertFalse(df[tc.GAP_FEATS + tc.FRESH_FEATS].isna().any().any())
         self.assertTrue((df["usdinr"] == 0).all())
 
+    def test_from_open_signal_leaves_only_crude_out(self):
+        self.assertEqual(set(tc.FRESH_FEATS) - set(tc.OPEN_FEATS), {"crude"})
+        self.assertIn("crude", tc.GAP_FEATS)
+
     def test_us_futures_split_at_the_us_close(self):
         # Fri 16 Oct 2026: NIFTY closes 10:00 UTC, the US cash session closes 20:00 UTC (EDT); Monday's call at 03:40 UTC
         hours = pd.date_range("2026-10-16 00:00", "2026-10-19 04:00", freq="h", tz="UTC")
