@@ -222,6 +222,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             {"preopen": preopen_study.main, "earnings": preopen_study.earnings_probe,
              "results": preopen_study.results_study}[mode]()
         return
+    if mode == "crudeprobe":
+        if key == "nifty":
+            import crude_probe
+            crude_probe.main()
+        return
     if mode == "open":
         if key == "nifty":
             import open_study
