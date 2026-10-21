@@ -235,6 +235,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             import hourly_study
             hourly_study.main()
         return
+    if mode == "review":                                  # NIFTY: gap surprise, failed gaps, banks after results
+        if key == "nifty":
+            import review_study
+            review_study.main()
+        return
     if mode == "open":
         if key == "nifty":
             import open_study
