@@ -636,7 +636,8 @@ function callLine(d) {
   const p = t.preopen, i = t.intraday, word = dir => dir === 'up' ? '<b class="up">higher</b>' : '<b class="down">lower</b>';
   const pct = x => `${Math.round(x * 100)}%`;
   let msg = '';
-  if (i && t.status === 'open' && i.accuracy != null && i.accuracy < 0.6) {
+  // 21 Oct 2026 (experiment mode review): moves under 0.25% held only 61-64% at 10:15-12:15, not the 76-83% of all moves
+  if (i && t.status === 'open' && i.accuracy != null && i.accuracy < 0.65) {
     msg = `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day: too small a move to call the close (moves this size held only ${pct(i.accuracy)} of the time).`;
   } else if (i && t.status === 'open' && i.accuracy != null) {
     const agree = p && p.close.tier !== 'none' && p.close.direction === i.direction;
