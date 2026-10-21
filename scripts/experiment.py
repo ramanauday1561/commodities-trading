@@ -224,6 +224,13 @@ def main(key, test_days=750, step=2, mode="variants"):
              "results": preopen_study.results_study}[mode]()
         return
     if mode == "hourly":                                  # NIFTY: next-hour / rest-of-day forecasts from 1-hour candles
+        import hourly, os, tempfile
+        with tempfile.TemporaryDirectory() as out:          # also check the chart's hourly file for every market
+            hourly.main(out, [key])
+            p = os.path.join(out, f"hourly-{key}.json")
+            if os.path.exists(p):
+                b = json.load(open(p))["bars"]
+                print(f"hourly {key}: {len(b)} bars, first {b[0]}, last {b[-1]}, {os.path.getsize(p) // 1024} KB", flush=True)
         if key == "nifty":
             import hourly_study
             hourly_study.main()
