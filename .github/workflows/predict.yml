@@ -188,6 +188,12 @@ jobs:
         continue-on-error: true
         timeout-minutes: 4
         run: python -u scripts/news.py docs/data store
+      - name: Hourly candles for the chart (display only)
+        continue-on-error: true
+        timeout-minutes: 3
+        run: |
+          pip install -q pandas yfinance
+          python -u scripts/hourly.py docs/data
       - run: python3 scripts/build_manifest.py
       - name: Save scoreboard and latest data (used by the intraday workflow)
         continue-on-error: true

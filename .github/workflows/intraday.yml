@@ -72,12 +72,17 @@ jobs:
         continue-on-error: true
         timeout-minutes: 4
         run: python -u scripts/news.py docs/data "$RUNNER_TEMP/news-store"
+      - name: Hourly NIFTY candles for the chart
+        if: steps.gate.outputs.go == 'true'
+        continue-on-error: true
+        timeout-minutes: 2
+        run: python -u scripts/hourly.py docs/data nifty
       - name: Save the latest call, nowcast and headlines to site-data (so every reader sees what the page shows)
         if: steps.gate.outputs.go == 'true' && github.ref == 'refs/heads/main'
         continue-on-error: true
         run: |
           snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
-          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
+          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
           bash scripts/store.sh push site-data "$snap"
       - id: have
         if: steps.gate.outputs.go == 'true'
