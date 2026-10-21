@@ -11,6 +11,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
     after heavyweight results; "earnings": can Yahoo serve results dates; "resultsrisk": results days as an input to
     big-move risk and ranges (19 Oct 2026: slightly worse, not used)
   mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
+  mode "hourly": NIFTY only, next-hour and rest-of-day forecasts from 1-hour candles (hourly_study.py)
   mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
   mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
   mode "dailyfill": daily candles rebuilt from 15-minute bars vs Yahoo's own daily rows (last ~55 sessions)
@@ -221,6 +222,18 @@ def main(key, test_days=750, step=2, mode="variants"):
             import preopen_study
             {"preopen": preopen_study.main, "earnings": preopen_study.earnings_probe,
              "results": preopen_study.results_study}[mode]()
+        return
+    if mode == "hourly":                                  # NIFTY: next-hour / rest-of-day forecasts from 1-hour candles
+        import hourly, os, tempfile
+        with tempfile.TemporaryDirectory() as out:          # also check the chart's hourly file for every market
+            hourly.main(out, [key])
+            p = os.path.join(out, f"hourly-{key}.json")
+            if os.path.exists(p):
+                b = json.load(open(p))["bars"]
+                print(f"hourly {key}: {len(b)} bars, first {b[0]}, last {b[-1]}, {os.path.getsize(p) // 1024} KB", flush=True)
+        if key == "nifty":
+            import hourly_study
+            hourly_study.main()
         return
     if mode == "open":
         if key == "nifty":
