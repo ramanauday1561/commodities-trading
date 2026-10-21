@@ -129,7 +129,7 @@ jobs:
         with:
           path: ~/.cache/huggingface
           key: hf-kronos-base
-      - name: News-tone history (read only; the deploy job saves new rows)
+      - name: Stored news-tone history and futures rolls (read only; the deploy job saves new rows)
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -163,7 +163,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pip install numpy
+      - run: pip install numpy pandas
       - name: Last published data (fallback for any instrument that failed this time)
         run: bash scripts/store.sh pull site-data docs/data
       - uses: actions/download-artifact@v7
@@ -178,6 +178,7 @@ jobs:
           bash scripts/store.sh pull scoreboard store
           python scripts/scoreboard.py store docs/data
           python scripts/newsfeat.py merge docs/data store
+          python scripts/rolls.py merge docs/data store
       - name: Today's call for NIFTY (pre-open and intraday direction calls)
         continue-on-error: true
         timeout-minutes: 8

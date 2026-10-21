@@ -34,6 +34,7 @@ from exo import load_exo  # noqa: E402
 from gbm import run_gbm  # noqa: E402
 import us_events  # noqa: E402
 import newsfeat  # noqa: E402
+import rolls  # noqa: E402
 
 COLS = ["open", "high", "low", "close"]
 MODELS = {
@@ -172,6 +173,11 @@ def main(key):
     expected = expected_last_session(now_ex, close_h, close_m, inst.get("calendar"))
     full, filled = load_history(inst["ticker"], expected,
                                 session=(inst["tz"], close_h, close_m, inst.get("calendar")) if inst.get("intraday_fill") else None)
+    # Futures: prices before each contract roll rescaled to the contract that trades now (found with today's candle)
+    roll_log = []
+    if inst["ticker"] in rolls.ROOTS:
+        roll_log = rolls.update(inst["ticker"], full, os.path.join("store", "rolls", f"{key}.json"), now_ex.date())
+        full = rolls.adjust(full, roll_log)
     stale = bool(full.index[-1].date() < expected)       # newest data is older than the last finished session
     if stale:
         print(f"WARNING: data is stale (last candle {full.index[-1].date()}, expected {expected})")
@@ -291,7 +297,7 @@ def main(key):
         "news_feature": news_feature, "risk": risk, "range_method": range_info,
         "us_events": {"before_next_close": ev_next, "in_model": bool(inst.get("event_inputs")),
                       "upcoming": us_events.upcoming(events, full.index[-1].date()) if events else []},
-        "inr": ({**inst["inr"], **fx} if inst.get("inr") and (fx := usd_inr()) else None),
+        "inr": ({**inst["inr"], **fx} if inst.get("inr") and (fx := usd_inr()) else None), "rolls": roll_log,
         "candles": candles, "models": models, "backtest": backtests, "today_live": today_live,
     }
     os.makedirs("docs/data", exist_ok=True)

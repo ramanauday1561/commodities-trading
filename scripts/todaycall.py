@@ -50,6 +50,11 @@ INDIA = {"hdb": "HDB", "ibn": "IBN", "infy": "INFY", "crude": "CL=F", "usdinr": 
 GAP_FEATS = FEATS + list(INDIA)                  # the close call keeps FEATS: the extra inputs did not help it
 SPLIT = ("es", "nq")                             # US index futures, split at the US cash close
 FRESH_FEATS = ["es_day", "es_night", "nq_day", "nq_night", "nikkei", "kospi", "hangseng", "prev_day"] + list(INDIA)
+# The from-open signal leaves crude out: Yahoo's hourly CL=F jumps at every contract roll (18 Sep, 15 Oct 2026) and its
+# weight is close to zero. Over 658 days (roll_study.py, 20 Oct 2026) its top-20% trades did better without it: 97 trades,
+# 54.6% won, +0.110% each after costs (+0.105% / +0.115% in the two halves) vs 81 trades, 48.1%, +0.075% (+0.132% / +0.020%).
+# The gap call (76.4% vs 75.4% right) and the close call (mixed halves) keep it.
+OPEN_FEATS = [k for k in FRESH_FEATS if k != "crude"]
 NY = ZoneInfo("America/New_York")
 CUTOFF = (3, 40)                 # 09:10 IST in UTC: the latest information a pre-open call may use
 PREV_CLOSE = (10, 0)             # 15:30 IST in UTC
@@ -312,13 +317,14 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         prev_day = nd.index[-1].date()
         f = overnight_features(series, prev_day, today, cutoff, nd["close"].iloc[-1] / nd["close"].iloc[-2] - 1)
         x_gap, x_fresh = np.array([f[k] for k in GAP_FEATS]), np.array([f[k] for k in FRESH_FEATS])
+        x_open = np.array([f[k] for k in OPEN_FEATS])
         cal = rc.fetch(os.path.join(store_dir, "results", "nifty.json"))
         res_hist = rc.flags(nd.index, cal).reindex(df.index).fillna(False).values.astype(bool) if cal else None
         res_now = rc.since(cal, prev_day, today) if cal else []
         pre = {"cutoff_ist": cutoff.tz_convert(IST).strftime("%H:%M"), "prev_close": round(float(nd["close"].iloc[-1]), 2),
                "moves_pct": {k: round(v * 100, 2) for k, v in f.items()},
                "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FRESH_FEATS].values, day, x_fresh, (1 + day) / (1 + gap) - 1),
-               "from_open": from_open_block(df[FRESH_FEATS].values, o2c, x_fresh, res_hist, bool(res_now)),
+               "from_open": from_open_block(df[OPEN_FEATS].values, o2c, x_open, res_hist, bool(res_now)),
                "since": str(df.index[0].date())}
         if cal and res_hist is not None and res_hist.any():
             big = np.abs(day) > 0.01                        # how often NIFTY moved more than 1% after results vs not

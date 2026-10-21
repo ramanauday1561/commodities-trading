@@ -765,6 +765,11 @@ function render(d) {
     ? `<div class="notice"><b class="warn">Data may be out of date.</b> The ${d.data_check.expected} close is not in yet, so this uses ${d.data_check.last_date}. It refreshes on the next run.</div>`
     : d.data_check && d.data_check.from_intraday
       ? `<p class="note" style="margin:10px 0 0">The ${esc(d.data_check.last_date)} close was built from 15-minute prices because the daily figure was not published yet; the next run uses the official one.</p>` : '';
+  // futures: prices before the latest contract roll are rescaled to the contract that trades now (scripts/rolls.py)
+  const roll = (d.rolls || []).slice(-1)[0];
+  const rollMonth = c => new Date(2000 + +c.slice(3, 5), 'FGHJKMNQUVXZ'.indexOf(c[2]), 1).toLocaleString([], { month: 'long', year: 'numeric' });
+  const rollNote = roll && Date.now() - new Date(roll.date) < 45 * 864e5
+    ? `<p class="note" style="margin:10px 0 0">The price switched to the ${esc(rollMonth(roll.contract))} contract on ${esc(roll.date)}. Earlier prices are adjusted by ${pc((roll.ratio - 1) * 100)} to match it, so the chart shows real moves and not the jump between contracts.</p>` : '';
   const tr = track(d, sel.keys);
   const when = d.starts_today ? 'today' : `on ${first.time}`;
   const facts = [
@@ -788,7 +793,7 @@ function render(d) {
       ${head && head.from === 'call' ? '' : callLine(d)}
       ${eventLine(d)}
       ${resultsLine(d)}
-      ${stale}
+      ${stale}${rollNote}
     </section>
     <div class="facts">${facts.map(([v, t, c]) => `<div class="fact glass"><b class="${c}">${v}</b><span>${t}</span></div>`).join('')}</div>
 
