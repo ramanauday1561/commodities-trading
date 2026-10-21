@@ -9,7 +9,7 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk (big-move probability and ranges), accuracy (NIFTY direction study), improve (NIFTY: extra pre-open inputs, intraday patterns), commodity (futures: move so far vs settlement), extreme (NIFTY: extreme overnight days), strategy (NIFTY: trading rules after costs), open (NIFTY: from-open and 10:15 calls, expiry days), preopen (NIFTY: missing pre-open inputs), rolls (futures roll adjustment), events (US CPI/jobs/Fed calendar) or dailyfill (candles rebuilt from 15m bars vs official)"
+        description: "variants (expected close), risk (big-move probability and ranges), accuracy (NIFTY direction study), improve (NIFTY: extra pre-open inputs, intraday patterns), commodity (futures: move so far vs settlement), extreme (NIFTY: extreme overnight days), strategy (NIFTY: trading rules after costs), open (NIFTY: from-open and 10:15 calls, expiry days), preopen (NIFTY: missing pre-open inputs), rolls (futures roll adjustment), hourly (NIFTY: forecasts from 1-hour candles), events (US CPI/jobs/Fed calendar) or dailyfill (candles rebuilt from 15m bars vs official)"
         required: false
         default: "variants"
 

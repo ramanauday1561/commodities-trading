@@ -467,7 +467,7 @@ function todayCard(d) {
       ? `<div class="sub" style="margin-top:6px">Opening call ${p.gap.direction === 'up' ? '▲' : '▼'}: NIFTY opened at ${f(i.open)} (${pc((i.open / p.prev_close - 1) * 100)}), ${(i.open > p.prev_close) === (p.gap.direction === 'up') ? '<b class="up">right</b>' : '<b class="down">wrong</b>'}.</div>` : '';
     intr = (i.accuracy != null
       ? `<div style="margin-top:12px"><div class="k" style="margin-bottom:2px">Update at ${esc(i.asof)} IST</div>NIFTY is <b class="${cls(i.move_pct)}">${pc(i.move_pct)}</b> vs yesterday (${f(i.price)}), so the close is likely ${arrow(i.direction)}.
-         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} more than ${i.bucket_pct.toFixed(2)}% by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${Math.round(i.share * 100)}% of days, ${i.test_days} days tested).</div></div>`
+         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} by a similar amount (${i.bucket_pct.toFixed(2)}% or more, up to the next step) by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${i.test_days} days tested).</div></div>`
       : `<div class="sub" style="margin-top:12px">At ${esc(i.asof)} IST NIFTY is ${pc(i.move_pct)} vs yesterday. The intraday update starts at 10:15.</div>`) + gapRes + verdict;
   } else if (i && t.status === 'closed' && p) {
     const ok = (c, up) => c.tier === 'none' ? 'no call' : ((c.direction === 'up') === up ? '<b class="up">right</b>' : '<b class="down">wrong</b>');
@@ -570,7 +570,7 @@ async function select(key) {
     }
     if (!d.models || !Object.keys(d.models).length) throw new Error('data format not recognised, hard-refresh the page');
     const side = async name => { try { const r = await fetch(`data/${name}-${key}.json?t=` + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
-    [d._score, d._intraday, d._news, d._today] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today')]);
+    [d._score, d._intraday, d._news, d._today, d._hourly] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly')]);
     if (my !== token) return;
     render(d);
   } catch (e) {
@@ -584,6 +584,8 @@ async function select(key) {
 /* ---------------- model selection ---------------- */
 let modelKey = 'default', currentData = null;
 try { modelKey = localStorage.getItem('model2') || 'default'; } catch (e) {}
+let chartMode = 'day';
+try { chartMode = localStorage.getItem('chartMode') || 'day'; } catch (e) {}
 const NUM = ['open', 'high', 'low', 'close', 'close_p10', 'close_p90', 'prob_up', 'cal_p10', 'cal_p90'];
 
 // Forecast of the selected model, or the average of all models.
@@ -634,7 +636,10 @@ function callLine(d) {
   const p = t.preopen, i = t.intraday, word = dir => dir === 'up' ? '<b class="up">higher</b>' : '<b class="down">lower</b>';
   const pct = x => `${Math.round(x * 100)}%`;
   let msg = '';
-  if (i && t.status === 'open' && i.accuracy != null) {
+  // 21 Oct 2026 (experiment mode review): moves under 0.25% held only 61-64% at 10:15-12:15, not the 76-83% of all moves
+  if (i && t.status === 'open' && i.accuracy != null && i.accuracy < 0.65) {
+    msg = `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day: too small a move to call the close (moves this size held only ${pct(i.accuracy)} of the time).`;
+  } else if (i && t.status === 'open' && i.accuracy != null) {
     const agree = p && p.close.tier !== 'none' && p.close.direction === i.direction;
     msg = `At ${esc(i.asof)} the session points to a close ${word(i.direction)} (moves like this held ${pct(i.accuracy)} of the time)${p && p.close.tier !== 'none' ? (agree ? ', in line with the morning call.' : ', against the morning call.') : '.'}`;
   } else if (i && t.status === 'closed' && p && p.close.tier !== 'none') {
@@ -798,7 +803,9 @@ function render(d) {
         <div id="readout">Hover or tap a candle for details</div>
       </div>
       <div id="chart"></div>
-      <div class="legend"><span><i style="background:var(--pred)"></i>forecast</span><span><i class="dash"></i>likely range</span><span><i class="dot"></i>last close</span><span>${d.unit}</span></div>
+      <div class="legend">${chartMode === 'hour' && d._hourly && d._hourly.bars && d._hourly.bars.length
+        ? `<span>1-hour candles, Indian time (the forecast is daily: switch to Day to see it)</span><span><i class="dot"></i>last close</span><span>${d.unit}</span>`
+        : `<span><i style="background:var(--pred)"></i>forecast</span><span><i class="dash"></i>likely range</span><span><i class="dot"></i>last close</span><span>${d.unit}</span>`}</div>
     </div>
 
     <div class="more">
@@ -834,51 +841,74 @@ function render(d) {
     <p class="foot">Forecast days skip weekends and exchange holidays. ${insight ? `A normal day's high-to-low swing here is about ${insight.toFixed(2)}%. ` : ''}Educational use only, not financial advice.</p>`;
 
   // ---------- chart ----------
+  // Day: daily candles with the forecast. Hour: the last ~3 months of 1-hour candles (times in IST), no forecast.
+  const hourly = (d._hourly && d._hourly.bars) || [];
+  const hourMode = chartMode === 'hour' && hourly.length > 0;
   chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
     layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9aa6b8', fontSize: 11 },
     grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.05)' } },
     rightPriceScale: { borderColor: 'rgba(255,255,255,.08)' },
-    timeScale: { borderColor: 'rgba(255,255,255,.08)', rightOffset: 3 },
+    timeScale: { borderColor: 'rgba(255,255,255,.08)', rightOffset: 3, timeVisible: hourMode, secondsVisible: false },
     crosshair: { mode: 0 },
   });
   const hist = chart.addCandlestickSeries({
     upColor: '#26a69a', downColor: '#ef5350', wickUpColor: '#26a69a', wickDownColor: '#ef5350', borderVisible: false,
   });
-  hist.setData(d.candles);
-  const pred = chart.addCandlestickSeries({
-    upColor: '#f5a623', downColor: '#f5a623', wickUpColor: '#f5a623', wickDownColor: '#f5a623',
-    borderColor: '#f5a623', priceLineVisible: false, lastValueVisible: false,
-  });
-  pred.setData(fc.map(r => ({ time: r.time, open: r.open, high: r.high, low: r.low, close: r.close })));
-  const band = (key) => {
-    const s = chart.addLineSeries({ color: 'rgba(245,166,35,.7)', lineWidth: 1, lineStyle: 2,
-      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
-    s.setData([{ time: d.last_date, value: last }, ...fc.map(r => ({ time: r.time, value: r[key] }))]);
-  };
-  band(cal ? 'cal_p10' : 'close_p10'); band(cal ? 'cal_p90' : 'close_p90');
+  hist.setData(hourMode ? hourly : d.candles);
+  const byTime = new Map((hourMode ? hourly : d.candles).map(c => [c.time, c]));
+  if (!hourMode) {
+    const pred = chart.addCandlestickSeries({
+      upColor: '#f5a623', downColor: '#f5a623', wickUpColor: '#f5a623', wickDownColor: '#f5a623',
+      borderColor: '#f5a623', priceLineVisible: false, lastValueVisible: false,
+    });
+    pred.setData(fc.map(r => ({ time: r.time, open: r.open, high: r.high, low: r.low, close: r.close })));
+    const band = (key) => {
+      const s = chart.addLineSeries({ color: 'rgba(245,166,35,.7)', lineWidth: 1, lineStyle: 2,
+        priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+      s.setData([{ time: d.last_date, value: last }, ...fc.map(r => ({ time: r.time, value: r[key] }))]);
+    };
+    band(cal ? 'cal_p10' : 'close_p10'); band(cal ? 'cal_p90' : 'close_p90');
+    fc.forEach(r => byTime.set(r.time, { ...r, forecast: true }));
+  }
   hist.createPriceLine({ price: last, color: '#5c6675', lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
 
-  const byTime = new Map(d.candles.map(c => [c.time, c]));
-  fc.forEach(r => byTime.set(r.time, { ...r, forecast: true }));
+  const hourLabel = t => { const x = new Date(t * 1000); return `${x.toISOString().slice(0, 10)} ${x.toISOString().slice(11, 16)} IST`; };
   chart.subscribeCrosshairMove(p => {
-    const t = p.time && (typeof p.time === 'string' ? p.time
+    const t = p.time && (typeof p.time === 'number' ? p.time : typeof p.time === 'string' ? p.time
       : `${p.time.year}-${String(p.time.month).padStart(2, '0')}-${String(p.time.day).padStart(2, '0')}`);
     const c = t && byTime.get(t);
     $('readout').innerHTML = c
-      ? `${c.time}${c.forecast ? ' <b style="color:var(--pred)">forecast</b>' : ''} · open ${f(c.open)} · high ${f(c.high)} · low ${f(c.low)} · close <b class="${cls(c.close - c.open)}">${f(c.close)}</b>`
+      ? `${hourMode ? hourLabel(c.time) : c.time}${c.forecast ? ' <b style="color:var(--pred)">forecast</b>' : ''} · open ${f(c.open)} · high ${f(c.high)} · low ${f(c.low)} · close <b class="${cls(c.close - c.open)}">${f(c.close)}</b>`
       : 'Hover or tap a candle for details';
   });
 
-  const total = d.candles.length + fc.length;
-  const ranges = { '1M': 22, '3M': 66, '6M': 130, '1Y': 255, '5Y': 1275, 'All': total };
-  const setRange = (k) => {
-    chart.timeScale().setVisibleLogicalRange({ from: Math.max(-1, total - ranges[k]), to: total + 2 });
-    document.querySelectorAll('#ranges button').forEach(b => b.classList.toggle('on', b.dataset.k === k));
-  };
-  $('ranges').innerHTML = Object.keys(ranges).map(k => `<button data-k="${k}">${k}</button>`).join('');
-  document.querySelectorAll('#ranges button').forEach(b => b.onclick = () => setRange(b.dataset.k));
-  setRange('3M');
+  const modes = hourly.length ? `<button data-mode="day" class="${hourMode ? '' : 'on'}">Day</button><button data-mode="hour" class="${hourMode ? 'on' : ''}">Hour</button><span style="width:6px"></span>` : '';
+  let setRange;
+  if (hourMode) {
+    const end = hourly[hourly.length - 1].time;
+    const ranges = { '1D': 1, '5D': 5, '1M': 30, '3M': 92 };
+    setRange = (k) => {
+      chart.timeScale().setVisibleRange({ from: end - ranges[k] * 86400, to: end });
+      document.querySelectorAll('#ranges button[data-k]').forEach(b => b.classList.toggle('on', b.dataset.k === k));
+    };
+    $('ranges').innerHTML = modes + Object.keys(ranges).map(k => `<button data-k="${k}">${k}</button>`).join('');
+  } else {
+    const total = d.candles.length + fc.length;
+    const ranges = { '1M': 22, '3M': 66, '6M': 130, '1Y': 255, '5Y': 1275, 'All': total };
+    setRange = (k) => {
+      chart.timeScale().setVisibleLogicalRange({ from: Math.max(-1, total - ranges[k]), to: total + 2 });
+      document.querySelectorAll('#ranges button[data-k]').forEach(b => b.classList.toggle('on', b.dataset.k === k));
+    };
+    $('ranges').innerHTML = modes + Object.keys(ranges).map(k => `<button data-k="${k}">${k}</button>`).join('');
+  }
+  document.querySelectorAll('#ranges button[data-k]').forEach(b => b.onclick = () => setRange(b.dataset.k));
+  document.querySelectorAll('#ranges button[data-mode]').forEach(b => b.onclick = () => {
+    if (b.dataset.mode === chartMode) return;
+    chartMode = b.dataset.mode; try { localStorage.setItem('chartMode', chartMode); } catch (e) {}
+    render(currentData);
+  });
+  setRange(hourMode ? '5D' : '3M');
   document.querySelectorAll('#models button').forEach(b => {
     const active = modelKey === 'default' ? (d.default_model || 'base') : modelKey;
     b.classList.toggle('on', b.dataset.m === active || (!d.models[active] && active !== 'avg' && b.dataset.m === Object.keys(d.models)[0]));

@@ -80,7 +80,7 @@ def main(store_dir, data_dir):
     os.makedirs(store_dir, exist_ok=True)
     for path in sorted(glob.glob(os.path.join(data_dir, "*.json"))):
         name = os.path.basename(path)[:-5]
-        if name == "index" or name.startswith(("scoreboard-", "intraday-", "news-", "today-")):
+        if name == "index" or name.startswith(("scoreboard-", "intraday-", "news-", "today-", "hourly-")):
             continue
         d = json.load(open(path))
         if "models" not in d:

@@ -125,5 +125,13 @@ class Calls(unittest.TestCase):
         self.assertEqual(tc.us_close(date(2026, 12, 4)).hour, 21)        # EST in winter
 
 
+class BandAccuracy(unittest.TestCase):
+    def test_small_moves_are_scored_on_their_own(self):
+        row = {0.0: {"accuracy": 0.76, "share": 1.0}, 0.0025: {"accuracy": 0.90, "share": 0.6},
+               0.005: {"accuracy": 0.96, "share": 0.38}, 0.01: {"accuracy": 0.99, "share": 0.1}}
+        self.assertAlmostEqual(tc.band_accuracy(row, 0.0), (0.76 - 0.90 * 0.6) / 0.4, places=3)   # 0.55, not 0.76
+        self.assertEqual(tc.band_accuracy(row, 0.01), 0.99)                                       # top bucket
+
+
 if __name__ == "__main__":
     unittest.main()
