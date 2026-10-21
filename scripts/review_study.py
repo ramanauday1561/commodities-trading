@@ -84,6 +84,12 @@ def main():
                      "top20_trades": trades(np.where(top, np.sign(p), 0).astype(int), o2c)}
                 c[f"{name}_{target}"] = r
         out["C_banks_after_results"] = c
+        # D. the hourly check by move size: moves of this size vs moves at least this big (what the page showed)
+        table = tc.intraday_table(nd, tc.hourly(tc.NIFTY))
+        out["D_hourly_check_by_move_size"] = {
+            utc_hm: {f"{b * 100:.2f}pct": {"at_least": row[b]["accuracy"], "this_size": tc.band_accuracy(row, b),
+                                            "share": row[b]["share"]} for b in tc.BUCKETS if b in row}
+            for utc_hm, row in ((f"{h:02d}:{m:02d}UTC", table[(h, m)]) for h, m in tc.CHECKPOINTS)}
         # today's inputs for the record
         out["recent"] = {str(d.date()): {"gap_pct": round(float(g * 100), 2), "surprise_pct": round(float(s * 100), 2),
                                          "open_to_1015_pct": round(float(x * 100), 2), "o2c_pct": round(float(o * 100), 2)}

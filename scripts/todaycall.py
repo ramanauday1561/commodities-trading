@@ -217,6 +217,20 @@ def intraday_table(nd, bars):
     return out
 
 
+def band_accuracy(row, b):
+    """How often moves of this size (from bucket b up to the next bucket) held, rather than moves at least this big.
+    21 Oct 2026: at 10:30 NIFTY was +0.16% and the page said "moves like this held 76%", the rate for all moves,
+    which is lifted by the large ones; it closed -0.34%."""
+    above = [x for x in BUCKETS if x > b and x in row]
+    if not above:
+        return row[b]["accuracy"]
+    nb = above[0]
+    n_b, n_nb = row[b]["share"], row[nb]["share"]
+    if n_b - n_nb <= 0:
+        return row[b]["accuracy"]
+    return round((row[b]["accuracy"] * n_b - row[nb]["accuracy"] * n_nb) / (n_b - n_nb), 3)
+
+
 # ---------------------------------------------------------------- live record
 def load_record(path):
     try:
@@ -353,7 +367,8 @@ def run(store_dir="store", out_dir="docs/data", now=None):
                         x in row and abs(move) > x for x in BUCKETS) else None
                     if b is not None:
                         intr.update({"checkpoint": utc_at(today, hm[-1]).tz_convert(IST).strftime("%H:%M"),
-                                     "accuracy": row[b]["accuracy"], "share": row[b]["share"],
+                                     "accuracy": band_accuracy(row, b), "at_least_accuracy": row[b]["accuracy"],
+                                     "share": row[b]["share"],
                                      "bucket_pct": round(b * 100, 2), "all_moves_accuracy": row[0.0]["accuracy"],
                                      "test_days": row["days"]})
                 out["intraday"] = intr

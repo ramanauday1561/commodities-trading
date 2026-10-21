@@ -467,7 +467,7 @@ function todayCard(d) {
       ? `<div class="sub" style="margin-top:6px">Opening call ${p.gap.direction === 'up' ? '▲' : '▼'}: NIFTY opened at ${f(i.open)} (${pc((i.open / p.prev_close - 1) * 100)}), ${(i.open > p.prev_close) === (p.gap.direction === 'up') ? '<b class="up">right</b>' : '<b class="down">wrong</b>'}.</div>` : '';
     intr = (i.accuracy != null
       ? `<div style="margin-top:12px"><div class="k" style="margin-bottom:2px">Update at ${esc(i.asof)} IST</div>NIFTY is <b class="${cls(i.move_pct)}">${pc(i.move_pct)}</b> vs yesterday (${f(i.price)}), so the close is likely ${arrow(i.direction)}.
-         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} more than ${i.bucket_pct.toFixed(2)}% by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${Math.round(i.share * 100)}% of days, ${i.test_days} days tested).</div></div>`
+         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} by a similar amount (${i.bucket_pct.toFixed(2)}% or more, up to the next step) by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${i.test_days} days tested).</div></div>`
       : `<div class="sub" style="margin-top:12px">At ${esc(i.asof)} IST NIFTY is ${pc(i.move_pct)} vs yesterday. The intraday update starts at 10:15.</div>`) + gapRes + verdict;
   } else if (i && t.status === 'closed' && p) {
     const ok = (c, up) => c.tier === 'none' ? 'no call' : ((c.direction === 'up') === up ? '<b class="up">right</b>' : '<b class="down">wrong</b>');
@@ -636,7 +636,9 @@ function callLine(d) {
   const p = t.preopen, i = t.intraday, word = dir => dir === 'up' ? '<b class="up">higher</b>' : '<b class="down">lower</b>';
   const pct = x => `${Math.round(x * 100)}%`;
   let msg = '';
-  if (i && t.status === 'open' && i.accuracy != null) {
+  if (i && t.status === 'open' && i.accuracy != null && i.accuracy < 0.6) {
+    msg = `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day: too small a move to call the close (moves this size held only ${pct(i.accuracy)} of the time).`;
+  } else if (i && t.status === 'open' && i.accuracy != null) {
     const agree = p && p.close.tier !== 'none' && p.close.direction === i.direction;
     msg = `At ${esc(i.asof)} the session points to a close ${word(i.direction)} (moves like this held ${pct(i.accuracy)} of the time)${p && p.close.tier !== 'none' ? (agree ? ', in line with the morning call.' : ', against the morning call.') : '.'}`;
   } else if (i && t.status === 'closed' && p && p.close.tier !== 'none') {
