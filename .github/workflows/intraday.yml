@@ -72,6 +72,15 @@ jobs:
         continue-on-error: true
         timeout-minutes: 4
         run: python -u scripts/news.py docs/data "$RUNNER_TEMP/news-store"
+      - name: Status page and phone alert (CALL / PUT / STAY / SELL / NOTHING)
+        if: steps.gate.outputs.go == 'true'
+        continue-on-error: true
+        env:
+          NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
+        run: |
+          bash scripts/store.sh pull scoreboard store
+          python -u scripts/status.py docs/data store
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then bash scripts/store.sh push scoreboard store; fi
       - name: Hourly NIFTY candles for the chart
         if: steps.gate.outputs.go == 'true'
         continue-on-error: true
@@ -82,7 +91,7 @@ jobs:
         continue-on-error: true
         run: |
           snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
-          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
+          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
           bash scripts/store.sh push site-data "$snap"
       - id: have
         if: steps.gate.outputs.go == 'true'

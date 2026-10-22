@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Status</title>
+<meta name="theme-color" content="#070a12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Status">
+<style>
+  :root { --bg:#070a12; --text:#e8edf5; --muted:#8a96a8; --up:#26a69a; --down:#ef5350; --warn:#f5a623; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+         min-height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+         padding:max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); text-align:center; }
+  h1 { font-size:14px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
+  #word { font-size:clamp(72px, 28vw, 168px); font-weight:800; line-height:1; letter-spacing:-.02em; margin:8px 0 16px; }
+  #word.CALL { color:var(--up); } #word.PUT { color:var(--down); } #word.STAY { color:var(--warn); } #word.SELL { color:#5aa9ff; }
+  #word.NOTHING { color:var(--muted); font-size:clamp(56px, 20vw, 120px); }
+  #headline { font-size:20px; font-weight:600; margin:0 0 8px; }
+  #reason { color:var(--muted); max-width:34ch; margin:0 auto; }
+  #meta { color:var(--muted); font-size:13px; margin-top:24px; }
+  a { color:var(--muted); }
+</style>
+</head>
+<body>
+  <h1>NIFTY · Status</h1>
+  <div id="word" class="NOTHING">…</div>
+  <p id="headline"></p>
+  <p id="reason"></p>
+  <p id="meta"></p>
+  <p style="font-size:13px; margin-top:28px"><a href="./#nifty">Full forecast</a> · Learning tool, not financial advice.</p>
+<script>
+const WORD = { CALL: 'CALL', PUT: 'PUT', STAY: 'STAY', SELL: 'SELL', NOTHING: 'NOTHING' };   // the only five states
+const $ = id => document.getElementById(id);
+async function load() {
+  try {
+    const r = await fetch('data/status.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('no status yet');
+    const s = await r.json();
+    const todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+    const stale = s.date !== todayIst;
+    const state = stale || !WORD[s.state] ? 'NOTHING' : s.state;
+    $('word').className = state;
+    $('word').textContent = WORD[state];
+    $('headline').textContent = stale ? 'Waiting for today’s update' : s.headline;
+    $('reason').textContent = stale ? 'The signal is made at about 08:57 IST on market days.' : s.reason;
+    const t = x => new Date(x).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    $('meta').textContent = `Updated ${t(s.updated)}${s.since && !stale ? ' · this signal since ' + t(s.since) : ''}`;
+    document.title = stale ? 'Status' : `Status: ${WORD[state]}`;
+  } catch (e) {
+    $('word').className = 'NOTHING'; $('word').textContent = 'NOTHING';
+    $('headline').textContent = 'No status yet'; $('reason').textContent = String(e.message || e);
+  }
+}
+load();
+setInterval(load, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>

@@ -185,6 +185,11 @@ jobs:
         run: |
           pip install pandas yfinance exchange_calendars
           python -u scripts/todaycall.py store docs/data
+      - name: Status page and phone alert (CALL / PUT / STAY / SELL / NOTHING)
+        continue-on-error: true
+        env:
+          NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
+        run: python -u scripts/status.py docs/data store       # journal saved with the scoreboard below
       - name: News (GDELT headlines; history kept for later evaluation, not a model input)
         continue-on-error: true
         timeout-minutes: 4
