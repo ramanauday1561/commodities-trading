@@ -27,7 +27,6 @@ from zoneinfo import ZoneInfo
 IST = ZoneInfo("Asia/Kolkata")
 CALL_FROM = (8, 40)          # earlier runs (the 06:30 forecast) use a stale overnight picture: no trade state yet
 EXIT_FROM = (14, 40)         # the last hourly check of the day (~14:50) says square off
-PAGE = "https://ramanauday1561.github.io/commodities-trading/status.html"
 
 
 def _hm(t):
@@ -80,14 +79,17 @@ def decide(today, now):
 
 
 def notify(status, topic):
+    """One ntfy.sh message. BUY / SELL are "urgent" (iOS: time-sensitive, shown through Focus and summaries). No link:
+    tapping the alert just opens it in the ntfy app (22 Oct 2026)."""
     kind = status.get("kind", "")
     title = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": f"NIFTY: STAY in the {status.get('side', '')}",
-             "sell": f"NIFTY: SELL the {status.get('side', '')} now", "no_trade": "NIFTY: NOTHING today", "closed": "NIFTY: market closed"}.get(kind, "NIFTY")
-    urgent = kind in ("call", "put", "sell")
+             "sell": f"NIFTY: SELL the {status.get('side', '')} now", "no_trade": "NIFTY: NOTHING today",
+             "closed": "NIFTY: market closed", "test": "NIFTY: test alert"}.get(kind, "NIFTY")
+    urgent = kind in ("call", "put", "sell", "test")
     req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=f"{status['headline']}. {status['reason']}".encode(),
-                                 headers={"Title": title, "Click": PAGE, "Priority": "high" if urgent else "default",
+                                 headers={"Title": title, "Priority": "urgent" if urgent else "default",
                                           "Tags": {"call": "green_circle", "put": "red_circle", "sell": "warning",
-                                                   "hold": "hourglass"}.get(kind, "white_circle")})
+                                                   "hold": "hourglass", "test": "bell"}.get(kind, "white_circle")})
     urllib.request.urlopen(req, timeout=15).read()
 
 
