@@ -15,7 +15,10 @@ Usage: python scripts/status.py <data_dir> [store_dir]   (reads today-nifty.json
 status.json). With store_dir, every run is also appended to <store>/journal/<date>.json (scoreboard branch): what the
 page said, why, the pre-open calls and the price at that moment, and whether an alert went out, so each day can be
 checked and the rules improved from it.
-A change of state is sent to the phone via ntfy.sh when NTFY_TOPIC is set (a GitHub secret; never in the repo).
+A change of state is sent to the phone through every channel whose GitHub secrets are set (never in the repo):
+  Telegram  TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (a bot made with @BotFather; workflow "Telegram setup" finds the
+            chat ID). Added 22 Oct 2026: ntfy messages reached the app but iOS never showed them as notifications.
+  ntfy.sh   NTFY_TOPIC
 """
 import json
 import os
@@ -78,19 +81,58 @@ def decide(today, now):
             "pred_pct": fo.get("pred_pct")}
 
 
-def notify(status, topic):
-    """One ntfy.sh message. BUY / SELL are "urgent" (iOS: time-sensitive, shown through Focus and summaries). No link:
-    tapping the alert just opens it in the ntfy app (22 Oct 2026)."""
+TITLES = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": "NIFTY: STAY in the {side}",
+          "sell": "NIFTY: SELL the {side} now", "no_trade": "NIFTY: NOTHING today", "closed": "NIFTY: market closed",
+          "test": "NIFTY: test alert"}
+ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514"}
+
+
+def _title(status):
+    return TITLES.get(status.get("kind", ""), "NIFTY").format(side=status.get("side", ""))
+
+
+def send_ntfy(status, topic):
+    """BUY / SELL are "urgent" (iOS: time-sensitive). No link: tapping just opens the alert."""
     kind = status.get("kind", "")
-    title = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": f"NIFTY: STAY in the {status.get('side', '')}",
-             "sell": f"NIFTY: SELL the {status.get('side', '')} now", "no_trade": "NIFTY: NOTHING today",
-             "closed": "NIFTY: market closed", "test": "NIFTY: test alert"}.get(kind, "NIFTY")
-    urgent = kind in ("call", "put", "sell", "test")
     req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=f"{status['headline']}. {status['reason']}".encode(),
-                                 headers={"Title": title, "Priority": "urgent" if urgent else "default",
+                                 headers={"Title": _title(status),
+                                          "Priority": "urgent" if kind in ("call", "put", "sell", "test") else "default",
                                           "Tags": {"call": "green_circle", "put": "red_circle", "sell": "warning",
                                                    "hold": "hourglass", "test": "bell"}.get(kind, "white_circle")})
     urllib.request.urlopen(req, timeout=15).read()
+
+
+def send_telegram(status, token, chat_id):
+    icon = ICONS.get(status.get("kind", ""), "\u26AA")
+    text = f"{icon} {_title(status)}\n{status['headline']}. {status['reason']}"
+    data = json.dumps({"chat_id": chat_id, "text": text, "disable_web_page_preview": True}).encode()
+    req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=data,
+                                 headers={"Content-Type": "application/json"})
+    out = json.loads(urllib.request.urlopen(req, timeout=15).read())
+    if not out.get("ok"):
+        raise RuntimeError(f"telegram: {out.get('description')}")
+
+
+def channels():
+    env = os.environ
+    out = []
+    if env.get("TELEGRAM_BOT_TOKEN") and env.get("TELEGRAM_CHAT_ID"):
+        out.append(("telegram", lambda st: send_telegram(st, env["TELEGRAM_BOT_TOKEN"], env["TELEGRAM_CHAT_ID"])))
+    if env.get("NTFY_TOPIC"):
+        out.append(("ntfy", lambda st: send_ntfy(st, env["NTFY_TOPIC"])))
+    return out
+
+
+def notify(status):
+    """Send through every configured channel; one failing does not stop the others. Returns {channel: result}."""
+    res = {}
+    for name, send in channels():
+        try:
+            send(status)
+            res[name] = "sent"
+        except Exception as e:
+            res[name] = f"failed: {e!r}"
+    return res
 
 
 def changed(prev, new):
@@ -126,17 +168,11 @@ def main(data_dir, now=None, store_dir=None):
     alert = None
     if changed(prev, new):
         new["since"] = new["updated"]
-        topic = os.environ.get("NTFY_TOPIC")
         quiet = new.get("kind") == "pending" or (new.get("kind") == "closed" and
                                                   (not prev or prev.get("kind") in ("closed", "no_trade", "pending")))
-        if topic and not quiet:
-            try:
-                notify(new, topic)
-                alert = "sent"
-                print("alert sent:", new["state"])
-            except Exception as e:                      # an alert failing must not stop the page update
-                alert = f"failed: {e!r}"
-                print("alert failed:", repr(e))
+        if channels() and not quiet:
+            alert = notify(new)                         # never raises: the page update always goes on
+            print("alert:", new["state"], alert)
     else:
         new["since"] = prev.get("since", new["updated"])
     json.dump(new, open(os.path.join(data_dir, "status.json"), "w"), separators=(",", ":"))
@@ -148,8 +184,10 @@ def main(data_dir, now=None, store_dir=None):
 
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "test":          # send one test alert (workflow "Status alert test")
-        notify({"state": "NOTHING", "kind": "test", "headline": "Test alert from your NIFTY Status page",
-                "reason": sys.argv[2] or "If you see this, alerts work."}, os.environ["NTFY_TOPIC"])
-        print("test alert sent")
+        res = notify({"state": "NOTHING", "kind": "test", "headline": "Test alert from your NIFTY Status page",
+                      "reason": sys.argv[2] or "If you see this, alerts work."})
+        print("test alert:", res or "no channel configured")
+        if not res or not any(v == "sent" for v in res.values()):
+            sys.exit(1)
     else:
         main(sys.argv[1], store_dir=sys.argv[2] if len(sys.argv) > 2 else None)

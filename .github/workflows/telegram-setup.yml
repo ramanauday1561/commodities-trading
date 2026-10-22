@@ -1,0 +1,36 @@
+name: Telegram setup
+
+# One-off helper for phone alerts by Telegram. After you create a bot with @BotFather, save its token as the
+# TELEGRAM_BOT_TOKEN secret and send your bot any message (e.g. "hi"), run this: it replies to every chat that wrote to
+# the bot with that chat's ID, inside Telegram. Save the ID as the TELEGRAM_CHAT_ID secret. Nothing is printed here.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reply with the chat ID
+        env:
+          TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys, urllib.request
+          token = os.environ.get("TOKEN")
+          if not token:
+              print("::error::Add the TELEGRAM_BOT_TOKEN secret first"); sys.exit(1)
+          api = f"https://api.telegram.org/bot{token}/"
+          upd = json.loads(urllib.request.urlopen(api + "getUpdates", timeout=15).read())
+          chats = {u[k]["chat"]["id"] for u in upd.get("result", []) for k in ("message", "edited_message") if k in u}
+          if not chats:
+              print("::error::No messages yet: open your bot in Telegram, send it 'hi', then run this again"); sys.exit(1)
+          for c in chats:
+              body = json.dumps({"chat_id": c, "text": f"Your chat ID is {c}\nSave it as the GitHub secret TELEGRAM_CHAT_ID."}).encode()
+              urllib.request.urlopen(urllib.request.Request(api + "sendMessage", data=body,
+                                     headers={"Content-Type": "application/json"}), timeout=15).read()
+          print(f"replied to {len(chats)} chat(s) in Telegram")
+          PY

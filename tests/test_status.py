@@ -55,11 +55,12 @@ class Journal(unittest.TestCase):
     def test_every_run_is_logged(self):
         with tempfile.TemporaryDirectory() as dd, tempfile.TemporaryDirectory() as store:
             json.dump(today(), open(os.path.join(dd, "today-nifty.json"), "w"))
-            with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}), mock.patch.object(status, "notify"):
+            with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}), mock.patch.object(status, "notify", return_value={"ntfy": "sent"}):
                 status.main(dd, at(8, 58), store)
                 status.main(dd, at(9, 50), store)
             rows = json.load(open(os.path.join(store, "journal", "2026-10-22.json")))
-            self.assertEqual([(r["state"], r["alert"]) for r in rows], [("PUT", "sent"), ("STAY", "sent")])
+            self.assertEqual([r["state"] for r in rows], ["PUT", "STAY"])
+            self.assertTrue(all(r["alert"] for r in rows))
             self.assertEqual(rows[0]["calls"]["from_open"]["trade"], True)
 
 
@@ -69,7 +70,7 @@ class Alerts(unittest.TestCase):
             json.dump(d, open(os.path.join(dd, "today-nifty.json"), "w"))
             if prev:
                 json.dump(prev, open(os.path.join(dd, "status.json"), "w"))
-            with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}), mock.patch.object(status, "notify") as n:
+            with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}), mock.patch.object(status, "notify", return_value={"ntfy": "sent"}) as n:
                 out = status.main(dd, now)
             return out, n.call_count
 
@@ -91,6 +92,27 @@ class Alerts(unittest.TestCase):
         s1, _ = self.run_at(today(trade=False), None, at(8, 58))
         _, n = self.run_at(today(trade=False, st="closed"), s1, at(15, 50))
         self.assertEqual(n, 0)
+
+
+class Channels(unittest.TestCase):
+    def test_telegram_and_ntfy_each_get_the_alert_and_one_failing_does_not_stop_the_other(self):
+        sent = []
+
+        def fake(req, timeout=15):
+            sent.append(req.full_url)
+            if "ntfy" in req.full_url:
+                raise OSError("down")
+            return mock.Mock(read=lambda: b'{"ok": true}')
+        env = {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "42", "NTFY_TOPIC": "t"}
+        with mock.patch.dict(os.environ, env), mock.patch("urllib.request.urlopen", fake):
+            res = status.notify({"kind": "put", "side": "PUT", "headline": "Buy a NIFTY PUT at the open", "reason": "x"})
+        self.assertEqual(res["telegram"], "sent")
+        self.assertTrue(res["ntfy"].startswith("failed"))
+        self.assertTrue(any("api.telegram.org/bottok/sendMessage" in u for u in sent))
+
+    def test_no_channel_no_alert(self):
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.assertEqual(status.notify({"kind": "test", "headline": "h", "reason": "r"}), {})
 
 
 if __name__ == "__main__":
