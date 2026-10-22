@@ -72,7 +72,7 @@ jobs:
         continue-on-error: true
         timeout-minutes: 4
         run: python -u scripts/news.py docs/data "$RUNNER_TEMP/news-store"
-      - name: Status page and phone alert (CALL / PUT / WAIT / EXIT)
+      - name: Status page and phone alert (CALL / PUT / STAY / NOTHING)
         if: steps.gate.outputs.go == 'true'
         continue-on-error: true
         env:

@@ -185,7 +185,7 @@ jobs:
         run: |
           pip install pandas yfinance exchange_calendars
           python -u scripts/todaycall.py store docs/data
-      - name: Status page and phone alert (CALL / PUT / WAIT / EXIT)
+      - name: Status page and phone alert (CALL / PUT / STAY / NOTHING)
         continue-on-error: true
         env:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}

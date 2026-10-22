@@ -18,8 +18,8 @@
          padding:max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); text-align:center; }
   h1 { font-size:14px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
   #word { font-size:clamp(72px, 28vw, 168px); font-weight:800; line-height:1; letter-spacing:-.02em; margin:8px 0 16px; }
-  #word.CALL { color:var(--up); } #word.PUT { color:var(--down); } #word.EXIT { color:var(--warn); }
-  #word.WAIT, #word.PENDING, #word.CLOSED { color:var(--muted); font-size:clamp(56px, 20vw, 120px); }
+  #word.CALL { color:var(--up); } #word.PUT { color:var(--down); } #word.STAY { color:var(--warn); }
+  #word.NOTHING { color:var(--muted); font-size:clamp(56px, 20vw, 120px); }
   #headline { font-size:20px; font-weight:600; margin:0 0 8px; }
   #reason { color:var(--muted); max-width:34ch; margin:0 auto; }
   #meta { color:var(--muted); font-size:13px; margin-top:24px; }
@@ -28,13 +28,13 @@
 </head>
 <body>
   <h1>NIFTY · Status</h1>
-  <div id="word" class="PENDING">…</div>
+  <div id="word" class="NOTHING">…</div>
   <p id="headline"></p>
   <p id="reason"></p>
   <p id="meta"></p>
   <p style="font-size:13px; margin-top:28px"><a href="./#nifty">Full forecast</a> · Learning tool, not financial advice.</p>
 <script>
-const WORD = { CALL: 'CALL', PUT: 'PUT', EXIT: 'EXIT', WAIT: 'NO TRADE', PENDING: 'WAIT', CLOSED: 'CLOSED' };
+const WORD = { CALL: 'CALL', PUT: 'PUT', STAY: 'STAY', NOTHING: 'NOTHING' };   // the only four states
 const $ = id => document.getElementById(id);
 async function load() {
   try {
@@ -43,16 +43,16 @@ async function load() {
     const s = await r.json();
     const todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
     const stale = s.date !== todayIst;
-    const state = stale ? 'PENDING' : s.state;
+    const state = stale || !WORD[s.state] ? 'NOTHING' : s.state;
     $('word').className = state;
-    $('word').textContent = WORD[state] || state;
+    $('word').textContent = WORD[state];
     $('headline').textContent = stale ? 'Waiting for today’s update' : s.headline;
     $('reason').textContent = stale ? 'The signal is made at about 08:57 IST on market days.' : s.reason;
     const t = x => new Date(x).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('meta').textContent = `Updated ${t(s.updated)}${s.since && !stale ? ' · this signal since ' + t(s.since) : ''}`;
-    document.title = stale ? 'Status' : `Status: ${WORD[state] || state}`;
+    document.title = stale ? 'Status' : `Status: ${WORD[state]}`;
   } catch (e) {
-    $('word').className = 'PENDING'; $('word').textContent = 'WAIT';
+    $('word').className = 'NOTHING'; $('word').textContent = 'NOTHING';
     $('headline').textContent = 'No status yet'; $('reason').textContent = String(e.message || e);
   }
 }
