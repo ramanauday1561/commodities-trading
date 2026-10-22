@@ -1,4 +1,4 @@
-"""NIFTY trade status for the Status page (docs/status.html) and phone alerts: CALL, PUT, STAY or NOTHING.
+"""NIFTY trade status for the Status page (docs/status.html) and phone alerts: CALL, PUT, STAY, SELL or NOTHING.
 
 Only the from-open signal decides a trade: it is the one call tested on what a trade from the 09:15 open earns
 (top-20% most confident days, walk-forward, after costs: about 57% of trades won, +0.15% each; 22 Oct 2026). On every
@@ -6,9 +6,9 @@ other day the answer is NOTHING; the close call and the hourly checks are about 
 the opening gap, and were not worth trading from the open (open_study, hourly_study, review_study).
   CALL / PUT  buy an at-the-money NIFTY option at the 09:15 open (the signal is made at ~08:57)
   STAY        a trade is on: keep holding it (from the 09:15 open until the exit)
-  NOTHING     no trade today, time to exit (last hourly check, ~14:50: square off before 15:15), before the 08:57
-              signal, or the market is closed
-Each state also has a "kind" (call/put, hold, no_trade, exit, pending, closed); an alert goes out when either changes,
+  SELL        time to exit: sell (square off) the option before 15:15 (from the last hourly check, ~14:50)
+  NOTHING     no trade today, before the 08:57 signal, or the market is closed
+Each state also has a "kind" (call/put, hold, sell, no_trade, pending, closed); an alert goes out when either changes,
 except before the signal ("pending") and at a close that followed a day without a trade.
 
 Usage: python scripts/status.py <data_dir>   (reads today-nifty.json and the previous status.json, writes status.json)
@@ -66,11 +66,11 @@ def decide(today, now):
         return {**base, "state": "NOTHING", "kind": "no_trade", "headline": "No trade today",
                 "reason": "Overnight markets give no edge from the open (the signal trades only its 20% most confident days)." + hint}
     if _hm(now) >= EXIT_FROM and today.get("status") == "open":
-        return {**base, "state": "NOTHING", "kind": "exit", "side": side, "headline": f"Exit the {side} now",
+        return {**base, "state": "SELL", "kind": "sell", "side": side, "headline": f"Sell the {side} now",
                 "reason": "Square off before 15:15. The signal holds from the open to the close only."}
     if _hm(now) >= (9, 15):
         return {**base, "state": "STAY", "kind": "hold", "side": side, "headline": f"Stay in the {side}",
-                "reason": f"Keep holding the {side} bought at the 09:15 open; exit by 15:15 (you get an alert). {record}"}
+                "reason": f"Keep holding the {side} bought at the 09:15 open; you get a SELL alert at about 14:50. {record}"}
     return {**base, "state": side, "kind": side.lower(), "side": side, "headline": f"Buy a NIFTY {side} at the open",
             "reason": f"At-the-money weekly option, bought at 09:15, held to the close (exit by 15:15). {record}",
             "pred_pct": fo.get("pred_pct")}
@@ -79,11 +79,11 @@ def decide(today, now):
 def notify(status, topic):
     kind = status.get("kind", "")
     title = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": f"NIFTY: STAY in the {status.get('side', '')}",
-             "exit": "NIFTY: EXIT NOW", "no_trade": "NIFTY: NOTHING today", "closed": "NIFTY: market closed"}.get(kind, "NIFTY")
-    urgent = kind in ("call", "put", "exit")
+             "sell": f"NIFTY: SELL the {status.get('side', '')} now", "no_trade": "NIFTY: NOTHING today", "closed": "NIFTY: market closed"}.get(kind, "NIFTY")
+    urgent = kind in ("call", "put", "sell")
     req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=f"{status['headline']}. {status['reason']}".encode(),
                                  headers={"Title": title, "Click": PAGE, "Priority": "high" if urgent else "default",
-                                          "Tags": {"call": "green_circle", "put": "red_circle", "exit": "warning",
+                                          "Tags": {"call": "green_circle", "put": "red_circle", "sell": "warning",
                                                    "hold": "hourglass"}.get(kind, "white_circle")})
     urllib.request.urlopen(req, timeout=15).read()
 
