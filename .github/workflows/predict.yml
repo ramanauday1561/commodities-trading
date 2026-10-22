@@ -189,6 +189,8 @@ jobs:
         continue-on-error: true
         env:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
+          TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
         run: python -u scripts/status.py docs/data store       # journal saved with the scoreboard below
       - name: News (GDELT headlines; history kept for later evaluation, not a model input)
         continue-on-error: true
