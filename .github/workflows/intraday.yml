@@ -77,7 +77,10 @@ jobs:
         continue-on-error: true
         env:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
-        run: python -u scripts/status.py docs/data
+        run: |
+          bash scripts/store.sh pull scoreboard store
+          python -u scripts/status.py docs/data store
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then bash scripts/store.sh push scoreboard store; fi
       - name: Hourly NIFTY candles for the chart
         if: steps.gate.outputs.go == 'true'
         continue-on-error: true

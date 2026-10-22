@@ -11,7 +11,10 @@ the opening gap, and were not worth trading from the open (open_study, hourly_st
 Each state also has a "kind" (call/put, hold, sell, no_trade, pending, closed); an alert goes out when either changes,
 except before the signal ("pending") and at a close that followed a day without a trade.
 
-Usage: python scripts/status.py <data_dir>   (reads today-nifty.json and the previous status.json, writes status.json)
+Usage: python scripts/status.py <data_dir> [store_dir]   (reads today-nifty.json and the previous status.json, writes
+status.json). With store_dir, every run is also appended to <store>/journal/<date>.json (scoreboard branch): what the
+page said, why, the pre-open calls and the price at that moment, and whether an alert went out, so each day can be
+checked and the rules improved from it.
 A change of state is sent to the phone via ntfy.sh when NTFY_TOPIC is set (a GitHub secret; never in the repo).
 """
 import json
@@ -93,11 +96,32 @@ def changed(prev, new):
     return not prev or key(prev) != key(new)
 
 
-def main(data_dir, now=None):
+def journal_row(new, today, alert):
+    p = (today or {}).get("preopen") or {}
+    i = (today or {}).get("intraday") or {}
+    calls = {k: {x: (p.get(k) or {}).get(x) for x in ("direction", "pred_pct", "tier", "trade")} for k in ("gap", "close", "from_open")}
+    return {"at": new["updated"], "state": new["state"], "kind": new.get("kind"), "side": new.get("side"),
+            "headline": new["headline"], "reason": new["reason"], "alert": alert, "calls": calls if p else None,
+            "price": i.get("price"), "move_pct": i.get("move_pct"), "hourly_check": i.get("direction"),
+            "hourly_accuracy": i.get("accuracy")}
+
+
+def save_journal(store_dir, row, day):
+    path = os.path.join(store_dir, "journal", f"{day}.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    try:
+        rows = json.load(open(path))
+    except (OSError, ValueError):
+        rows = []
+    json.dump(rows + [row], open(path, "w"), separators=(",", ":"))
+
+
+def main(data_dir, now=None, store_dir=None):
     now = now or datetime.now(IST)
     load = lambda name: json.load(open(os.path.join(data_dir, name))) if os.path.exists(os.path.join(data_dir, name)) else None
     prev, today = load("status.json"), load("today-nifty.json")
     new = decide(today, now)
+    alert = None
     if changed(prev, new):
         new["since"] = new["updated"]
         topic = os.environ.get("NTFY_TOPIC")
@@ -106,12 +130,16 @@ def main(data_dir, now=None):
         if topic and not quiet:
             try:
                 notify(new, topic)
+                alert = "sent"
                 print("alert sent:", new["state"])
             except Exception as e:                      # an alert failing must not stop the page update
+                alert = f"failed: {e!r}"
                 print("alert failed:", repr(e))
     else:
         new["since"] = prev.get("since", new["updated"])
     json.dump(new, open(os.path.join(data_dir, "status.json"), "w"), separators=(",", ":"))
+    if store_dir:
+        save_journal(store_dir, journal_row(new, today, alert), new["date"])
     print(json.dumps(new))
     return new
 
@@ -122,4 +150,4 @@ if __name__ == "__main__":
                 "reason": sys.argv[2] or "If you see this, alerts work."}, os.environ["NTFY_TOPIC"])
         print("test alert sent")
     else:
-        main(sys.argv[1])
+        main(sys.argv[1], store_dir=sys.argv[2] if len(sys.argv) > 2 else None)

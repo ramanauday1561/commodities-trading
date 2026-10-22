@@ -51,6 +51,18 @@ class Decide(unittest.TestCase):
         self.assertIn("won", s["headline"])
 
 
+class Journal(unittest.TestCase):
+    def test_every_run_is_logged(self):
+        with tempfile.TemporaryDirectory() as dd, tempfile.TemporaryDirectory() as store:
+            json.dump(today(), open(os.path.join(dd, "today-nifty.json"), "w"))
+            with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}), mock.patch.object(status, "notify"):
+                status.main(dd, at(8, 58), store)
+                status.main(dd, at(9, 50), store)
+            rows = json.load(open(os.path.join(store, "journal", "2026-10-22.json")))
+            self.assertEqual([(r["state"], r["alert"]) for r in rows], [("PUT", "sent"), ("STAY", "sent")])
+            self.assertEqual(rows[0]["calls"]["from_open"]["trade"], True)
+
+
 class Alerts(unittest.TestCase):
     def run_at(self, d, prev, now):
         with tempfile.TemporaryDirectory() as dd:

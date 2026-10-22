@@ -189,7 +189,7 @@ jobs:
         continue-on-error: true
         env:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
-        run: python -u scripts/status.py docs/data
+        run: python -u scripts/status.py docs/data store       # journal saved with the scoreboard below
       - name: News (GDELT headlines; history kept for later evaluation, not a model input)
         continue-on-error: true
         timeout-minutes: 4
