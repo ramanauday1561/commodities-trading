@@ -1,0 +1,26 @@
+name: Status alert test
+
+# Sends one test notification to the phone (ntfy.sh topic in the NTFY_TOPIC secret) so alerts can be checked any time.
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: "Text of the test alert"
+        required: false
+        default: "If you see this, alerts work."
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Send
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: |
+          if [ -z "$NTFY_TOPIC" ]; then echo "::error::Add the NTFY_TOPIC secret (Settings > Secrets and variables > Actions)"; exit 1; fi
+          python3 scripts/status.py test "${{ github.event.inputs.message }}"
