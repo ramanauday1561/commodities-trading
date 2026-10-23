@@ -240,6 +240,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             import hourly_study
             hourly_study.main()
         return
+    if mode == "oct23":                                   # NIFTY: ADRs on results days, earlier cutoff, high oil
+        if key == "nifty":
+            import oct23_study
+            oct23_study.main()
+        return
     if mode == "review":                                  # NIFTY: gap surprise, failed gaps, banks after results
         if key == "nifty":
             import review_study
