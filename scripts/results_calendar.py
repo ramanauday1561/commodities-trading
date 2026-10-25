@@ -4,6 +4,10 @@
 lost 1.11% from a flat open while the overnight markets pointed nowhere. Over ~3 years (preopen_study.results_study,
 101 such sessions) NIFTY moved more than 1% on 27% of the sessions after heavyweight results vs 17% on other days,
 and the from-open signal's trades on those sessions lost money (8 trades, -0.19% each), so it stands aside then.
+25 Oct 2026 (results_size_study, 738 sessions, 49 of the 50 NIFTY stocks served by Yahoo): these 11 beat the 5, 20 or
+all 50 heaviest. Kept trades +0.197% each (total +14.4%) vs +0.186% (5), +0.193% (20), +0.199% on fewer trades (50,
+total +11.7%); the trades skipped lost -0.29% each with 11, -0.08% with 20, and earned +0.02% with 50 (skipping them
+cost money). NIFTY moved more than 1% on 26% of the sessions flagged by the 11, 21% by the 20, 20% by the 50.
 
 A result dated d counts for the first session after it: from the previous session's date up to the day before
 (results come after the close or at weekends; one released during market hours is counted a day late).

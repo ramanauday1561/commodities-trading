@@ -12,6 +12,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
     big-move risk and ranges (19 Oct 2026: slightly worse, not used)
   mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
   mode "rolls": futures history with and without the contract-roll adjustment; NIFTY calls without crude (roll_study.py)
+  mode "resultsize": NIFTY only, how many of the heaviest stocks count as results days (results_size_study.py)
   mode "hourly": NIFTY only, next-hour and rest-of-day forecasts from 1-hour candles (hourly_study.py)
   mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
   mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
@@ -244,6 +245,11 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key == "nifty":
             import oct23_study
             oct23_study.main()
+        return
+    if mode == "resultsize":                              # NIFTY: 5, 11, 20 or 50 stocks as "heavyweight results"
+        if key == "nifty":
+            import results_size_study
+            results_size_study.main()
         return
     if mode == "review":                                  # NIFTY: gap surprise, failed gaps, banks after results
         if key == "nifty":
