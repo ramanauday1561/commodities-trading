@@ -19,11 +19,14 @@ def at(h, m, day=22):
     return datetime(2026, 10, day, h, m, tzinfo=IST)
 
 
-def today(trade=True, direction="down", st="pre_open", skipped=False, recent=None):
-    return {"date": "2026-10-22", "status": st, "record": {"recent": recent or []},
-            "preopen": {"close": {"direction": direction, "tier": "lean"},
-                        "from_open": {"direction": direction, "trade": trade, "skipped_for_results": skipped,
-                                      "trade_stats": {"days": 80, "from_open": {"win_rate": 0.575, "avg_pct_after_costs": 0.151}}}}}
+def today(trade=True, direction="down", st="pre_open", skipped=False, recent=None, recorded="same"):
+    """recorded: the from-open call saved before the open ("same" = as the live one, None = no call before the open)."""
+    fo = {"direction": direction, "trade": trade, "skipped_for_results": skipped,
+          "trade_stats": {"days": 80, "from_open": {"win_rate": 0.575, "avg_pct_after_costs": 0.151}}}
+    pre = {"close": {"direction": direction, "tier": "lean"}, "from_open": fo}
+    if recorded:
+        pre["recorded"] = {"made_at": "08:57", "from_open": {"direction": direction, "trade": trade} if recorded == "same" else recorded}
+    return {"date": "2026-10-22", "status": st, "record": {"recent": recent or []}, "preopen": pre}
 
 
 class Decide(unittest.TestCase):
@@ -43,6 +46,24 @@ class Decide(unittest.TestCase):
         self.assertEqual(kinds(status.decide({"date": "2026-10-21", "status": "closed"}, at(9, 0))), ("NOTHING", "closed"))
         for h, m in ((6, 30), (8, 58), (10, 0), (14, 50), (16, 0)):
             self.assertIn(status.decide(today(st="open"), at(h, m))["state"], ("CALL", "PUT", "STAY", "SELL", "NOTHING"))
+
+    def test_after_the_open_the_call_recorded_before_the_open_decides(self):
+        # 23 Oct 2026: "no trade" at 08:57; a later recompute must not become a STAY for an option never bought
+        later = today(trade=True, direction="down", st="open", recorded={"direction": "up", "trade": False})
+        for h, m in ((9, 51), (12, 35), (14, 50)):
+            self.assertEqual(status.decide(later, at(h, m))["kind"], "no_trade")
+        # and a trade bought at the open is held even if a recompute drops below the top 20%
+        held = today(trade=False, direction="up", st="open", recorded={"direction": "down", "trade": True})
+        s = status.decide(held, at(10, 0))
+        self.assertEqual((s["state"], s["side"]), ("STAY", "PUT"))
+        self.assertEqual(status.decide(held, at(14, 50))["state"], "SELL")
+        rec = [{"d": "2026-10-22", "open": 22742.2, "close": 22600.0}]
+        self.assertIn("PUT won", status.decide(dict(held, status="closed", record={"recent": rec}), at(15, 50))["headline"])
+
+    def test_no_call_before_the_open_means_nothing_to_hold(self):
+        s = status.decide(today(st="open", recorded=None), at(10, 0))
+        self.assertEqual((s["state"], s["kind"]), ("NOTHING", "no_trade"))
+        self.assertEqual(status.decide(today(recorded=None), at(8, 58))["state"], "PUT")    # before the open: the live call
 
     def test_closed_reports_the_trade(self):
         rec = [{"d": "2026-10-22", "open": 22687.75, "close": 22600.0}]
