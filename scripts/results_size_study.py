@@ -8,6 +8,7 @@ trades would have earned (skipping is only worth it if those lose), how often NI
 other sessions, and which tickers Yahoo could serve dates for.
 Rule fixed before the run: switch from 11 only to a list whose kept trades earn more per trade than 11's in both
 halves, with a higher total and skipped trades that lose money; otherwise keep 11.
+Result (25 Oct 2026, 2023-10-26 to 2026-10-23, 81 trades without any skip): 11 kept. See results_calendar's docstring.
 """
 import json
 import time
