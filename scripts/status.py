@@ -10,6 +10,9 @@ the opening gap, and were not worth trading from the open (open_study, hourly_st
   NOTHING     no trade today, before the 08:57 signal, or the market is closed
 Each state also has a "kind" (call/put, hold, sell, no_trade, pending, closed); an alert goes out when either changes,
 except before the signal ("pending") and at a close that followed a day without a trade.
+From the 09:15 open the trade is the one recorded before the open (preopen.recorded, the call that is scored): later runs
+recompute the pre-open call, and Yahoo's revisions of overnight prices can move it (23 Oct 2026: "no trade" at 08:57,
+"down, lean" at 09:51, "up" by 12:35), which must never turn into a STAY for an option that was never bought.
 
 Usage: python scripts/status.py <data_dir> [store_dir]   (reads today-nifty.json and the previous status.json, writes
 status.json). With store_dir, every run is also appended to <store>/journal/<date>.json (scoreboard branch): what the
@@ -45,6 +48,12 @@ def decide(today, now):
         return {**base, "state": "NOTHING", "kind": "closed", "headline": "Market closed", "reason": why}
     p = today.get("preopen") or {}
     fo = p.get("from_open") or {}
+    rec_fo = (p.get("recorded") or {}).get("from_open")
+    after_open = _hm(now) >= (9, 15)
+    if after_open and rec_fo:
+        fo = {**fo, "trade": rec_fo.get("trade"), "direction": rec_fo.get("direction"), "pred_pct": rec_fo.get("pred_pct")}
+    elif after_open and p:
+        fo = {**fo, "trade": False, "no_call_before_open": True}
     trade = bool(fo.get("trade"))
     side = "CALL" if fo.get("direction") == "up" else "PUT"
     stats = fo.get("trade_stats") or {}
@@ -64,6 +73,9 @@ def decide(today, now):
     if fo.get("skipped_for_results"):
         return {**base, "state": "NOTHING", "kind": "no_trade", "headline": "No trade today",
                 "reason": "Heavyweight results came out since the last close; the signal stands aside on those days."}
+    if fo.get("no_call_before_open"):
+        return {**base, "state": "NOTHING", "kind": "no_trade", "headline": "No trade today",
+                "reason": "No call was made before the 09:15 open, so there is no trade to hold."}
     if not trade:
         lean = (p.get("close") or {})
         hint = (f" The close call leans {'higher' if lean.get('direction') == 'up' else 'lower'}, "
