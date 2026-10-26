@@ -15,7 +15,8 @@
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
          min-height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-         padding:max(24px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); text-align:center; }
+         /* clear the iPhone status bar and the blur iOS draws under it when the page scrolls */
+         padding:calc(env(safe-area-inset-top) + 32px) 16px calc(env(safe-area-inset-bottom) + 24px); text-align:center; }
   h1 { font-size:14px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
   #word { font-size:clamp(72px, 28vw, 168px); font-weight:800; line-height:1; letter-spacing:-.02em; margin:8px 0 16px; }
   #word.CALL { color:var(--up); } #word.PUT { color:var(--down); } #word.STAY { color:var(--warn); } #word.SELL { color:#5aa9ff; }
@@ -89,7 +90,16 @@ async function loadToday(date) {
   try {
     const r = await fetch('data/status-today.json?t=' + Date.now(), { cache: 'no-store' });
     const d = r.ok ? await r.json() : null;
-    const rows = d && d.date === date ? d.rows : [];
+    // keep it short: one line per check, no near-duplicate retries (under 10 min apart, same state, no alert),
+    // and nothing after the close summary
+    const min = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
+    const rows = [];
+    for (const x of (d && d.date === date ? d.rows : [])) {
+      const prev = rows[rows.length - 1];
+      if (prev && min(prev.at) >= 15 * 60 + 30) break;
+      if (prev && !x.alert && x.state === prev.state && min(x.at) - min(prev.at) < 10) { rows[rows.length - 1] = { ...x, alert: prev.alert }; continue; }
+      rows.push(x);
+    }
     $('today').hidden = !rows.length;
     $('rows').innerHTML = rows.map(x => `<li><time>${x.at}</time><b>${x.state}</b><span>${x.price ? x.price.toLocaleString('en-IN') : ''}${
       x.move_pct != null ? ` <span class="${x.move_pct >= 0 ? 'up' : 'down'}">(${x.move_pct >= 0 ? '+' : ''}${x.move_pct.toFixed(2)}%)</span>` : ''}${x.alert ? ' · alert sent' : ''}</span></li>`).join('');
