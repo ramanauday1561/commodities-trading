@@ -20,6 +20,16 @@ Fresh vs stale (studied after 19 Oct 2026, when NIFTY lost 1.1% on bank results 
   Walk-forward (preopen_study.py, ~680 days): close call 61.6% -> 63.5% right (top 20%: 76.3% -> 78.4%), from-open
   top-20% trades +0.07% -> +0.11% per trade. Small gains; the gap call keeps its inputs (no gain there). India VIX,
   Bank Nifty, crude in the close call and ADRs split by weekend were tested too and did not help.
+Tested on the from-open signal and not used (walk-forward, ~738 sessions, rule fixed before each run: more per trade
+  than the live signal in both halves and in total, and skipped trades must lose):
+  23 Oct 2026 (oct23_study): ADRs on their own results days, a 06:33 cutoff, Brent's 5-day move.
+  25 Oct 2026 (results_size_study): the 5, 20 or 50 heaviest stocks for results days instead of 11.
+  26 Oct 2026 (vix_study): India VIX as an input, or standing aside when it is high, up or down 5%. The signal's profit
+    comes mostly from high-VIX sessions (47 of 77 trades, +0.26% each), so "stand aside when VIX is high" lost it all;
+    "trade only when VIX is high" was seen after the fact and needs new data before it can be tested fairly.
+  26 Oct 2026 (pcr_study): NIFTY's put-call ratio from NSE's F&O bhavcopy (previous close) as an input, or standing
+    aside when it is high, low or jumped 15%, or trading only when its change agrees with the side. All earned less in
+    total; the skipped trades made money.
 During the session (from 10:15 IST): today's close direction from the move so far, with the historical accuracy of
   "the sign of the move at this time of day, for moves at least this big".
 
