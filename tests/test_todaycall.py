@@ -105,9 +105,15 @@ class Calls(unittest.TestCase):
         self.assertTrue(set(tc.GAP_FEATS) <= set(df.columns) and set(tc.FRESH_FEATS) <= set(df.columns))
         self.assertFalse(df[tc.GAP_FEATS + tc.FRESH_FEATS].isna().any().any())
         self.assertTrue((df["usdinr"] == 0).all())
+        self.assertFalse(df[tc.OPEN_FEATS].isna().any().any())
+        c = nd["close"]                                                  # ret3: the 3-day move to the previous close
+        d = df.index[-1]
+        i = list(nd.index).index(d)
+        self.assertAlmostEqual(df.loc[d, "ret3"], c.iloc[i - 1] / c.iloc[i - 4] - 1)
 
     def test_from_open_signal_leaves_only_crude_out(self):
         self.assertEqual(set(tc.FRESH_FEATS) - set(tc.OPEN_FEATS), {"crude"})
+        self.assertEqual(set(tc.OPEN_FEATS) - set(tc.FRESH_FEATS), {"ret3"})
         self.assertIn("crude", tc.GAP_FEATS)
 
     def test_us_futures_split_at_the_us_close(self):
