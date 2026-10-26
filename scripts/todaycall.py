@@ -64,7 +64,12 @@ FRESH_FEATS = ["es_day", "es_night", "nq_day", "nq_night", "nikkei", "kospi", "h
 # weight is close to zero. Over 658 days (roll_study.py, 20 Oct 2026) its top-20% trades did better without it: 97 trades,
 # 54.6% won, +0.110% each after costs (+0.105% / +0.115% in the two halves) vs 81 trades, 48.1%, +0.075% (+0.132% / +0.020%).
 # The gap call (76.4% vs 75.4% right) and the close call (mixed halves) keep it.
-OPEN_FEATS = [k for k in FRESH_FEATS if k != "crude"]
+# 26 Oct 2026 (streak_study, 738 sessions, same run): adding NIFTY's 3-day move to the previous close ("ret3") took the
+# from-open trades from 80 at +0.112% each (+8.9% total; +0.201% / +0.023% in the two halves) to 79 at +0.131%
+# (+10.3%; +0.212% / +0.052%). A small gain that passed the rule fixed before the run; the 5-day move and the run of
+# down closes did similarly or worse. On its own, NIFTY did not bounce after 3+ down closes (open to close -0.03%, as on
+# other days), so ret3 helps alongside the overnight inputs, not as a "buy after a fall" rule.
+OPEN_FEATS = [k for k in FRESH_FEATS if k != "crude"] + ["ret3"]
 NY = ZoneInfo("America/New_York")
 CUTOFF = (3, 40)                 # 09:10 IST in UTC: the latest information a pre-open call may use
 PREV_CLOSE = (10, 0)             # 15:30 IST in UTC
@@ -151,6 +156,7 @@ def history(nd, series):
         if utc_at(prev, PREV_CLOSE) < start:
             continue
         f = overnight_features(series, prev, d, utc_at(d, CUTOFF), nd["close"].iloc[i - 1] / nd["close"].iloc[i - 2] - 1)
+        f["ret3"] = nd["close"].iloc[i - 1] / nd["close"].iloc[i - 4] - 1 if i >= 4 else 0.0
         rows.append({"d": days[i], **f, "gap": nd["open"].iloc[i] / nd["close"].iloc[i - 1] - 1,
                      "day": nd["close"].iloc[i] / nd["close"].iloc[i - 1] - 1})
     df = pd.DataFrame(rows).set_index("d").replace([np.inf, -np.inf], np.nan)
@@ -326,6 +332,7 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         cutoff = min(pd.Timestamp(now).tz_convert("UTC"), utc_at(today, CUTOFF))
         prev_day = nd.index[-1].date()
         f = overnight_features(series, prev_day, today, cutoff, nd["close"].iloc[-1] / nd["close"].iloc[-2] - 1)
+        f["ret3"] = nd["close"].iloc[-1] / nd["close"].iloc[-4] - 1                 # NIFTY's 3-day move (OPEN_FEATS)
         x_gap, x_fresh = np.array([f[k] for k in GAP_FEATS]), np.array([f[k] for k in FRESH_FEATS])
         x_open = np.array([f[k] for k in OPEN_FEATS])
         cal = rc.fetch(os.path.join(store_dir, "results", "nifty.json"))
