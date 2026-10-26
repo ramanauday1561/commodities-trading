@@ -12,6 +12,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
     big-move risk and ranges (19 Oct 2026: slightly worse, not used)
   mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
   mode "rolls": futures history with and without the contract-roll adjustment; NIFTY calls without crude (roll_study.py)
+  mode "exits": NIFTY only, stop-loss and take-profit rules for the from-open trade (exit_study.py)
   mode "pcr": NIFTY only, the previous session's put-call ratio as an input or a filter for the from-open signal
   mode "pcrprobe": NIFTY only, NIFTY's put-call ratio from NSE's daily F&O bhavcopy, a download check (pcr_probe.py)
   mode "vix": NIFTY only, India VIX as an input or a stand-aside filter for the from-open signal (vix_study.py)
@@ -248,6 +249,11 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key == "nifty":
             import oct23_study
             oct23_study.main()
+        return
+    if mode == "exits":                                   # NIFTY: stop-loss / take-profit for the from-open trade
+        if key == "nifty":
+            import exit_study
+            exit_study.main()
         return
     if mode == "pcr":                                     # NIFTY: put-call ratio as an input or a filter (from-open)
         if key == "nifty":
