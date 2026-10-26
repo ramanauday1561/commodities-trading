@@ -6,7 +6,8 @@ other day the answer is NOTHING; the close call and the hourly checks are about 
 the opening gap, and were not worth trading from the open (open_study, hourly_study, review_study).
   CALL / PUT  buy an at-the-money NIFTY option at the 09:15 open (the signal is made at ~08:57)
   STAY        a trade is on: keep holding it (from the 09:15 open until the exit)
-  SELL        time to exit: sell (square off) the option before 15:15 (from the last hourly check, ~14:50)
+  SELL        time to exit: sell (square off) the option before 15:15 (from the last hourly check, ~14:50), or at
+              once when NIFTY has moved 0.5% against the trade from the open (the stop, kind "stop")
   NOTHING     no trade today, before the 08:57 signal, or the market is closed
 Each state also has a "kind" (call/put, hold, sell, no_trade, pending, closed); an alert goes out when either changes,
 except before the signal ("pending") and at the close, which gets the day's summary instead.
@@ -17,6 +18,11 @@ Besides the alerts (26 Oct 2026, the user asked for updates as the day goes on):
   summary        once after the close on every trading day: the close, the move from the open, how the pre-open
                  calls did and, on a trade day, what the trade made.
 The "no signal" warning, sent when the 08:57 call is missing, is in keeper.py.
+Stop (26 Oct 2026, exit_study): a stop 0.5% against the open made about the same as holding to the close (+12.2% vs
++12.6% over 77 trades) and cut the worst day from -2.1% to -0.5%. It failed the profit test, so it is risk control,
+not an improvement: the user chose it. Every run checks the day's high / low against it, and on trade days keeper.py
+looks at NIFTY every 5 minutes and starts a run as soon as the stop is reached, so the alert is minutes late at most.
+A stop order in the broker app triggers sooner; the alert is the backup. The scored record stays open to close.
 From the 09:15 open the trade is the one recorded before the open (preopen.recorded, the call that is scored): later runs
 recompute the pre-open call, and Yahoo's revisions of overnight prices can move it (23 Oct 2026: "no trade" at 08:57,
 "down, lean" at 09:51, "up" by 12:35), which must never turn into a STAY for an option that was never bought.
@@ -40,6 +46,23 @@ from zoneinfo import ZoneInfo
 IST = ZoneInfo("Asia/Kolkata")
 CALL_FROM = (8, 40)          # earlier runs (the 06:30 forecast) use a stale overnight picture: no trade state yet
 EXIT_FROM = (14, 40)         # the last hourly check of the day (~14:50) says square off
+STOP_PCT = 0.5               # sell when NIFTY has moved this far (%) against the trade from the 09:15 open
+
+
+def stop_level(side, opn):
+    return opn * (1 - STOP_PCT / 100) if side == "CALL" else opn * (1 + STOP_PCT / 100)
+
+
+def stop_hit(side, opn, high, low):
+    """Has NIFTY reached the stop since the open? (side CALL / PUT; the day's high and low so far)"""
+    if not opn or high is None or low is None:
+        return False
+    return low <= stop_level(side, opn) if side == "CALL" else high >= stop_level(side, opn)
+
+
+def _stop_text(side, opn):
+    return (f"Stop: sell if NIFTY goes {'below' if side == 'CALL' else 'above'} {stop_level(side, opn):,.2f} "
+            f"({STOP_PCT}% against the open {opn:,.2f}).")
 
 
 def _hm(t):
@@ -67,10 +90,17 @@ def decide(today, now):
     o = stats.get("from_open") or {}
     record = (f"Past trades like this won {round(o['win_rate'] * 100)}% of the time, "
               f"{o['avg_pct_after_costs']:+.2f}% each after costs ({stats.get('days')} days)." if o else "")
+    i = today.get("intraday") or {}
     if today.get("status") == "closed" or _hm(now) >= (15, 30):
         rec = next((r for r in (today.get("record") or {}).get("recent", []) if r.get("d") == date), None)
         if trade and rec and rec.get("open") and rec.get("close"):
             move = (rec["close"] / rec["open"] - 1) * 100 * (1 if side == "CALL" else -1)
+            if stop_hit(side, rec["open"], i.get("high"), i.get("low")):
+                return {**base, "state": "NOTHING", "kind": "closed", "side": side,
+                        "headline": f"Closed: today's {side} was stopped out",
+                        "reason": f"NIFTY reached the stop {stop_level(side, rec['open']):,.2f} ({STOP_PCT}% against the "
+                                  f"open {rec['open']:,.2f}): -{STOP_PCT:.2f}% for the {side} before costs. Held to the "
+                                  f"close ({rec['close']:,.2f}) it would have made {move:+.2f}%."}
             return {**base, "state": "NOTHING", "kind": "closed", "headline": f"Closed: today's {side} {'won' if move > 0 else 'lost'}",
                     "reason": f"NIFTY {rec['open']:,.2f} at the open → {rec['close']:,.2f} at the close: "
                               f"{move:+.2f}% for the {side} side before costs."}
@@ -89,23 +119,33 @@ def decide(today, now):
                 f"but that is mostly the opening gap, not a trade.") if lean.get("tier") not in (None, "none") else ""
         return {**base, "state": "NOTHING", "kind": "no_trade", "headline": "No trade today",
                 "reason": "Overnight markets give no edge from the open (the signal trades only its 20% most confident days)." + hint}
+    opn = i.get("open")
+    if after_open and stop_hit(side, opn, i.get("high"), i.get("low")):
+        far = i["low"] if side == "CALL" else i["high"]
+        return {**base, "state": "SELL", "kind": "stop", "side": side, "headline": f"Stop hit: sell the {side} now",
+                "reason": f"NIFTY reached {far:,.2f}, past the stop {stop_level(side, opn):,.2f} ({STOP_PCT}% against "
+                          f"the open {opn:,.2f}). Square off now; no new trade today."}
     if _hm(now) >= EXIT_FROM and today.get("status") == "open":
         return {**base, "state": "SELL", "kind": "sell", "side": side, "headline": f"Sell the {side} now",
                 "reason": "Square off before 15:15. The signal holds from the open to the close only."}
-    if _hm(now) >= (9, 15):
+    if after_open:
         return {**base, "state": "STAY", "kind": "hold", "side": side, "headline": f"Stay in the {side}",
-                "reason": f"Keep holding the {side} bought at the 09:15 open; you get a SELL alert at about 14:50. {record}"}
+                "reason": f"Keep holding the {side} bought at the 09:15 open; you get a SELL alert at about 14:50. "
+                          + (_stop_text(side, opn) + " " if opn else "") + record}
     return {**base, "state": side, "kind": side.lower(), "side": side, "headline": f"Buy a NIFTY {side} at the open",
-            "reason": f"At-the-money weekly option, bought at 09:15, held to the close (exit by 15:15). {record}",
+            "reason": f"At-the-money weekly option, bought at 09:15, held to the close (exit by 15:15). Stop: if NIFTY "
+                      f"moves {STOP_PCT}% against the 09:15 open you get a STOP alert (the level comes after the open). "
+                      f"{record}",
             "pred_pct": fo.get("pred_pct")}
 
 
 TITLES = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": "NIFTY: STAY in the {side}",
           "sell": "NIFTY: SELL the {side} now", "no_trade": "NIFTY: NOTHING today", "closed": "NIFTY: market closed",
           "test": "NIFTY: test alert", "info": "NIFTY update (info, not a trade signal)",
-          "summary": "NIFTY: today's summary", "warning": "NIFTY: NO SIGNAL TODAY"}
+          "summary": "NIFTY: today's summary", "warning": "NIFTY: NO SIGNAL TODAY",
+          "stop": "NIFTY: STOP HIT, SELL the {side} now"}
 ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514",
-         "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8"}
+         "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8", "stop": "\U0001F6A8"}
 
 
 def _title(status):
@@ -122,8 +162,8 @@ def send_ntfy(status, topic, silent=False):
     req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=_body(status).encode(),
                                  headers={"Title": _title(status),
                                           "Priority": "low" if silent else
-                                          "urgent" if kind in ("call", "put", "sell", "test", "warning") else "default",
-                                          "Tags": {"call": "green_circle", "put": "red_circle", "sell": "warning",
+                                          "urgent" if kind in ("call", "put", "sell", "stop", "test", "warning") else "default",
+                                          "Tags": {"call": "green_circle", "put": "red_circle", "sell": "warning", "stop": "rotating_light",
                                                    "hold": "hourglass", "test": "bell"}.get(kind, "white_circle")})
     urllib.request.urlopen(req, timeout=15).read()
 
@@ -198,7 +238,9 @@ def info_update(today, new, news=None, since=None):
                                        else f", {round(acc * 100)}%: too small a move to call")
         lines.append(f"Hourly check: closes {'above' if i['direction'] == 'up' else 'below'} yesterday{hint}")
     trade = ""
-    if new.get("side") and opn:
+    if new.get("kind") == "stop":
+        trade = f" (stopped out at -{STOP_PCT:.2f}%)"
+    elif new.get("side") and opn:
         trade = f" ({_pct((price / opn - 1) * 100 * (1 if new['side'] == 'CALL' else -1))} for the {new['side']} since the open)"
     lines.append(f"Status: {new['state']}, {new['headline'][0].lower() + new['headline'][1:]}{trade}")
     news_now = headlines(news, since)

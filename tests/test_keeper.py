@@ -38,5 +38,33 @@ class Watchdog(unittest.TestCase):
         self.assertEqual(warned[0].args[0]["kind"], "warning")
 
 
+class StopWatcherTest(unittest.TestCase):
+    def watcher(self, st, rng):
+        today = keeper.datetime.now(keeper.IST).date().isoformat()
+        st = dict(st, date=today) if st else None
+        return keeper.StopWatcher(status_fn=lambda: st, range_fn=lambda: rng)
+
+    def test_starts_a_run_when_the_stop_is_reached_then_waits_for_the_page(self):
+        w = self.watcher({"kind": "hold", "side": "PUT"}, (22524.4, 22650.0, 22500.0))
+        with mock.patch.object(keeper, "dispatch") as d:
+            self.assertTrue(w.check())
+            self.assertFalse(w.check())                    # 10 minutes for that run to update the page
+        self.assertEqual(d.call_count, 1)
+
+    def test_nothing_before_the_stop(self):
+        w = self.watcher({"kind": "put", "side": "PUT"}, (22524.4, 22600.0, 22400.0))
+        with mock.patch.object(keeper, "dispatch") as d:
+            self.assertFalse(w.check())
+        self.assertEqual(d.call_count, 0)
+
+    def test_stops_watching_on_a_no_trade_day_or_after_the_stop(self):
+        for kind in ("no_trade", "stop"):
+            w = self.watcher({"kind": kind, "side": "PUT"}, (22524.4, 23000.0, 22000.0))
+            with mock.patch.object(keeper, "dispatch") as d:
+                self.assertFalse(w.check())
+                self.assertTrue(w.done)
+            self.assertEqual(d.call_count, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

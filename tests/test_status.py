@@ -72,6 +72,54 @@ class Decide(unittest.TestCase):
         self.assertIn("won", s["headline"])
 
 
+class Stop(unittest.TestCase):
+    """0.5% against the trade from the open: SELL (kind "stop"), alerted once, reported at the close."""
+
+    def put_day(self, high, low=22500.0, st="open", recent=None):
+        d = today(direction="down", st=st, recent=recent)
+        d["intraday"] = {"price": 22600.0, "move_pct": 0.1, "open": 22524.4, "high": high, "low": low}
+        return d
+
+    def test_levels(self):
+        self.assertAlmostEqual(status.stop_level("PUT", 22524.4), 22637.022, places=3)
+        self.assertAlmostEqual(status.stop_level("CALL", 22524.4), 22411.778, places=3)
+        self.assertTrue(status.stop_hit("PUT", 22524.4, 22640.0, 22500.0))
+        self.assertFalse(status.stop_hit("PUT", 22524.4, 22630.0, 22300.0))
+        self.assertTrue(status.stop_hit("CALL", 22524.4, 22600.0, 22400.0))
+        self.assertFalse(status.stop_hit("CALL", 22524.4, 22600.0, None))
+
+    def test_stay_shows_the_level_then_the_stop_sells(self):
+        s = status.decide(self.put_day(high=22600.0), at(9, 50))
+        self.assertEqual(s["state"], "STAY")
+        self.assertIn("sell if NIFTY goes above 22,637.02", s["reason"])
+        s = status.decide(self.put_day(high=22650.0), at(10, 30))
+        self.assertEqual((s["state"], s["kind"], s["side"]), ("SELL", "stop", "PUT"))
+        self.assertIn("Stop hit", s["headline"])
+        self.assertEqual(status.decide(self.put_day(high=22650.0), at(14, 50))["kind"], "stop")   # no second SELL
+
+    def test_stop_is_alerted_once(self):
+        u = Updates()
+        alerts = lambda calls: [c.args[0]["kind"] for c in calls if c.args[0]["kind"] != "info"]
+        s1, _ = u.run_at(self.put_day(high=22600.0), None, at(9, 50))
+        s2, c2 = u.run_at(self.put_day(high=22650.0), s1, at(10, 30))
+        s3, c3 = u.run_at(self.put_day(high=22650.0), s2, at(11, 5))
+        _, c4 = u.run_at(self.put_day(high=22650.0), s3, at(14, 50))
+        self.assertEqual((alerts(c2), alerts(c3), alerts(c4)), (["stop"], [], []))
+        self.assertIn("stopped out", c3[0].args[0]["body"])                       # the silent update says so
+
+    def test_close_reports_the_stop(self):
+        rec = [{"d": "2026-10-22", "open": 22524.4, "close": 22753.2, "prev_close": 22600.0}]
+        s = status.decide(self.put_day(high=22760.0, st="closed", recent=rec), at(15, 50))
+        self.assertIn("stopped out", s["headline"])
+        self.assertIn("-0.50% for the PUT", s["reason"])
+        self.assertIn("would have made -1.02%", s["reason"])
+
+    def test_no_trade_day_is_never_stopped(self):
+        d = self.put_day(high=23000.0)
+        d["preopen"]["recorded"]["from_open"]["trade"] = False
+        self.assertEqual(status.decide(d, at(10, 30))["state"], "NOTHING")
+
+
 class Journal(unittest.TestCase):
     def test_every_run_is_logged(self):
         with tempfile.TemporaryDirectory() as dd, tempfile.TemporaryDirectory() as store:
