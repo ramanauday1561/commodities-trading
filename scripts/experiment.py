@@ -12,6 +12,9 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
     big-move risk and ranges (19 Oct 2026: slightly worse, not used)
   mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
   mode "rolls": futures history with and without the contract-roll adjustment; NIFTY calls without crude (roll_study.py)
+  mode "pcr": NIFTY only, the previous session's put-call ratio as an input or a filter for the from-open signal
+  mode "pcrprobe": NIFTY only, NIFTY's put-call ratio from NSE's daily F&O bhavcopy, a download check (pcr_probe.py)
+  mode "vix": NIFTY only, India VIX as an input or a stand-aside filter for the from-open signal (vix_study.py)
   mode "resultsize": NIFTY only, how many of the heaviest stocks count as results days (results_size_study.py)
   mode "hourly": NIFTY only, next-hour and rest-of-day forecasts from 1-hour candles (hourly_study.py)
   mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
@@ -245,6 +248,21 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key == "nifty":
             import oct23_study
             oct23_study.main()
+        return
+    if mode == "pcr":                                     # NIFTY: put-call ratio as an input or a filter (from-open)
+        if key == "nifty":
+            import pcr_study
+            pcr_study.main()
+        return
+    if mode == "pcrprobe":                                # NIFTY: can NSE's F&O bhavcopy give a daily put-call ratio
+        if key == "nifty":
+            import pcr_probe
+            pcr_probe.main()
+        return
+    if mode == "vix":                                     # NIFTY: India VIX as an input or a filter for the from-open signal
+        if key == "nifty":
+            import vix_study
+            vix_study.main()
         return
     if mode == "resultsize":                              # NIFTY: 5, 11, 20 or 50 stocks as "heavyweight results"
         if key == "nifty":
