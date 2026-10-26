@@ -114,6 +114,23 @@ class Stop(unittest.TestCase):
         self.assertIn("-0.50% for the PUT", s["reason"])
         self.assertIn("would have made -1.02%", s["reason"])
 
+    def test_trade_box_and_today_timeline(self):
+        s = status.decide(self.put_day(high=22600.0), at(10, 0))
+        box = status.trade_box(s, self.put_day(high=22600.0))
+        self.assertEqual(box, {"side": "PUT", "entry": 22524.4, "stop": 22637.02, "price": 22600.0, "pct": -0.34})
+        stopped = status.decide(self.put_day(high=22650.0), at(10, 30))
+        self.assertEqual(status.trade_box(stopped, self.put_day(high=22650.0))["pct"], -0.5)
+        self.assertIsNone(status.trade_box(status.decide(today(trade=False), at(8, 58)), today(trade=False)))
+        with tempfile.TemporaryDirectory() as dd, tempfile.TemporaryDirectory() as store:
+            json.dump(self.put_day(high=22600.0), open(os.path.join(dd, "today-nifty.json"), "w"))
+            with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "1"}), \
+                    mock.patch.object(status, "notify", return_value={"telegram": "sent"}):
+                status.main(dd, at(9, 50), store)
+            self.assertEqual(json.load(open(os.path.join(dd, "status.json")))["trade"]["stop"], 22637.02)
+            t = json.load(open(os.path.join(dd, "status-today.json")))
+            self.assertEqual((t["date"], t["rows"][0]["at"], t["rows"][0]["state"], t["rows"][0]["alert"]),
+                             ("2026-10-22", "09:50", "STAY", True))
+
     def test_no_trade_day_is_never_stopped(self):
         d = self.put_day(high=23000.0)
         d["preopen"]["recorded"]["from_open"]["trade"] = False

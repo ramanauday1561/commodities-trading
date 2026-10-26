@@ -93,7 +93,7 @@ jobs:
         continue-on-error: true
         run: |
           snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
-          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
+          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/status-today.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
           bash scripts/store.sh push site-data "$snap"
       - id: have
         if: steps.gate.outputs.go == 'true'

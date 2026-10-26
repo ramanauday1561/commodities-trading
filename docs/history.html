@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>History</title>
+<meta name="theme-color" content="#070a12">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root { --bg:#070a12; --text:#e8edf5; --muted:#8a96a8; --up:#26a69a; --down:#ef5350; --line:#151b26; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+         padding:max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  main { max-width:640px; margin:0 auto; }
+  h1 { font-size:14px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; }
+  #totals p { margin:4px 0; }
+  table { width:100%; border-collapse:collapse; margin-top:16px; font-size:14px; }
+  th { text-align:left; font-weight:600; color:var(--muted); font-size:12px; padding:6px 4px; }
+  td { padding:7px 4px; border-top:1px solid var(--line); vertical-align:top; }
+  td small { display:block; color:var(--muted); font-size:12px; }
+  .up { color:var(--up); } .down { color:var(--down); } .muted { color:var(--muted); }
+  a { color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>NIFTY · History</h1>
+  <div id="totals">Loading…</div>
+  <table>
+    <thead><tr><th>Day</th><th>Close</th><th>Gap call</th><th>Close call</th><th>Trade</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <p class="muted" style="font-size:13px; margin-top:20px">Calls made before the 09:15 open; a trade is scored from the open
+    with the 0.5% stop, after ~0.03% costs (NIFTY's move, not the option's).
+    <a href="status.html">Status</a> · <a href="./#nifty">Full forecast</a> · Learning tool, not financial advice.</p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const pc = x => `<span class="${x >= 0 ? 'up' : 'down'}">${x >= 0 ? '+' : ''}${x.toFixed(2)}%</span>`;
+const mark = (dir, hit) => `${dir === 'up' ? 'Up' : 'Down'} ${hit ? '✓' : '✗'}`;
+(async () => {
+  try {
+    const r = await fetch('data/today-nifty.json?t=' + Date.now(), { cache: 'no-store' });
+    const rows = ((await r.json()).record || {}).recent || [];
+    const n = rows.length, gap = rows.filter(x => x.gap_hit).length, close = rows.filter(x => x.close_hit).length;
+    const trades = rows.filter(x => x.from_open_trade && x.with_stop_pct != null);
+    const total = trades.reduce((a, x) => a + x.with_stop_pct, 0);
+    $('totals').innerHTML = n ? `<p>${n} days since ${rows[n - 1].d}</p>
+      <p>Gap call right ${gap} of ${n} · close call right ${close} of ${n}</p>
+      <p>Trades: ${trades.length}${trades.length ? `, ${trades.filter(x => x.with_stop_pct > 0).length} won, ${pc(total)} in total` : ' (no trade day yet)'}</p>`
+      : '<p>No scored days yet.</p>';
+    $('rows').innerHTML = rows.map(x => {
+      const move = (x.close / x.prev_close - 1) * 100;
+      const trade = x.from_open_trade
+        ? `${x.from_open_dir === 'up' ? 'CALL' : 'PUT'} ${x.with_stop_pct != null ? pc(x.with_stop_pct) : ''}${x.stopped ? '<small>stopped out</small>' : ''}`
+        : '<span class="muted">none</span>';
+      const day = new Date(x.d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+      return `<tr><td>${day}</td><td>${x.close.toLocaleString('en-IN')}<small>${pc(move)}</small></td>
+        <td>${mark(x.gap, x.gap_hit)}</td><td>${mark(x.close_call, x.close_hit)}</td><td>${trade}</td></tr>`;
+    }).join('');
+  } catch (e) { $('totals').textContent = 'No history yet.'; }
+})();
+</script>
+</body>
+</html>
