@@ -7,58 +7,77 @@
 <meta name="theme-color" content="#070a12">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
-  :root { --bg:#070a12; --text:#e8edf5; --muted:#8a96a8; --up:#26a69a; --down:#ef5350; --line:#151b26; }
+  :root { --bg:#070a12; --text:#eef1f6; --mute:#9aa6b8; --glass:rgba(255,255,255,.055); --edge:rgba(255,255,255,.10);
+          --up:#34d1bf; --down:#ff6b6b; --accent:#7cb4ff; }
   * { box-sizing:border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-         padding:max(20px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
-  main { max-width:640px; margin:0 auto; }
-  h1 { font-size:14px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; }
-  #totals p { margin:4px 0; }
-  table { width:100%; border-collapse:collapse; margin-top:16px; font-size:14px; }
-  th { text-align:left; font-weight:600; color:var(--muted); font-size:12px; padding:6px 4px; }
-  td { padding:7px 4px; border-top:1px solid var(--line); vertical-align:top; }
-  td small { display:block; color:var(--muted); font-size:12px; }
-  .up { color:var(--up); } .down { color:var(--down); } .muted { color:var(--muted); }
-  a { color:var(--muted); }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; min-height:100svh;
+         background-image:radial-gradient(600px 400px at 10% -10%, rgba(64,110,255,.22), transparent 70%),
+                          radial-gradient(500px 360px at 100% 10%, rgba(52,209,191,.12), transparent 70%); background-attachment:fixed; }
+  main { max-width:640px; margin:0 auto; padding:max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  .glass { background:var(--glass); border:1px solid var(--edge); border-radius:18px; -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px); }
+  header { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px 10px 16px; margin-bottom:14px; }
+  h1 { font-size:17px; margin:0; } .sub { color:var(--mute); font-size:12px; }
+  nav { display:flex; gap:6px; }
+  nav a { color:var(--text); text-decoration:none; font-size:13px; padding:6px 12px; border-radius:999px; border:1px solid var(--edge); background:rgba(255,255,255,.08); }
+  .tiles { display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; }
+  .tile { padding:12px; }
+  .tile b { display:block; font-size:24px; line-height:1.15; letter-spacing:-.01em; }
+  .tile span { color:var(--mute); font-size:12px; }
+  .days { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+  .day { display:grid; grid-template-columns:1fr auto; gap:6px 10px; padding:12px 14px; border-left:3px solid var(--edge); }
+  .day.pos { border-left-color:var(--up); } .day.neg { border-left-color:var(--down); }
+  .day .date { font-weight:600; } .day .date small { color:var(--mute); font-weight:400; margin-left:6px; }
+  .day .px { text-align:right; font-variant-numeric:tabular-nums; }
+  .chips { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { font-size:12px; padding:3px 9px; border-radius:999px; background:rgba(255,255,255,.07); color:var(--mute); white-space:nowrap; }
+  .chip.ok { background:rgba(52,209,191,.14); color:var(--up); } .chip.no { background:rgba(255,107,107,.13); color:var(--down); }
+  .chip.trade { background:rgba(124,180,255,.15); color:var(--accent); }
+  .up { color:var(--up); } .down { color:var(--down); }
+  .note { color:var(--mute); font-size:12px; margin-top:16px; }
 </style>
 </head>
 <body>
 <main>
-  <h1>NIFTY · History</h1>
-  <div id="totals">Loading…</div>
-  <table>
-    <thead><tr><th>Day</th><th>Close</th><th>Gap call</th><th>Close call</th><th>Trade</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <p class="muted" style="font-size:13px; margin-top:20px">Calls made before the 09:15 open; a trade is scored from the open
-    with the 0.5% stop, after ~0.03% costs (NIFTY's move, not the option's).
-    <a href="status.html">Status</a> · <a href="./#nifty">Full forecast</a> · Learning tool, not financial advice.</p>
+  <header class="glass">
+    <div><h1>History</h1><div class="sub" id="since">NIFTY 50 · loading…</div></div>
+    <nav><a href="status.html">Status</a><a href="./#nifty">Forecast</a></nav>
+  </header>
+  <div class="tiles" id="tiles"></div>
+  <div class="days" id="days"></div>
+  <p class="note">Calls are made before the 09:15 open. A trade is scored from the open with the 0.5% stop, after ~0.03%
+    costs, on NIFTY's move (an option moves more). Learning tool, not financial advice.</p>
 </main>
 <script>
 const $ = id => document.getElementById(id);
-const pc = x => `<span class="${x >= 0 ? 'up' : 'down'}">${x >= 0 ? '+' : ''}${x.toFixed(2)}%</span>`;
-const mark = (dir, hit) => `${dir === 'up' ? 'Up' : 'Down'} ${hit ? '✓' : '✗'}`;
+const pct = x => `${x >= 0 ? '+' : ''}${x.toFixed(2)}%`;
+const chip = (label, dir, hit) => `<span class="chip ${hit ? 'ok' : 'no'}">${label} ${dir === 'up' ? '↑' : '↓'} ${hit ? '✓' : '✗'}</span>`;
 (async () => {
   try {
     const r = await fetch('data/today-nifty.json?t=' + Date.now(), { cache: 'no-store' });
     const rows = ((await r.json()).record || {}).recent || [];
+    if (!rows.length) throw new Error('none');
     const n = rows.length, gap = rows.filter(x => x.gap_hit).length, close = rows.filter(x => x.close_hit).length;
     const trades = rows.filter(x => x.from_open_trade && x.with_stop_pct != null);
     const total = trades.reduce((a, x) => a + x.with_stop_pct, 0);
-    $('totals').innerHTML = n ? `<p>${n} days since ${rows[n - 1].d}</p>
-      <p>Gap call right ${gap} of ${n} · close call right ${close} of ${n}</p>
-      <p>Trades: ${trades.length}${trades.length ? `, ${trades.filter(x => x.with_stop_pct > 0).length} won, ${pc(total)} in total` : ' (no trade day yet)'}</p>`
-      : '<p>No scored days yet.</p>';
-    $('rows').innerHTML = rows.map(x => {
+    const fmt = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+    $('since').textContent = `NIFTY 50 · ${n} days since ${fmt(rows[n - 1].d)}`;
+    $('tiles').innerHTML = `
+      <div class="glass tile"><b>${gap}/${n}</b><span>gap call right</span></div>
+      <div class="glass tile"><b>${close}/${n}</b><span>close call right</span></div>
+      <div class="glass tile"><b class="${trades.length ? (total >= 0 ? 'up' : 'down') : ''}">${trades.length ? pct(total) : '0'}</b>
+        <span>${trades.length ? `${trades.length} trade${trades.length > 1 ? 's' : ''}, ${trades.filter(x => x.with_stop_pct > 0).length} won` : 'trades so far'}</span></div>`;
+    $('days').innerHTML = rows.map(x => {
       const move = (x.close / x.prev_close - 1) * 100;
+      const wd = new Date(x.d + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'UTC' });
       const trade = x.from_open_trade
-        ? `${x.from_open_dir === 'up' ? 'CALL' : 'PUT'} ${x.with_stop_pct != null ? pc(x.with_stop_pct) : ''}${x.stopped ? '<small>stopped out</small>' : ''}`
-        : '<span class="muted">none</span>';
-      const day = new Date(x.d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-      return `<tr><td>${day}</td><td>${x.close.toLocaleString('en-IN')}<small>${pc(move)}</small></td>
-        <td>${mark(x.gap, x.gap_hit)}</td><td>${mark(x.close_call, x.close_hit)}</td><td>${trade}</td></tr>`;
+        ? `<span class="chip trade">${x.from_open_dir === 'up' ? 'CALL' : 'PUT'} ${x.with_stop_pct != null ? pct(x.with_stop_pct) : ''}${x.stopped ? ' · stopped' : ''}</span>`
+        : '<span class="chip">No trade</span>';
+      return `<div class="glass day ${move >= 0 ? 'pos' : 'neg'}">
+        <div class="date">${fmt(x.d)}<small>${wd}</small></div>
+        <div class="px">${x.close.toLocaleString('en-IN')} <span class="${move >= 0 ? 'up' : 'down'}">${pct(move)}</span></div>
+        <div class="chips">${chip('Gap', x.gap, x.gap_hit)}${chip('Close', x.close_call, x.close_hit)}${trade}</div></div>`;
     }).join('');
-  } catch (e) { $('totals').textContent = 'No history yet.'; }
+  } catch (e) { $('since').textContent = 'NIFTY 50 · no scored days yet'; }
 })();
 </script>
 </body>
