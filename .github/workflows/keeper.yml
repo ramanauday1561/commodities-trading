@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pip install exchange_calendars
+      - run: pip install exchange_calendars yfinance pandas
       - name: Only one keeper, only on NSE trading days
         id: go
         run: |
@@ -42,7 +42,7 @@ jobs:
           day=$(PYTHONPATH=scripts python -c "from datetime import datetime; from zoneinfo import ZoneInfo; from calendars import is_session; print(int(is_session(datetime.now(ZoneInfo('Asia/Kolkata')).date(), 'XBOM')))")
           echo "other keepers running: $others, trading day: $day"
           if [ "$others" = "0" ] && [ "$day" = "1" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
-      - name: Start the nowcast at each update time (and warn the phone at 09:08 if the 08:57 call is missing)
+      - name: Start the nowcast at each update time (warn the phone at 09:08 if the 08:57 call is missing; watch the stop)
         if: steps.go.outputs.ok == 'true'
         env:
           HANDOFF: ${{ github.event.inputs.handoff }}

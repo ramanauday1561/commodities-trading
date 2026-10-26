@@ -7,6 +7,11 @@ keeper starts are skipped, except that the most recent one is run straight away 
 At 09:08 it checks that the 08:57 call reached the Status page (status.json on site-data dated today, past "pending").
 If not, the phone gets a "no signal today" warning (status.py's Telegram / ntfy channels), so silence never hides a
 failure, and the nowcast is started once more.
+
+Stop watcher: on a trade day (status.json kind call / put / hold) it looks at NIFTY's 1-minute candles every 5 minutes
+from 09:20 to 15:10 and starts the nowcast at once when NIFTY has moved status.STOP_PCT against the trade from the
+open. That run's status.py sees the same high / low, switches the page to SELL (kind "stop") and sends the alert, so
+the page, the journal and the phone stay in step and nothing is sent twice.
 """
 import json
 import os
@@ -19,6 +24,8 @@ IST = ZoneInfo("Asia/Kolkata")
 TIMES = ["08:57", "09:50", "10:20", "11:05", "11:50", "12:35", "13:20", "14:05", "14:50", "15:50"]
 WATCHDOG = "09:08"
 RETRY_WAIT = 300                                # seconds the retry gets before the warning (~09:13)
+WATCH_EVERY = 300                               # stop watcher: seconds between looks at the price
+WATCH_FROM, WATCH_TO = "09:20", "15:10"
 SIGNAL_KINDS = ("no_trade", "call", "put", "hold", "sell")
 AFTER_CLOSE = "15:50"                           # the post-close forecast (predict.yml); GitHub dropped its cron on 15 Oct
 MAX_RUN = timedelta(hours=5, minutes=50)        # stay inside the job's time limit
@@ -71,6 +78,59 @@ def watchdog(wait=RETRY_WAIT):
     return False
 
 
+def day_range():
+    """Today's open and the high / low since, from NIFTY's 1-minute candles (None if unavailable)."""
+    import yfinance as yf
+    raw = yf.download("^NSEI", period="1d", interval="1m", auto_adjust=False, progress=False)
+    raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
+    raw = raw.dropna(subset=["High", "Low"])
+    if not len(raw) or raw.index[-1].tz_convert(IST).date() != datetime.now(IST).date():
+        return None
+    return float(raw["Open"].iloc[0]), float(raw["High"].max()), float(raw["Low"].min())
+
+
+class StopWatcher:
+    def __init__(self, status_fn=None, range_fn=None):
+        self.status_fn, self.range_fn = status_fn or live_status, range_fn or day_range
+        self.done = False
+        self.last_start = None
+
+    def check(self):
+        """One look; returns True when it started a run because the stop was reached."""
+        if self.done:
+            return False
+        import status
+        st = self.status_fn()
+        today = datetime.now(IST).date().isoformat()
+        if st and st.get("date") == today and st.get("kind") in ("no_trade", "stop", "sell", "closed"):
+            self.done = True                            # no trade today, or the trade is already over
+            return False
+        if not st or st.get("date") != today or st.get("kind") not in ("call", "put", "hold") or not st.get("side"):
+            return False
+        if self.last_start and datetime.now(IST) - self.last_start < timedelta(minutes=10):
+            return False                                # the run it started has not updated the page yet
+        r = self.range_fn()
+        if r and status.stop_hit(st["side"], *r):
+            dispatch(f"stop reached for the {st['side']} (open {r[0]:,.2f}, high {r[1]:,.2f}, low {r[2]:,.2f})")
+            self.last_start = datetime.now(IST)         # done once the page shows the stop (kind "stop")
+            return True
+        return False
+
+
+def wait_until(t, watcher=None):
+    """Sleep until t; inside the watch window, look at the stop every WATCH_EVERY seconds on the way."""
+    while True:
+        now = datetime.now(IST)
+        if now >= t:
+            return
+        if watcher and at(now, WATCH_FROM) <= now <= at(now, WATCH_TO):
+            try:
+                watcher.check()
+            except Exception as e:                      # the watcher must never stop the keeper
+                print(f"{now:%H:%M:%S} IST  stop watcher error: {e!r}", flush=True)
+        time.sleep(max(0.0, min(WATCH_EVERY, (t - datetime.now(IST)).total_seconds())))
+
+
 def hand_over():
     """Near the job's time limit: start a fresh keeper for the remaining update times, then exit."""
     r = subprocess.run(["gh", "workflow", "run", "keeper.yml", "--ref", "main", "-f", "handoff=1"],
@@ -89,11 +149,12 @@ def main():
         dispatch(f"catch-up for {last}", "predict.yml" if last == AFTER_CLOSE else "intraday.yml")
     check = at(start, WATCHDOG)
     plan = sorted([(s, "run") for s in due] + ([(check, "watchdog")] if check > start else []))
+    watcher = StopWatcher()
     for s, what in plan:
         if s - start > MAX_RUN:
             hand_over()
             break
-        time.sleep(max(0.0, (s - datetime.now(IST)).total_seconds()))
+        wait_until(s, watcher)
         if what == "watchdog":
             watchdog()
         else:
