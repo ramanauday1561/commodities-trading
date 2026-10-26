@@ -103,6 +103,7 @@ def utc_at(day, hm):
 
 
 TRADE_COST_PCT = 0.03           # round trip for NIFTY futures (brokerage, STT, fees, slippage), approximate
+STOP_PCT = 0.5                  # the stop against the trade from the open (same as status.STOP_PCT)
 
 
 def share_table(conf, correct, up, levels=(1.0, 0.5, 0.3, 0.2, 0.1), min_hist=60, pnl=None):
@@ -279,6 +280,11 @@ def resolve(record, nd, today, now):
         if fo and fo.get("trade"):                      # scored the way it is traded: 09:15 open to close, after costs
             side = 1 if fo["direction"] == "up" else -1
             r["result"]["from_open_pct"] = round(side * (c / o - 1) * 100 - TRADE_COST_PCT, 3)
+            if {"high", "low"} <= set(nd.columns):     # the History page: what the trade made with the stop
+                hi, lo = nd["high"].iloc[i], nd["low"].iloc[i]
+                stopped = bool(lo <= o * (1 - STOP_PCT / 100)) if side > 0 else bool(hi >= o * (1 + STOP_PCT / 100))
+                r["result"]["stopped"] = stopped
+                r["result"]["with_stop_pct"] = round(-STOP_PCT - TRADE_COST_PCT, 3) if stopped else r["result"]["from_open_pct"]
     return record
 
 
@@ -300,8 +306,9 @@ def summarize_record(record):
     out["days"] = sum("result" in r for r in record)
     out["recent"] = [{"d": r["d"], "gap": r["gap"]["direction"], "gap_tier": r["gap"]["tier"],
                       "close_call": r["close"]["direction"], "close_tier": r["close"]["tier"],   # "close" is the price
-                      "from_open_trade": bool((r.get("from_open") or {}).get("trade")), **r["result"]}
-                     for r in record if "result" in r][-10:][::-1]
+                      "from_open_trade": bool((r.get("from_open") or {}).get("trade")),
+                      "from_open_dir": (r.get("from_open") or {}).get("direction"), **r["result"]}
+                     for r in record if "result" in r][-60:][::-1]                          # the History page
     return out
 
 
@@ -311,7 +318,7 @@ def daily():
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["Open", "Close"])
     raw.index = pd.to_datetime(raw.index).tz_localize(None).normalize()
-    return raw.rename(columns=str.lower)[["open", "close"]]
+    return raw.rename(columns=str.lower)[["open", "high", "low", "close"]]
 
 
 def run(store_dir="store", out_dir="docs/data", now=None):
@@ -321,6 +328,10 @@ def run(store_dir="store", out_dir="docs/data", now=None):
     rec_path = os.path.join(store_dir, "calls", "nifty.json")
     record = resolve(load_record(rec_path), nd_all, today, now)
     out = {"key": "nifty", "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"), "date": today.isoformat()}
+    nxt = today + timedelta(days=1)
+    while not is_session(nxt, "XBOM"):
+        nxt += timedelta(days=1)
+    out["next_session"] = nxt.isoformat()               # the Status page knows a holiday is not a missing call
     if not is_session(today, "XBOM"):
         out["status"] = "holiday"
     else:

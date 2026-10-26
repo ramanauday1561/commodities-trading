@@ -23,6 +23,16 @@
   #headline { font-size:20px; font-weight:600; margin:0 0 8px; }
   #reason { color:var(--muted); max-width:34ch; margin:0 auto; }
   #meta { color:var(--muted); font-size:13px; margin-top:24px; }
+  .box { margin:20px auto 0; max-width:360px; width:100%; border:1px solid #1f2735; border-radius:12px; padding:12px 16px; text-align:left; }
+  .box div { display:flex; justify-content:space-between; gap:12px; padding:3px 0; }
+  .box span { color:var(--muted); }
+  #warn { display:none; margin:20px auto 0; max-width:360px; background:#3a1214; border:1px solid var(--down); border-radius:12px; padding:12px 16px; }
+  #today { margin:24px auto 0; max-width:360px; width:100%; text-align:left; font-size:14px; }
+  #today h2 { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; }
+  #today li { display:flex; gap:10px; padding:4px 0; border-top:1px solid #151b26; }
+  #today ol { list-style:none; margin:0; padding:0; }
+  #today b { min-width:64px; } #today time { color:var(--muted); min-width:42px; }
+  .up { color:var(--up); } .down { color:var(--down); }
   a { color:var(--muted); }
 </style>
 </head>
@@ -31,8 +41,11 @@
   <div id="word" class="NOTHING">…</div>
   <p id="headline"></p>
   <p id="reason"></p>
+  <div id="warn"></div>
+  <div id="trade" class="box" hidden></div>
   <p id="meta"></p>
-  <p style="font-size:13px; margin-top:28px"><a href="./#nifty">Full forecast</a> · Learning tool, not financial advice.</p>
+  <section id="today" hidden><h2>Today</h2><ol id="rows"></ol></section>
+  <p style="font-size:13px; margin-top:28px"><a href="./#nifty">Full forecast</a> · <a href="history.html">History</a> · Learning tool, not financial advice.</p>
 <script>
 const WORD = { CALL: 'CALL', PUT: 'PUT', STAY: 'STAY', SELL: 'SELL', NOTHING: 'NOTHING' };   // the only five states
 const $ = id => document.getElementById(id);
@@ -51,10 +64,36 @@ async function load() {
     const t = x => new Date(x).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('meta').textContent = `Updated ${t(s.updated)}${s.since && !stale ? ' · this signal since ' + t(s.since) : ''}`;
     document.title = stale ? 'Status' : `Status: ${WORD[state]}`;
+    // 09:15-15:30 IST on a trading day (next_session, from the last update) with no call for today: something failed
+    const ist = new Date(Date.now() + 19800000), hm = ist.getUTCHours() * 100 + ist.getUTCMinutes();
+    const broken = hm >= 915 && hm < 1530 && ((stale && s.next_session === todayIst) || (!stale && s.kind === 'pending'));
+    $('warn').style.display = broken ? 'block' : 'none';
+    $('warn').textContent = 'No signal today: the 08:57 call did not arrive. If the market is open, do not trade on the app today.';
+    const t2 = !stale && s.trade;
+    $('trade').hidden = !t2;
+    if (t2) {
+      const f = x => x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const cls = t2.pct >= 0 ? 'up' : 'down';
+      $('trade').innerHTML = `<div><span>${t2.side} bought at the open</span><b>${f(t2.entry)}</b></div>
+        <div><span>Stop (sell if NIFTY goes ${t2.side === 'CALL' ? 'below' : 'above'})</span><b>${f(t2.stop)}</b></div>
+        <div><span>NIFTY now</span><b>${f(t2.price)}</b></div>
+        <div><span>Trade so far (NIFTY move)</span><b class="${cls}">${t2.pct >= 0 ? '+' : ''}${t2.pct.toFixed(2)}%</b></div>`;
+    }
+    loadToday(stale ? null : s.date);
   } catch (e) {
     $('word').className = 'NOTHING'; $('word').textContent = 'NOTHING';
     $('headline').textContent = 'No status yet'; $('reason').textContent = String(e.message || e);
   }
+}
+async function loadToday(date) {
+  try {
+    const r = await fetch('data/status-today.json?t=' + Date.now(), { cache: 'no-store' });
+    const d = r.ok ? await r.json() : null;
+    const rows = d && d.date === date ? d.rows : [];
+    $('today').hidden = !rows.length;
+    $('rows').innerHTML = rows.map(x => `<li><time>${x.at}</time><b>${x.state}</b><span>${x.price ? x.price.toLocaleString('en-IN') : ''}${
+      x.move_pct != null ? ` <span class="${x.move_pct >= 0 ? 'up' : 'down'}">(${x.move_pct >= 0 ? '+' : ''}${x.move_pct.toFixed(2)}%)</span>` : ''}${x.alert ? ' · alert sent' : ''}</span></li>`).join('');
+  } catch (e) { $('today').hidden = true; }
 }
 load();
 setInterval(load, 60000);

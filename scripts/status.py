@@ -267,6 +267,17 @@ def summary(today, new):
     return {"kind": "summary", "body": "\n".join(lines)}
 
 
+def trade_box(new, today):
+    """The Status page's trade box on a trade day after the open: entry, stop, NIFTY now, the trade so far."""
+    i = (today or {}).get("intraday") or {}
+    side, opn, price = new.get("side"), i.get("open"), i.get("price")
+    if not side or not opn or not price or new.get("kind") not in ("hold", "sell", "stop", "closed"):
+        return None
+    pct = -STOP_PCT if new.get("kind") == "stop" or (new.get("kind") == "closed" and "stopped" in new.get("headline", "")) \
+        else (price / opn - 1) * 100 * (1 if side == "CALL" else -1)
+    return {"side": side, "entry": opn, "stop": round(stop_level(side, opn), 2), "price": price, "pct": round(pct, 2)}
+
+
 def journal_row(new, today, alert, extra=None):
     p = (today or {}).get("preopen") or {}
     i = (today or {}).get("intraday") or {}
@@ -285,6 +296,7 @@ def save_journal(store_dir, row, day):
     except (OSError, ValueError):
         rows = []
     json.dump(rows + [row], open(path, "w"), separators=(",", ":"))
+    return rows + [row]
 
 
 def main(data_dir, now=None, store_dir=None):
@@ -318,9 +330,19 @@ def main(data_dir, now=None, store_dir=None):
             extra["info"] = notify(msg, silent=True)
             new["info_at"] = now.isoformat(timespec="minutes")
             print("info:", extra["info"])
+    if (today or {}).get("next_session"):
+        new["next_session"] = today["next_session"]
+    box = trade_box(new, today)
+    if box:
+        new["trade"] = box
     json.dump(new, open(os.path.join(data_dir, "status.json"), "w"), separators=(",", ":"))
     if store_dir:
-        save_journal(store_dir, journal_row(new, today, alert, extra), new["date"])
+        rows = save_journal(store_dir, journal_row(new, today, alert, extra), new["date"])
+        sent = lambda r: any(v == "sent" for v in (r.get("alert") or r.get("summary") or {}).values())
+        today_rows = [{"at": r["at"][11:16], "state": r["state"], "headline": r["headline"], "price": r.get("price"),
+                       "move_pct": r.get("move_pct"), "alert": sent(r)} for r in rows]
+        json.dump({"date": new["date"], "rows": today_rows},           # the Status page's "Today" timeline
+                  open(os.path.join(data_dir, "status-today.json"), "w"), separators=(",", ":"))
     print(json.dumps(new))
     return new
 

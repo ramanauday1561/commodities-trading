@@ -43,6 +43,15 @@
   header > div:first-child { min-width:0; }
   header .btns { flex-wrap:nowrap; flex:none; }
   header button { padding:6px 11px; }
+  .sub { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* phones: title and "Updated" on one row, the buttons on their own row, so nothing squeezes or overlaps */
+  @media (max-width:640px) {
+    header { flex-wrap:wrap; row-gap:8px; padding:10px 12px; }
+    header > div:first-child { flex:1 1 100%; }
+    header .btns { flex:1 1 100%; }
+    header .btns button { flex:1 1 0; padding:7px 4px; white-space:nowrap; }
+    header #helpBtn { flex:0 0 40px; }
+  }
   button { background:var(--glass2); color:var(--text); border:1px solid var(--edge);  /* glass edge: taste-skill-ignore */
            border-radius:999px; padding:7px 12px; font:inherit; font-size:var(--s-small); cursor:pointer; }
   button:hover { background:rgba(255,255,255,.14); } button:disabled { opacity:.5; cursor:default; }
@@ -164,6 +173,7 @@
       <button id="rerunBtn" class="act" title="Run the full analysis again now: fresh news, prices, all forecasts and today's call (about 10-15 minutes). Best before 9:00 IST so the call is recorded before the open."><span class="lg">Rerun analysis</span><span class="sm">Rerun</span></button>
       <button id="recheckBtn" class="act" title="Quick mid-day check (1-3 minutes): price so far, news and today's call, and whether the session still agrees with the morning call.">Recheck</button>
       <button onclick="location.href='status.html'" title="Status: CALL, PUT, STAY, SELL or NOTHING for NIFTY today">Status</button>
+      <button onclick="location.href='history.html'" title="Every day's calls and trades, right or wrong">History</button>
       <button id="helpBtn" title="How to read this page"aria-label="Guide"><span class="lg">Guide</span><span class="sm">?</span></button></div>
   </header>
   <div id="runStatus" class="runstatus" hidden></div>
@@ -532,6 +542,12 @@ function guideHTML(d) {
       <p>We replay history. For many past days we ask each model to predict the next day using only what was known at the time, then compare with what really happened. Two lazy baselines set the bar:</p>
       <ul><li><b>Always guess "up"</b>: right whenever the market rose.</li><li><b>"Same as yesterday"</b>: predict that the price stays where it is.</li></ul>
       <p>A model is only useful if it clearly beats these. Daily prices are very noisy, so most models do not, and that is an honest, normal result. Treat a hit-rate near the baseline as "no skill".</p></details>
+    <details><summary>What the NIFTY trade signal uses (and what was tested and left out)</summary>
+      <ul><li><b>Uses</b>: overnight moves in US index futures (split at the US close), Nikkei, Kospi, Hang Seng, the US-listed shares of HDFC Bank, ICICI Bank and Infosys, the rupee, yesterday's NIFTY move and its 3-day move. It trades only its 20% most confident days, from the 09:15 open to the close.</li>
+      <li><b>Stands aside</b> after results from the 11 heaviest NIFTY stocks.</li>
+      <li><b>Stop</b>: sell if NIFTY moves 0.5% against the trade from the open (risk control: about the same profit, a much smaller worst day).</li>
+      <li>The <a href="status.html">Status</a> page shows today's trade and its timeline; the <a href="history.html">History</a> page shows every day's calls and trades.</li>
+      <li><b>Tested and left out</b> (they made less money in backtests): India VIX, the put-call ratio, FII positions, Brent oil, an earlier 06:33 cutoff, 5 / 20 / 50 stocks for results days, profit targets, trading weaker days, hourly forecasts and entries after the open.</li></ul></details>
     <details><summary>Limits and risks</summary>
       <ul><li>Models only see past prices and market data. They know nothing about news, central-bank decisions, wars or weather (the news card shows whether headline tone has earned a small say in the best estimate).</li>
       <li>Commodity prices here are <b>futures</b> contracts joined into one continuous line, so small jumps can appear when a contract expires and the next one takes over.</li>

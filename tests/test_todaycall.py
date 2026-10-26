@@ -69,6 +69,24 @@ class Calls(unittest.TestCase):
         s = tc.summarize_record(rec)
         self.assertEqual((s["from_open"]["trades"], s["from_open"]["wins"], s["from_open"]["days"]), (1, 1, 2))
 
+    def test_trade_with_the_stop_for_the_history_page(self):
+        nd = pd.DataFrame({"open": [100.0, 101.0, 100.0], "high": [100.0, 101.6, 100.2], "low": [100.0, 98.5, 99.0],
+                           "close": [100.0, 99.0, 101.0]}, index=pd.to_datetime(["2026-10-12", "2026-10-13", "2026-10-14"]))
+        call = {"direction": "up", "tier": "none"}
+        rec = [{"d": d, "gap": call, "close": call, "from_open": {"direction": side, "tier": "strong", "trade": True}}
+               for d, side in (("2026-10-13", "down"), ("2026-10-14", "up"))]
+        tc.resolve(rec, nd, date(2026, 10, 14), datetime(2026, 10, 14, 16, 0))
+        self.assertEqual((rec[0]["result"]["stopped"], rec[0]["result"]["with_stop_pct"]),       # high 101.6 > 101.505
+                         (True, round(-tc.STOP_PCT - tc.TRADE_COST_PCT, 3)))
+        self.assertEqual((rec[1]["result"]["stopped"], rec[1]["result"]["with_stop_pct"]),       # low 99.0 < 99.5
+                         (True, round(-tc.STOP_PCT - tc.TRADE_COST_PCT, 3)))
+        rows = tc.summarize_record(rec)["recent"]
+        self.assertEqual([r["from_open_dir"] for r in rows], ["up", "down"])
+
+    def test_stop_matches_the_status_page(self):
+        import status
+        self.assertEqual(tc.STOP_PCT, status.STOP_PCT)
+
     def test_from_open_block_trades_only_top_days(self):
         rng = np.random.default_rng(2)
         X = rng.normal(size=(300, 2))
