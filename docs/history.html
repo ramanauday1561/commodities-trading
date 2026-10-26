@@ -13,7 +13,7 @@
   body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; min-height:100svh;
          background-image:radial-gradient(600px 400px at 10% -10%, rgba(64,110,255,.22), transparent 70%),
                           radial-gradient(500px 360px at 100% 10%, rgba(52,209,191,.12), transparent 70%); background-attachment:fixed; }
-  main { max-width:640px; margin:0 auto; padding:max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom)); }
+  main { max-width:640px; margin:0 auto; padding:calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 24px); }
   .glass { background:var(--glass); border:1px solid var(--edge); border-radius:18px; -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px); }
   header { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px 10px 16px; margin-bottom:14px; }
   h1 { font-size:17px; margin:0; } .sub { color:var(--mute); font-size:12px; }
