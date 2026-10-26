@@ -42,8 +42,12 @@ jobs:
           day=$(PYTHONPATH=scripts python -c "from datetime import datetime; from zoneinfo import ZoneInfo; from calendars import is_session; print(int(is_session(datetime.now(ZoneInfo('Asia/Kolkata')).date(), 'XBOM')))")
           echo "other keepers running: $others, trading day: $day"
           if [ "$others" = "0" ] && [ "$day" = "1" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
-      - name: Start the nowcast at each update time
+      - name: Start the nowcast at each update time (and warn the phone at 09:08 if the 08:57 call is missing)
         if: steps.go.outputs.ok == 'true'
         env:
           HANDOFF: ${{ github.event.inputs.handoff }}
+          PYTHONPATH: scripts
+          NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
+          TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
         run: python -u scripts/keeper.py

@@ -115,6 +115,93 @@ class Alerts(unittest.TestCase):
         self.assertEqual(n, 0)
 
 
+def live(d, price=22588.0, move=-0.05, opn=22524.4, direction="down", acc=0.64):
+    return dict(d, intraday={"price": price, "move_pct": move, "open": opn, "direction": direction, "accuracy": acc})
+
+
+NEWS = {"items": [{"title": "Infosys falls 7% after results", "seen": "2026-10-22T04:30:00+00:00"},
+                  {"title": "Old headline", "seen": "2026-10-21T10:00:00+00:00"}]}
+
+
+class Updates(unittest.TestCase):
+    """Hourly updates (silent, information only) and the summary after the close."""
+
+    def run_at(self, d, prev, now, news=None):
+        with tempfile.TemporaryDirectory() as dd:
+            json.dump(d, open(os.path.join(dd, "today-nifty.json"), "w"))
+            if news:
+                json.dump(news, open(os.path.join(dd, "news-nifty.json"), "w"))
+            if prev:
+                json.dump(prev, open(os.path.join(dd, "status.json"), "w"))
+            with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "1"}), \
+                    mock.patch.object(status, "notify", return_value={"telegram": "sent"}) as n:
+                out = status.main(dd, now)
+            return out, n.call_args_list
+
+    def test_hourly_update_on_a_no_trade_day(self):
+        s1, _ = self.run_at(today(trade=False), None, at(8, 58))
+        s2, calls = self.run_at(live(today(trade=False, st="open")), s1, at(11, 5), NEWS)
+        self.assertEqual(len(calls), 1)
+        msg, silent = calls[0].args[0], calls[0].kwargs.get("silent")
+        self.assertTrue(silent)
+        self.assertEqual(msg["kind"], "info")
+        self.assertIn("22,588.00 (-0.05% vs yesterday)", msg["body"])
+        self.assertIn("too small a move to call", msg["body"])
+        self.assertIn("Status: NOTHING", msg["body"])
+        self.assertIn("Infosys falls 7%", msg["body"])
+        self.assertEqual(s2["info_at"], "2026-10-22T11:05+05:30")
+        _, again = self.run_at(live(today(trade=False, st="open")), s2, at(11, 15), NEWS)   # a retry 10 min later
+        self.assertEqual(again, [])
+        s3, later = self.run_at(live(today(trade=False, st="open")), s2, at(11, 50), NEWS)
+        self.assertEqual(len(later), 1)
+        self.assertIn("no new headlines", later[0].args[0]["body"])                        # already sent at 11:05
+
+    def test_a_state_change_sends_the_alert_not_an_update(self):
+        s1, _ = self.run_at(today(direction="down"), None, at(8, 58))
+        _, calls = self.run_at(live(today(direction="down", st="open")), s1, at(9, 50))
+        self.assertEqual([c.args[0]["kind"] for c in calls], ["hold"])
+        self.assertFalse(calls[0].kwargs.get("silent"))
+
+    def test_update_on_a_trade_day_shows_the_trade(self):
+        s1, _ = self.run_at(today(direction="down"), None, at(8, 58))
+        s2, _ = self.run_at(live(today(direction="down", st="open")), s1, at(9, 50))
+        _, calls = self.run_at(live(today(direction="down", st="open"), price=22400.0), s2, at(11, 5))
+        self.assertIn("Status: STAY", calls[0].args[0]["body"])
+        self.assertIn("+0.55% for the PUT since the open", calls[0].args[0]["body"])
+
+    def test_no_update_before_or_after_the_session(self):
+        s1, _ = self.run_at(today(trade=False), None, at(8, 58))
+        _, calls = self.run_at(live(today(trade=False, st="open")), s1, at(9, 20))
+        self.assertEqual(calls, [])
+
+    def test_summary_once_after_the_close_on_a_no_trade_day(self):
+        rec = [{"d": "2026-10-22", "gap": "down", "gap_hit": True, "close_call": "down", "close_hit": True,
+                "open": 22687.75, "close": 22687.65, "prev_close": 22811.35}]
+        s1, _ = self.run_at(today(trade=False), None, at(8, 58))
+        s2, calls = self.run_at(today(trade=False, st="closed", recent=rec), s1, at(15, 50))
+        self.assertEqual(len(calls), 1)
+        body = calls[0].args[0]["body"]
+        self.assertEqual(calls[0].args[0]["kind"], "summary")
+        self.assertIn("Closed 22,687.65 (-0.54%)", body)
+        self.assertIn("gap down (right), close down (right)", body)
+        self.assertIn("No trade today.", body)
+        _, again = self.run_at(today(trade=False, st="closed", recent=rec), s2, at(16, 5))
+        self.assertEqual(again, [])
+
+    def test_summary_on_a_trade_day_has_the_result(self):
+        rec = [{"d": "2026-10-22", "open": 22742.2, "close": 22600.0, "prev_close": 22687.65}]
+        s1, _ = self.run_at(today(direction="down"), None, at(8, 58))
+        _, calls = self.run_at(today(direction="down", st="closed", recent=rec), s1, at(15, 50))
+        self.assertEqual([c.args[0]["kind"] for c in calls], ["summary"])                  # not a second "closed" alert
+        self.assertIn("today's PUT won", calls[0].args[0]["body"])
+
+    def test_no_summary_until_the_close_is_known(self):
+        s1, _ = self.run_at(today(trade=False), None, at(8, 58))
+        s2, calls = self.run_at(today(trade=False, st="closed"), s1, at(15, 50))
+        self.assertEqual(calls, [])
+        self.assertFalse(s2.get("summary_sent"))
+
+
 class Channels(unittest.TestCase):
     def test_telegram_and_ntfy_each_get_the_alert_and_one_failing_does_not_stop_the_other(self):
         sent = []
@@ -130,6 +217,19 @@ class Channels(unittest.TestCase):
         self.assertEqual(res["telegram"], "sent")
         self.assertTrue(res["ntfy"].startswith("failed"))
         self.assertTrue(any("api.telegram.org/bottok/sendMessage" in u for u in sent))
+
+    def test_silent_messages_are_sent_without_sound(self):
+        bodies = []
+
+        def fake(req, timeout=15):
+            bodies.append(json.loads(req.data))
+            return mock.Mock(read=lambda: b'{"ok": true}')
+        with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "42"}, clear=True), \
+                mock.patch("urllib.request.urlopen", fake):
+            status.notify({"kind": "info", "body": "line 1\nline 2"}, silent=True)
+            status.notify({"kind": "put", "side": "PUT", "headline": "Buy", "reason": "x"})
+        self.assertEqual([b["disable_notification"] for b in bodies], [True, False])
+        self.assertTrue(bodies[0]["text"].endswith("(info, not a trade signal)\nline 1\nline 2"))
 
     def test_no_channel_no_alert(self):
         with mock.patch.dict(os.environ, {}, clear=True):

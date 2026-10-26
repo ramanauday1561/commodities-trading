@@ -9,7 +9,14 @@ the opening gap, and were not worth trading from the open (open_study, hourly_st
   SELL        time to exit: sell (square off) the option before 15:15 (from the last hourly check, ~14:50)
   NOTHING     no trade today, before the 08:57 signal, or the market is closed
 Each state also has a "kind" (call/put, hold, sell, no_trade, pending, closed); an alert goes out when either changes,
-except before the signal ("pending") and at a close that followed a day without a trade.
+except before the signal ("pending") and at the close, which gets the day's summary instead.
+Besides the alerts (26 Oct 2026, the user asked for updates as the day goes on):
+  hourly update  each intraday run during the session sends a silent message: price, move, the hourly check, the
+                 state and the newest headlines. It is information, not a trade signal: hourly forecasts and entries
+                 after the open were tested and lost money after costs (hourly_study, open_study).
+  summary        once after the close on every trading day: the close, the move from the open, how the pre-open
+                 calls did and, on a trade day, what the trade made.
+The "no signal" warning, sent when the 08:57 call is missing, is in keeper.py.
 From the 09:15 open the trade is the one recorded before the open (preopen.recorded, the call that is scored): later runs
 recompute the pre-open call, and Yahoo's revisions of overnight prices can move it (23 Oct 2026: "no trade" at 08:57,
 "down, lean" at 09:51, "up" by 12:35), which must never turn into a STAY for an option that was never bought.
@@ -27,7 +34,7 @@ import json
 import os
 import sys
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
@@ -95,29 +102,38 @@ def decide(today, now):
 
 TITLES = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": "NIFTY: STAY in the {side}",
           "sell": "NIFTY: SELL the {side} now", "no_trade": "NIFTY: NOTHING today", "closed": "NIFTY: market closed",
-          "test": "NIFTY: test alert"}
-ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514"}
+          "test": "NIFTY: test alert", "info": "NIFTY update (info, not a trade signal)",
+          "summary": "NIFTY: today's summary", "warning": "NIFTY: NO SIGNAL TODAY"}
+ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514",
+         "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8"}
 
 
 def _title(status):
     return TITLES.get(status.get("kind", ""), "NIFTY").format(side=status.get("side", ""))
 
 
-def send_ntfy(status, topic):
+def _body(status):
+    return status.get("body") or f"{status['headline']}. {status['reason']}"
+
+
+def send_ntfy(status, topic, silent=False):
     """BUY / SELL are "urgent" (iOS: time-sensitive). No link: tapping just opens the alert."""
     kind = status.get("kind", "")
-    req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=f"{status['headline']}. {status['reason']}".encode(),
+    req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=_body(status).encode(),
                                  headers={"Title": _title(status),
-                                          "Priority": "urgent" if kind in ("call", "put", "sell", "test") else "default",
+                                          "Priority": "low" if silent else
+                                          "urgent" if kind in ("call", "put", "sell", "test", "warning") else "default",
                                           "Tags": {"call": "green_circle", "put": "red_circle", "sell": "warning",
                                                    "hold": "hourglass", "test": "bell"}.get(kind, "white_circle")})
     urllib.request.urlopen(req, timeout=15).read()
 
 
-def send_telegram(status, token, chat_id):
+def send_telegram(status, token, chat_id, silent=False):
+    """silent: delivered without sound or vibration (hourly updates)."""
     icon = ICONS.get(status.get("kind", ""), "\u26AA")
-    text = f"{icon} {_title(status)}\n{status['headline']}. {status['reason']}"
-    data = json.dumps({"chat_id": chat_id, "text": text, "disable_web_page_preview": True}).encode()
+    text = f"{icon} {_title(status)}\n{_body(status)}"
+    data = json.dumps({"chat_id": chat_id, "text": text, "disable_web_page_preview": True,
+                       "disable_notification": bool(silent)}).encode()
     req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=data,
                                  headers={"Content-Type": "application/json"})
     out = json.loads(urllib.request.urlopen(req, timeout=15).read())
@@ -129,18 +145,18 @@ def channels():
     env = os.environ
     out = []
     if env.get("TELEGRAM_BOT_TOKEN") and env.get("TELEGRAM_CHAT_ID"):
-        out.append(("telegram", lambda st: send_telegram(st, env["TELEGRAM_BOT_TOKEN"], env["TELEGRAM_CHAT_ID"])))
+        out.append(("telegram", lambda st, q=False: send_telegram(st, env["TELEGRAM_BOT_TOKEN"], env["TELEGRAM_CHAT_ID"], q)))
     if env.get("NTFY_TOPIC"):
-        out.append(("ntfy", lambda st: send_ntfy(st, env["NTFY_TOPIC"])))
+        out.append(("ntfy", lambda st, q=False: send_ntfy(st, env["NTFY_TOPIC"], q)))
     return out
 
 
-def notify(status):
+def notify(status, silent=False):
     """Send through every configured channel; one failing does not stop the others. Returns {channel: result}."""
     res = {}
     for name, send in channels():
         try:
-            send(status)
+            send(status, silent)
             res[name] = "sent"
         except Exception as e:
             res[name] = f"failed: {e!r}"
@@ -152,14 +168,71 @@ def changed(prev, new):
     return not prev or key(prev) != key(new)
 
 
-def journal_row(new, today, alert):
+INFO_FROM, INFO_TO = (9, 30), (15, 20)
+INFO_GAP_MIN = 25                       # a second run within this many minutes (a retry) sends no second update
+
+
+def _pct(x):
+    return f"{x:+.2f}%"
+
+
+def headlines(news, since=None, n=2):
+    """The newest headlines (news-nifty.json), only those first seen after `since` (ISO time) when given."""
+    items = sorted((news or {}).get("items") or [], key=lambda x: x.get("seen", ""), reverse=True)
+    if since:
+        items = [x for x in items if x.get("seen", "") > since]
+    return [x["title"].strip() for x in items[:n] if x.get("title")]
+
+
+def info_update(today, new, news=None, since=None):
+    """The hourly update during the session (None outside it)."""
+    i = (today or {}).get("intraday") or {}
+    if (today or {}).get("status") != "open" or not i.get("price"):
+        return None
+    price, move, opn = i["price"], i.get("move_pct"), i.get("open")
+    lines = [f"{price:,.2f}" + (f" ({_pct(move)} vs yesterday)" if move is not None else "")
+             + (f" · open {opn:,.2f}, {_pct((price / opn - 1) * 100)} since" if opn else "")]
+    if i.get("direction"):
+        acc = i.get("accuracy")
+        hint = "" if acc is None else (f", {round(acc * 100)}% of moves like this held" if acc >= 0.65
+                                       else f", {round(acc * 100)}%: too small a move to call")
+        lines.append(f"Hourly check: closes {'above' if i['direction'] == 'up' else 'below'} yesterday{hint}")
+    trade = ""
+    if new.get("side") and opn:
+        trade = f" ({_pct((price / opn - 1) * 100 * (1 if new['side'] == 'CALL' else -1))} for the {new['side']} since the open)"
+    lines.append(f"Status: {new['state']}, {new['headline'][0].lower() + new['headline'][1:]}{trade}")
+    news_now = headlines(news, since)
+    lines.append("News: " + (" | ".join(news_now) if news_now else "no new headlines"))
+    return {"kind": "info", "body": "\n".join(lines)}
+
+
+def summary(today, new):
+    """The day's summary after the close (None until the close is known)."""
+    rec = next((r for r in ((today or {}).get("record") or {}).get("recent", []) if r.get("d") == new["date"]), None)
+    if not rec or not rec.get("close") or not rec.get("prev_close"):
+        return None
+    c, pc, o = rec["close"], rec["prev_close"], rec.get("open")
+    lines = [f"Closed {c:,.2f} ({_pct((c / pc - 1) * 100)})" + (f" · open {o:,.2f}, {_pct((c / o - 1) * 100)} from the open" if o else "")]
+    tick = lambda h: "right" if h else "wrong" if h is not None else "not scored"
+    calls = []
+    if rec.get("gap"):
+        calls.append(f"gap {rec['gap']} ({tick(rec.get('gap_hit'))})")
+    if rec.get("close_call"):
+        calls.append(f"close {rec['close_call']} ({tick(rec.get('close_hit'))})")
+    if calls:
+        lines.append("Pre-open calls: " + ", ".join(calls))
+    lines.append(f"{new['headline']}. {new['reason']}" if new.get("headline", "").startswith("Closed:") else "No trade today.")
+    return {"kind": "summary", "body": "\n".join(lines)}
+
+
+def journal_row(new, today, alert, extra=None):
     p = (today or {}).get("preopen") or {}
     i = (today or {}).get("intraday") or {}
     calls = {k: {x: (p.get(k) or {}).get(x) for x in ("direction", "pred_pct", "tier", "trade")} for k in ("gap", "close", "from_open")}
     return {"at": new["updated"], "state": new["state"], "kind": new.get("kind"), "side": new.get("side"),
             "headline": new["headline"], "reason": new["reason"], "alert": alert, "calls": calls if p else None,
             "price": i.get("price"), "move_pct": i.get("move_pct"), "hourly_check": i.get("direction"),
-            "hourly_accuracy": i.get("accuracy")}
+            "hourly_accuracy": i.get("accuracy"), **(extra or {})}
 
 
 def save_journal(store_dir, row, day):
@@ -177,19 +250,35 @@ def main(data_dir, now=None, store_dir=None):
     load = lambda name: json.load(open(os.path.join(data_dir, name))) if os.path.exists(os.path.join(data_dir, name)) else None
     prev, today = load("status.json"), load("today-nifty.json")
     new = decide(today, now)
-    alert = None
+    same_day = prev if prev and prev.get("date") == new["date"] else {}
+    for k in ("info_at", "summary_sent"):
+        if same_day.get(k):
+            new[k] = same_day[k]
+    alert, extra = None, {}
     if changed(prev, new):
         new["since"] = new["updated"]
-        quiet = new.get("kind") == "pending" or (new.get("kind") == "closed" and
-                                                  (not prev or prev.get("kind") in ("closed", "no_trade", "pending")))
+        quiet = new.get("kind") in ("pending", "closed")          # the close gets the summary below instead
         if channels() and not quiet:
             alert = notify(new)                         # never raises: the page update always goes on
             print("alert:", new["state"], alert)
     else:
         new["since"] = prev.get("since", new["updated"])
+    if channels() and new.get("kind") == "closed" and (today or {}).get("status") == "closed" and not new.get("summary_sent"):
+        msg = summary(today, new)
+        if msg:
+            extra["summary"] = notify(msg)
+            new["summary_sent"] = True
+            print("summary:", extra["summary"])
+    elif channels() and not alert and INFO_FROM <= _hm(now) < INFO_TO and (
+            not new.get("info_at") or now - datetime.fromisoformat(new["info_at"]) >= timedelta(minutes=INFO_GAP_MIN)):
+        msg = info_update(today, new, load("news-nifty.json"), new.get("info_at"))
+        if msg:
+            extra["info"] = notify(msg, silent=True)
+            new["info_at"] = now.isoformat(timespec="minutes")
+            print("info:", extra["info"])
     json.dump(new, open(os.path.join(data_dir, "status.json"), "w"), separators=(",", ":"))
     if store_dir:
-        save_journal(store_dir, journal_row(new, today, alert), new["date"])
+        save_journal(store_dir, journal_row(new, today, alert, extra), new["date"])
     print(json.dumps(new))
     return new
 
