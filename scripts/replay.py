@@ -9,7 +9,8 @@ with the news and Grok, and finally analyse with the actual data". At each step 
 Two plain baselines are scored beside it: "the close = the price now" and "the close ends on the side of yesterday's
 close where it trades now" (the hourly check). The AI model's training ends long before this day, so it cannot
 know the outcome; headline times come from Google and can be off by a few minutes.
-Writes <data_dir>/replay-nifty-<date>.json for the Live page (live.html?replay=<date>).
+Writes <data_dir>/replay-nifty-<date>.json for the Live page (live.html?replay=<date>), with the "₹2 lakh today" box
+(daymoney.py: what our app, following the AI and the tested intraday rules made that day, per NIFTY lot).
 """
 import json
 import os
@@ -18,6 +19,7 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+import daymoney
 import grok
 import live
 
@@ -131,7 +133,8 @@ def main(data_dir, store_dir, day=None, ask=None, bars=None, heads=None, pc=None
     out = {"date": day.isoformat(), "prev_close": round(pc, 2), "call": call, "close": round(close, 2),
            "candles": live.candles10(b), "steps": steps, "summary": summarize(steps, close, pc),
            "headlines": [{"at": h["at"].astimezone(IST).isoformat(timespec="minutes"), "title": h["title"]} for h in heads],
-           "made": datetime.now(timezone.utc).isoformat(timespec="minutes"), "ai_calls": calls}
+           "made": datetime.now(timezone.utc).isoformat(timespec="minutes"), "ai_calls": calls,
+           "money": daymoney.money(sorted(b), pc, *daymoney.sides(rec), steps=steps)}
     path = os.path.join(data_dir, f"replay-nifty-{day.isoformat()}.json")
     json.dump(out, open(path, "w"), separators=(",", ":"))
     print("replay", day, json.dumps(out["summary"]), f"headlines {len(heads)}, AI calls {calls}", flush=True)
