@@ -13,7 +13,7 @@
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden;
                font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
   .wrap { position:fixed; inset:0; display:flex; flex-direction:column;
-          padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 10px); }
+          padding:calc(env(safe-area-inset-top) + 32px) calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 10px); }
   .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .px { min-width:0; } .px b { font-size:19px; letter-spacing:-.01em; white-space:nowrap; } .px b span { font-size:15px; } .px small { display:block; color:var(--mute); font-size:12px; }
   .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(255,255,255,.06); }
@@ -21,6 +21,7 @@
   .legend i { display:inline-block; width:14px; height:0; border-top:2px solid; vertical-align:middle; margin-right:4px; }
   #chart { flex:1; min-height:0; position:relative; }
   #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mute); text-align:center; padding:20px; }
+  #msg[hidden] { display:none; }
   #panel { border-top:1px solid var(--edge); padding:8px 2px 0; font-size:13px; min-height:38px; color:var(--text); }
   #panel .m { color:var(--mute); }
   .up { color:var(--up); } .down { color:var(--down); }
@@ -119,7 +120,7 @@ function summary() {
   } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
 }
 chart.subscribeClick(param => {
-  if (REPLAY) return;                          // the replay view has its own (below)
+  if (REPLAY || rp) return;                    // the replay view has its own (below)
   if (!param.time || !data) { delete $('panel').dataset.pinned; summary(); return; }
   const c = data.candles || [], t = param.time;
   const k = c.find(x => x.time === t);
@@ -143,6 +144,8 @@ async function load() {
       const istToday = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
       if (d.date !== istToday && src !== SOURCES[SOURCES.length - 1]) continue;
       if (d.updated !== last) { last = d.updated; draw(d); }
+      // no 10-minute candles (after the close, or a day before the live runs existed): show the day's replay if one exists
+      if (!(d.candles || []).length && d.status !== 'open' && !(rp && rp.date === d.date)) await replayOf(d.date);
       return;
     } catch (e) { /* next source */ }
   }
@@ -182,6 +185,16 @@ function replaySummary() {
     <div class="m">Tap a dot for what the AI said then. ${rp.call ? '08:57 call: ' + rp.call + '.' : ''}</div>`
     : '<span class="m">No AI predictions in this replay.</span>';
 }
+async function replayOf(day) {
+  const name = `replay-nifty-${day}.json`;
+  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/' + name, 'data/' + name]) {
+    try {
+      const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' });
+      if (r.ok) { drawReplay(await r.json()); replayClicks(); return true; }
+    } catch (e) {}
+  }
+  return false;
+}
 async function loadReplay() {
   const name = `replay-nifty-${REPLAY}.json`;
   for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/' + name, 'data/' + name]) {
@@ -189,7 +202,9 @@ async function loadReplay() {
   }
   $('msg').hidden = false; $('msg').textContent = `No replay for ${REPLAY} yet.`;
 }
-if (REPLAY) {
+let clicks = false;
+function replayClicks() {
+  if (clicks) return; clicks = true;
   chart.subscribeClick(param => {
     if (!rp || !param.time) return replaySummary();
     const s = (rp.steps || []).filter(x => snap(x.time, rp.candles) === param.time).pop();
@@ -198,6 +213,9 @@ if (REPLAY) {
       <div>AI expected the close at <b>${f(s.ai_close)}</b> (${s.ai_dir || ''}${s.ai_conf != null ? ', ' + s.ai_conf + '% sure' : ''}); actual ${f(rp.close)}</div>
       <div class="m">${s.why || ''}</div>`;
   });
+}
+if (REPLAY) {
+  replayClicks();
   loadReplay();
 } else {
   load();
