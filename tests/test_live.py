@@ -128,3 +128,25 @@ class Main(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Replay(unittest.TestCase):
+    def test_each_step_sees_only_what_was_known_and_is_scored(self):
+        import replay
+        t0 = datetime(2026, 10, 27, 9, 15, tzinfo=IST)
+        b = [(t0 + timedelta(minutes=5 * k), 22750.0, 22760.0, 22740.0, 22750.0 + k) for k in range(75)]
+        heads = [{"at": datetime(2026, 10, 27, 8, 0, tzinfo=IST), "title": "Oil near 6-month high"},
+                 {"at": datetime(2026, 10, 27, 13, 0, tzinfo=IST), "title": "Nifty slips after lunch"}]
+        prompts = []
+
+        def ask(p, **kw):
+            prompts.append(p)
+            return '{"close": 22900, "direction": "up", "confidence": 60, "why": "x"}' if len(prompts) % 2 else '{"close": 30000}'
+        with tempfile.TemporaryDirectory() as dd, tempfile.TemporaryDirectory() as st:
+            out = replay.main(dd, st, datetime(2026, 10, 27).date(), ask=ask, bars=b, heads=heads, pc=22753.2)
+            self.assertTrue(os.path.exists(os.path.join(dd, "replay-nifty-2026-10-27.json")))
+        self.assertEqual(len(out["steps"]), 37)                                  # 09:25 ... 15:25
+        self.assertTrue(all("Nifty slips" not in p for p in prompts[:21]))       # 13:00 news hidden before 13:05
+        self.assertIn("Nifty slips", prompts[-1])
+        self.assertTrue(all(s.get("ai_close") in (None, 22900.0) for s in out["steps"]))   # 30000 is not a forecast
+        self.assertEqual(out["summary"]["steps"], 19)
