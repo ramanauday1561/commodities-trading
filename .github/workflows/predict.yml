@@ -182,6 +182,8 @@ jobs:
       - name: Today's call for NIFTY (pre-open and intraday direction calls)
         continue-on-error: true
         timeout-minutes: 8
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}       # US CPI / jobs dates: the signal stands aside after them
         run: |
           pip install pandas yfinance exchange_calendars
           python -u scripts/todaycall.py store docs/data
