@@ -121,7 +121,7 @@ def main(data_dir, store_dir, day=None, ask=None, bars=None, heads=None, pc=None
                 calls += 1
                 r = grok.json_from(ask(step_prompt(day, t, pc, opn, price, hi, lo, closes, call, known), search=False,
                                        max_tokens=220, **({"wait_on_limit": True} if ask is grok.ask else {})))
-                if r and isinstance(r.get("close"), (int, float)) and abs(r["close"] / price - 1) < 0.03:   # not a typo
+                if r and isinstance(r.get("close"), (int, float)) and abs(r["close"] / price - 1) < 0.015:  # not a typo
                     s.update({"ai_close": round(float(r["close"]), 2), "ai_dir": r.get("direction"),
                               "ai_conf": r.get("confidence"), "why": str(r.get("why") or "")[:240]})
                 time.sleep(GAP_S if ask is grok.ask else 0)

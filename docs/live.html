@@ -15,7 +15,7 @@
   .wrap { position:fixed; inset:0; display:flex; flex-direction:column;
           padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 10px); }
   .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
-  .px b { font-size:19px; letter-spacing:-.01em; white-space:nowrap; } .px b span { font-size:15px; } .px small { display:block; color:var(--mute); font-size:12px; }
+  .px { min-width:0; } .px b { font-size:19px; letter-spacing:-.01em; white-space:nowrap; } .px b span { font-size:15px; } .px small { display:block; color:var(--mute); font-size:12px; }
   .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(255,255,255,.06); }
   .legend { display:flex; flex-wrap:wrap; gap:4px 12px; color:var(--mute); font-size:11px; margin:6px 0 4px; }
   .legend i { display:inline-block; width:14px; height:0; border-top:2px solid; vertical-align:middle; margin-right:4px; }
@@ -167,7 +167,7 @@ function drawReplay(d) {
     color: (x.ai_close > d.prev_close) === up ? '#34d1bf' : '#ff6b6b', text: '' })));
   chart.timeScale().fitContent();
   const day = new Date(d.date + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-  $('px').innerHTML = `Replay ${day} · close ${f(d.close)} <span class="${m.move_pct >= 0 ? 'up' : 'down'}">${pc(m.move_pct || 0)}</span>`;
+  $('px').innerHTML = `Replay ${day} · ${f(d.close)} <span class="${m.move_pct >= 0 ? 'up' : 'down'}">${pc(m.move_pct || 0)}</span>`;
   $('when').textContent = `As if live: every 10 min the AI saw only the candles and headlines known by then`;
   $('legend').innerHTML = `<span><i style="border-color:#b48cff"></i>AI's predicted close</span>
     <span><i style="border-color:#34d1bf"></i>actual close</span><span><i style="border-color:#8a96a8;border-top-style:dashed"></i>yesterday</span>
