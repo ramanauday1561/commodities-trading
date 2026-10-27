@@ -20,6 +20,13 @@ Result (27 Oct 2026, 31 Jul - 27 Oct, run 40549383733): nothing passed. flip (th
 -0.00% each; chase 0.25 47 trades, 51%, +0.05% but -0.17% in the first half; fade 0.25 54 trades, 33%, -0.11%;
 chase 0.25 on trend days 18 trades, 28%, -0.09% (the first run, with entries before the first hour was over, showed
 +0.10% and 55%: that was look-ahead). Not used; the once-a-day from-open signal stays the only trade signal.
+Rerun on 11 years (27 Oct 2026, run 40555822002): with INTRADAY_DIR the study reads our stored 5-minute history
+(intraday_data.py: Kaggle from Jan 2015, then Yahoo), 2,855 days to 27 Oct 2026; the morning call exists only from
+Aug 2024 (the from-open signal needs 2 years of hourly data). Its last 60 days repeat the Yahoo run exactly. Nothing
+passed again. flip (the 27 Oct pattern) lost in all 12 years: 7,212 trades, 42% won, -0.019% each; fade 0.25 lost in
+11 of 12 years (37% won); chase 0.25 +0.004% a trade, 44% won, 8 of 12 years up, first half negative; chase 0.25 on
+trend days +0.007%, 44%; chase 0.25 + morning (Aug 2024 on) 393 trades, 48%, +0.017%, up in 2024, 2025 and 2026 but
+below 50% won and about 4 NIFTY points a trade, less than an option's costs. Nothing changes in the app.
 """
 import json
 import os
