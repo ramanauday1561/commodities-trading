@@ -21,7 +21,8 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 IST = ZoneInfo("Asia/Kolkata")
-TIMES = ["08:57", "09:50", "10:20", "11:05", "11:50", "12:35", "13:20", "14:05", "14:50", "15:50"]
+TIMES = (["08:57"] + [f"{m // 60:02d}:{m % 60:02d}" for m in range(9 * 60 + 25, 15 * 60 + 26, 10)]   # every 10 min
+         + ["15:50"])                           # 09:25 ... 15:25 (27 Oct 2026: the live chart), then the post-close run
 WATCHDOG = "09:08"
 RETRY_WAIT = 300                                # seconds the retry gets before the warning (~09:13)
 WATCH_EVERY = 300                               # stop watcher: seconds between looks at the price

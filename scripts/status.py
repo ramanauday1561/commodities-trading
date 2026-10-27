@@ -143,9 +143,10 @@ TITLES = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": "NIFTY: ST
           "sell": "NIFTY: SELL the {side} now", "no_trade": "NIFTY: NOTHING today", "closed": "NIFTY: market closed",
           "test": "NIFTY: test alert", "info": "NIFTY update (info, not a trade signal)",
           "summary": "NIFTY: today's summary", "warning": "NIFTY: NO SIGNAL TODAY",
-          "stop": "NIFTY: STOP HIT, SELL the {side} now"}
+          "stop": "NIFTY: STOP HIT, SELL the {side} now", "move": "NIFTY: big move (info, not a trade signal)"}
 ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514",
-         "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8", "stop": "\U0001F6A8"}
+         "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8", "stop": "\U0001F6A8",
+         "move": "\u26A1"}
 
 
 def _title(status):
@@ -209,7 +210,7 @@ def changed(prev, new):
 
 
 INFO_FROM, INFO_TO = (9, 30), (15, 20)
-INFO_GAP_MIN = 25                       # a second run within this many minutes (a retry) sends no second update
+INFO_GAP_MIN = 55                       # runs come every 10 minutes (27 Oct 2026); the silent update stays about hourly
 
 
 def _pct(x):
@@ -278,6 +279,31 @@ def trade_box(new, today):
     return {"side": side, "entry": opn, "stop": round(stop_level(side, opn), 2), "price": price, "pct": round(pct, 2)}
 
 
+def grok_morning(live, day):
+    """Grok's morning read for the 08:57 alert (live.py morning), or ''."""
+    m = (live or {}).get("morning") if (live or {}).get("date") == day else None
+    if not m:
+        return ""
+    word = {-2: "very bearish", -1: "bearish", 0: "neutral", 1: "bullish", 2: "very bullish"}.get(m.get("score"), "")
+    return (f"\n\U0001F916 Grok's morning read (info only, not part of the signal): {m['score']:+d} {word}. "
+            + "; ".join(m.get("reasons") or []) + (f". Big event: {m['event']}" if m.get("big_event") and m.get("event") else ""))
+
+
+def grok_close(live, day):
+    """The day's scorecard and Grok's why (live.py close) for the summary, or ''."""
+    c = (live or {}).get("card") if (live or {}).get("date") == day else None
+    if not c:
+        return ""
+    parts = []
+    if c.get("call_close") is not None:
+        parts.append(f"08:57 call: close {c['call_close']:,.2f} ({'right' if c.get('call_right') else 'wrong'} side, "
+                     f"{c['call_miss_pct']:.2f}% off)")
+    if c.get("runs"):
+        parts.append(f"{c['runs']} intraday predictions, {c['avg_miss_pct']:.2f}% off on average"
+                     + (f", right side from {c['right_side_since'][11:16]}" if c.get("right_side_since") else ""))
+    return ("\n" + "; ".join(parts) if parts else "") + (f"\n\U0001F916 Why (Grok): {c['note']}" if c.get("note") else "")
+
+
 def journal_row(new, today, alert, extra=None):
     p = (today or {}).get("preopen") or {}
     i = (today or {}).get("intraday") or {}
@@ -313,13 +339,15 @@ def main(data_dir, now=None, store_dir=None):
         new["since"] = new["updated"]
         quiet = new.get("kind") in ("pending", "closed")          # the close gets the summary below instead
         if channels() and not quiet:
-            alert = notify(new)                         # never raises: the page update always goes on
+            line = grok_morning(load("live-nifty.json"), new["date"]) if new.get("kind") in ("call", "put", "no_trade") else ""
+            alert = notify({**new, "reason": new["reason"] + line})   # never raises: the page update always goes on
             print("alert:", new["state"], alert)
     else:
         new["since"] = prev.get("since", new["updated"])
     if channels() and new.get("kind") == "closed" and (today or {}).get("status") == "closed" and not new.get("summary_sent"):
         msg = summary(today, new)
         if msg:
+            msg["body"] += grok_close(load("live-nifty.json"), new["date"])
             extra["summary"] = notify(msg)
             new["summary_sent"] = True
             print("summary:", extra["summary"])

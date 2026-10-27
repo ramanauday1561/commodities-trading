@@ -46,13 +46,13 @@
   <div id="trade" class="box" hidden></div>
   <p id="meta"></p>
   <section id="today" hidden><h2>Today</h2><ol id="rows"></ol></section>
-  <p style="font-size:13px; margin-top:28px"><a href="./#nifty">Full forecast</a> · <a href="history.html">History</a> · Learning tool, not financial advice.</p>
+  <p style="font-size:13px; margin-top:28px"><a href="live.html">Live chart</a> · <a href="./#nifty">Full forecast</a> · <a href="history.html">History</a> · Learning tool, not financial advice.</p>
 <script>
 const WORD = { CALL: 'CALL', PUT: 'PUT', STAY: 'STAY', SELL: 'SELL', NOTHING: 'NOTHING' };   // the only five states
 const $ = id => document.getElementById(id);
 async function load() {
   try {
-    const r = await fetch('data/status.json?t=' + Date.now(), { cache: 'no-store' });
+    const r = await fresh('status.json');
     if (!r.ok) throw new Error('no status yet');
     const s = await r.json();
     const todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
@@ -86,18 +86,27 @@ async function load() {
     $('headline').textContent = 'No status yet'; $('reason').textContent = String(e.message || e);
   }
 }
+// site-data is updated by every 10-minute run; the copy published with the site (about every 30 min) is the fallback
+const RAW = 'https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/';
+async function fresh(name) {
+  try {
+    const r = await fetch(RAW + name + '?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) return r;
+  } catch (e) { /* fall back */ }
+  return fetch('data/' + name + '?t=' + Date.now(), { cache: 'no-store' });
+}
 async function loadToday(date) {
   try {
-    const r = await fetch('data/status-today.json?t=' + Date.now(), { cache: 'no-store' });
+    const r = await fresh('status-today.json');
     const d = r.ok ? await r.json() : null;
-    // keep it short: one line per check, no near-duplicate retries (under 10 min apart, same state, no alert),
-    // and nothing after the close summary
+    // keep it short, and nothing after the close summary
     const min = t => +t.slice(0, 2) * 60 + +t.slice(3, 5);
     const rows = [];
     for (const x of (d && d.date === date ? d.rows : [])) {
       const prev = rows[rows.length - 1];
       if (prev && min(prev.at) >= 15 * 60 + 30) break;
-      if (prev && !x.alert && x.state === prev.state && min(x.at) - min(prev.at) < 10) { rows[rows.length - 1] = { ...x, alert: prev.alert }; continue; }
+      // runs come every 10 minutes: list alerts, changes of state, and otherwise one line per hour
+      if (prev && !x.alert && x.state === prev.state && x.at.slice(0, 2) === prev.at.slice(0, 2)) continue;
       rows.push(x);
     }
     $('today').hidden = !rows.length;
