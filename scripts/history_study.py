@@ -14,6 +14,17 @@ Asked by the user on 27 Oct 2026 after the history was loaded ("run all the back
 Costs 0.03% a trade. Rules fixed before the run: an exit passes with more per trade than the live rule by at least
 0.02% in both halves and a higher total; a stand-aside filter passes when the days it skips lost money in total and the
 trades it keeps earn more per trade than all trades in both halves. Many variants are tried, so a narrow pass is luck.
+Result (28 Oct 2026, run 40557402646; 2,855 days; 59 from-open trades with candles, Feb 2024 - Oct 2026):
+  exits   live rule +0.178% a trade (+10.5% total, 52% won). Only "stop 0.75%" passed, narrowly: +0.209% (+12.3%),
+          second half better by exactly 0.020%; no stop +0.237% but worse in the second half; exiting by a fixed time
+          (10:15 ... 14:15), trailing stops and a 0.3% stop all earned less.
+  vix     VIX opened more than 2% from its close on only 87 of 2,854 days; NIFTY moved most when it opened 2-5% lower
+          (1.04% vs 0.58%). Skipping trades when VIX opens up "passed" on 1 skipped trade (meaningless); chasing on those
+          days lost (38% won).
+  events  NIFTY does not move more after US CPI / jobs / Fed or on expiry days (0.54-0.59% vs 0.61% normal). Standing
+          aside after US events passed: the 10 skipped trades lost -2.18% in total, the 49 kept +0.259% a trade;
+          skipping expiry days failed (the skipped 9 made +1.31%).
+Two narrow passes on small samples; neither is switched on without the user's decision.
 """
 import json
 import os

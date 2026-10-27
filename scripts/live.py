@@ -18,6 +18,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+import daymoney
 import grok
 import status
 
@@ -219,6 +220,13 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
         rec = next((r for r in (today.get("record") or {}).get("recent", []) if r.get("d") == day), None)
         call_pct = ((pre.get("recorded") or {}).get("close") or {}).get("pred_pct")
         card = scorecard(st.get("preds", []), (rec or {}).get("prev_close") or prev_close, (rec or {}).get("close"), call_pct)
+        if not st.get("money"):                              # the "₹2 lakh today" box (daymoney.py)
+            try:
+                rec_fo = {"from_open": (pre.get("recorded") or {}).get("from_open")}
+                st["money"] = daymoney.money(get_bars(), (rec or {}).get("prev_close") or prev_close,
+                                             *daymoney.sides(rec_fo))
+            except Exception as e:
+                print(f"live: money box failed: {e!r}", flush=True)
         if card:
             card["note"] = budget.ask(close_prompt(card, day, st.get("moves", []), st.get("morning"),
                                                    _load(os.path.join(data_dir, "news-nifty.json"))), max_tokens=220)
@@ -236,7 +244,8 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
            "trade": {"side": side, "entry": i.get("open"), "stop": round(status.stop_level(side, i["open"]), 2)}
                     if side and i.get("open") else None,
            "candles": st.get("candles", []), "preds": st.get("preds", []), "moves": st.get("moves", []),
-           "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card")}
+           "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card"),
+           "money": st.get("money")}
     json.dump(out, open(os.path.join(data_dir, "live-nifty.json"), "w"), separators=(",", ":"))
     print(f"live {mode}: {len(out['candles'])} candles, {len(out['preds'])} predictions, {len(out['moves'])} moves, "
           f"grok calls today {st.get('grok_calls', 0)}", flush=True)

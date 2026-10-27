@@ -22,7 +22,11 @@
   #chart { flex:1; min-height:0; position:relative; }
   #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mute); text-align:center; padding:20px; }
   #msg[hidden] { display:none; }
-  #panel { border-top:1px solid var(--edge); padding:8px 2px 0; font-size:13px; min-height:38px; color:var(--text); }
+  #panel { border-top:1px solid var(--edge); padding:8px 2px 0; font-size:13px; min-height:38px; max-height:48vh; overflow:auto; color:var(--text); }
+  .money { margin-top:6px; } .money summary { cursor:pointer; }
+  .money table { width:100%; border-collapse:collapse; margin-top:6px; font-size:12.5px; }
+  .money td { padding:5px 4px; border-top:1px solid var(--edge); vertical-align:top; } .money .n { text-align:right; white-space:nowrap; }
+  .money .m { font-size:11px; }
   #panel .m { color:var(--mute); }
   .up { color:var(--up); } .down { color:var(--down); }
 </style>
@@ -108,6 +112,20 @@ function draw(d) {
   $('when').textContent = d.status === 'open' ? `Updated ${upd} IST · updates every 10 min` : `Updated ${upd} IST · ${d.status === 'closed' ? 'market closed' : 'before the open'}`;
   if (!$('panel').dataset.pinned) summary();
 }
+// "₹2 lakh today" (daymoney.py): what each way of trading the day made, per NIFTY lot, beside its 11-year result
+let moneyOpen = false;
+document.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('money')) moneyOpen = e.target.open; }, true);
+function moneyBox(mo) {
+  if (!mo || !mo.rows || !mo.rows.length) return '';
+  const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
+  const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+  const app = mo.rows[0], other = mo.rows.find(r => r.key === 'ai') || mo.rows.find(r => r.key.startsWith('flip'));
+  const rows = mo.rows.map(r => `<tr><td>${r.name}${r.note ? `<div class="m">${r.note}</div>` : ''}<div class="m">${r.history || ''}</div></td>
+    <td class="n ${cls(r.rs)}">${rs(r.rs)}</td><td class="n m">${r.trades ? `${r.won} of ${r.trades} won` : 'no trade'}</td></tr>`).join('');
+  return `<details class="money"${moneyOpen ? ' open' : ''}><summary><b>₹2 lakh today</b>: our app <b class="${cls(app.rs)}">${rs(app.rs)}</b>`
+    + (other ? ` · ${other.name} <b class="${cls(other.rs)}">${rs(other.rs)}</b>` : '') + ` <span class="m">(tap)</span></summary>
+    <table>${rows}</table><div class="m">${mo.basis}. Over 11 years of 5-minute candles only the 09:15 signal has made money; no intraday rule passed.</div></details>`;
+}
 function summary() {
   const d = data || {}, p = $('panel'), m = d.morning, card = d.card;
   if (card) {
@@ -118,6 +136,7 @@ function summary() {
   } else if (m) {
     p.innerHTML = `<span class="m">Grok's morning read (info only):</span> ${m.score > 0 ? '+' : ''}${m.score} · ${(m.reasons || []).join(' · ')}`;
   } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
+  p.innerHTML += moneyBox(d.money);
 }
 chart.subscribeClick(param => {
   if (REPLAY || rp) return;                    // the replay view has its own (below)
@@ -184,6 +203,7 @@ function replaySummary() {
     average miss ${m.ai_avg_miss_pct.toFixed(2)}% vs ${m.now_avg_miss_pct.toFixed(2)}%; AI closer in ${m.ai_closer} of ${m.steps}.
     <div class="m">Tap a dot for what the AI said then. ${rp.call ? '08:57 call: ' + rp.call + '.' : ''}</div>`
     : '<span class="m">No AI predictions in this replay.</span>';
+  $('panel').innerHTML += moneyBox(rp && rp.money);
 }
 async function replayOf(day) {
   const name = `replay-nifty-${day}.json`;

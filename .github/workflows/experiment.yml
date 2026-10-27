@@ -9,7 +9,7 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk (big-move probability and ranges), accuracy (NIFTY direction study), improve (NIFTY: extra pre-open inputs, intraday patterns), commodity (futures: move so far vs settlement), extreme (NIFTY: extreme overnight days), strategy (NIFTY: trading rules after costs), open (NIFTY: from-open and 10:15 calls, expiry days), preopen (NIFTY: missing pre-open inputs), rolls (futures roll adjustment), hourly (NIFTY: forecasts from 1-hour candles), events (US CPI/jobs/Fed calendar) dailyfill (candles rebuilt from 15m bars vs official), intradata (update the 5-minute candle history) or intrarules (intraday rules on that history) or history (exits, VIX at the open, event days)"
+        description: "variants (expected close), risk (big-move probability and ranges), accuracy (NIFTY direction study), improve (NIFTY: extra pre-open inputs, intraday patterns), commodity (futures: move so far vs settlement), extreme (NIFTY: extreme overnight days), strategy (NIFTY: trading rules after costs), open (NIFTY: from-open and 10:15 calls, expiry days), preopen (NIFTY: missing pre-open inputs), rolls (futures roll adjustment), hourly (NIFTY: forecasts from 1-hour candles), events (US CPI/jobs/Fed calendar) dailyfill (candles rebuilt from 15m bars vs official), intradata (update the 5-minute candle history) or intrarules (intraday rules on that history) history (exits, VIX at the open, event days) or money (add the ₹2 lakh box to a replay; test_days = its date)"
         required: false
         default: "variants"
 
@@ -43,7 +43,7 @@ jobs:
           PYTHONPATH: scripts
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           INTRADAY_DIR: intra
-        if: github.event.inputs.mode != 'replay' && github.event.inputs.mode != 'intradata'
+        if: github.event.inputs.mode != 'replay' && github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'money'
         run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2 ${{ github.event.inputs.mode || 'variants' }}
       - name: Replay a day (mode "replay"; test_days = the date, YYYY-MM-DD, or 0 for today)
         if: github.event.inputs.mode == 'replay' && matrix.key == 'nifty'
@@ -57,3 +57,14 @@ jobs:
           mkdir -p out && python -u scripts/replay.py out store "$d"
           snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
           cp out/replay-nifty-*.json "$snap"/ && bash scripts/store.sh push site-data "$snap"
+      - name: Add the "₹2 lakh today" box to a day's replay (mode "money"; test_days = the date, YYYY-MM-DD)
+        if: github.event.inputs.mode == 'money' && matrix.key == 'nifty'
+        env:
+          PYTHONPATH: scripts
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/store.sh pull scoreboard store
+          bash scripts/store.sh pull intraday-data intra
+          snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
+          python -u scripts/daymoney.py replay "$snap" intra store "${{ github.event.inputs.test_days }}"
+          bash scripts/store.sh push site-data "$snap"
