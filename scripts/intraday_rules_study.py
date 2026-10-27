@@ -7,7 +7,9 @@ with at least half of them winning. Tested here on Yahoo's last ~60 days of 5-mi
   chase X   after NIFTY moved X% or more within 20 minutes, trade in that direction
   fade X    ... trade against it (expecting part of the swing to come back)
   + morning only trades in the direction of the morning call (the from-open signal's side, walk-forward)
-  + range   chase only on trend days (first hour's range at least 0.6%), fade only on range days (below 0.6%)
+  + range   chase only on trend days (first hour's range at least 0.6%), fade only on range days (below 0.6%);
+            these enter only after 10:15, when the first hour is known (the first run let them enter from 09:45,
+            looking ahead at the rest of the first hour)
   morning confirm  at 09:45, trade the morning call's side if the first 30 minutes moved the same way
 Entries from 09:45 to 14:30 (no first 30 minutes, no last 45). One position at a time, held to a 0.5% target, a 0.3%
 stop (checked on each candle's high / low, the stop first when both are touched) or 15:15. Costs 0.03% a trade.
@@ -99,8 +101,9 @@ def rules(sides):
         out[f"fade {x}"] = lambda d, x=x: (lambda i, c, ctx: -move(i, c, x))
         out[f"chase {x} + morning"] = lambda d, x=x: (lambda i, c, ctx: move(i, c, x) if move(i, c, x) == sides[d] else 0)
         out[f"fade {x} + morning"] = lambda d, x=x: (lambda i, c, ctx: -move(i, c, x) if -move(i, c, x) == sides[d] else 0)
-        out[f"chase {x} on trend days"] = lambda d, x=x: (lambda i, c, ctx: move(i, c, x) if ctx["range1h"] >= 0.6 else 0)
-        out[f"fade {x} on range days"] = lambda d, x=x: (lambda i, c, ctx: -move(i, c, x) if ctx["range1h"] < 0.6 else 0)
+        # the day type needs the whole first hour (to 10:15), so these trade only after it (bar 12 starts 10:15)
+        out[f"chase {x} on trend days"] = lambda d, x=x: (lambda i, c, ctx: move(i, c, x) if i >= 12 and ctx["range1h"] >= 0.6 else 0)
+        out[f"fade {x} on range days"] = lambda d, x=x: (lambda i, c, ctx: -move(i, c, x) if i >= 12 and ctx["range1h"] < 0.6 else 0)
 
     def confirm(d):
         done = {"x": False}
