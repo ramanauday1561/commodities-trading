@@ -1,0 +1,40 @@
+name: Replay a day
+
+# Replays a finished NIFTY day as if live (scripts/replay.py): every 10 minutes, the AI's prediction of the close from
+# the candles and headlines known by then, scored against the real close and the plain "close = price now". The result
+# is added to site-data for the Live page (live.html?replay=<date>). Run after 15:30 IST.
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Day to replay (YYYY-MM-DD, IST); empty = today"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install yfinance pandas
+      - name: Replay
+        env:
+          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
+          PYTHONPATH: scripts
+        run: |
+          bash scripts/store.sh pull scoreboard store
+          mkdir -p out && python -u scripts/replay.py out store "${{ github.event.inputs.date }}"
+      - name: Add it to site-data
+        run: |
+          snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
+          cp out/replay-nifty-*.json "$snap"/
+          bash scripts/store.sh push site-data "$snap"

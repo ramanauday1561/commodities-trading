@@ -32,7 +32,7 @@
     <div class="px"><b id="px">NIFTY 50</b><small id="when">Loading…</small></div>
     <a href="status.html">Close</a>
   </div>
-  <div class="legend">
+  <div class="legend" id="legend">
     <span><i style="border-color:var(--pred)"></i>our prediction of the close</span>
     <span><i style="border-color:var(--pred);border-top-style:dotted;opacity:.6"></i>likely range</span>
     <span><i style="border-color:#8a96a8;border-top-style:dashed"></i>yesterday's close</span>
@@ -119,6 +119,7 @@ function summary() {
   } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
 }
 chart.subscribeClick(param => {
+  if (REPLAY) return;                          // the replay view has its own (below)
   if (!param.time || !data) { delete $('panel').dataset.pinned; summary(); return; }
   const c = data.candles || [], t = param.time;
   const k = c.find(x => x.time === t);
@@ -147,9 +148,62 @@ async function load() {
   }
   $('msg').hidden = false; $('msg').textContent = 'No live data yet today.';
 }
-load();
-setInterval(load, 60000);                      // the data changes every 10 minutes; checking each minute keeps it close
-document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+// ---- replay of a finished day (replay.py): live.html?replay=YYYY-MM-DD
+const REPLAY = new URLSearchParams(location.search).get('replay');
+const ai = chart.addLineSeries({ color: '#b48cff', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'AI' });
+let rp = null;
+function drawReplay(d) {
+  rp = d;
+  const c = d.candles || [], steps = d.steps || [], m = d.summary || {};
+  $('msg').hidden = c.length > 0;
+  candles.setData(c);
+  ai.setData(series(steps, 'ai_close', c));
+  [pred, lo, hi].forEach(x => x.setData([]));
+  lines.forEach(l => candles.removePriceLine(l)); lines = [];
+  lines.push(candles.createPriceLine({ price: d.prev_close, color: '#8a96a8', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'yesterday' }));
+  lines.push(candles.createPriceLine({ price: d.close, color: '#34d1bf', lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: 'actual close' }));
+  const up = d.close > d.prev_close;
+  candles.setMarkers(steps.filter(x => x.ai_close).map(x => ({ time: snap(x.time, c), position: 'aboveBar', shape: 'circle',
+    color: (x.ai_close > d.prev_close) === up ? '#34d1bf' : '#ff6b6b', text: '' })));
+  chart.timeScale().fitContent();
+  const day = new Date(d.date + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  $('px').innerHTML = `Replay ${day} · close ${f(d.close)} <span class="${m.move_pct >= 0 ? 'up' : 'down'}">${pc(m.move_pct || 0)}</span>`;
+  $('when').textContent = `As if live: every 10 min the AI saw only the candles and headlines known by then`;
+  $('legend').innerHTML = `<span><i style="border-color:#b48cff"></i>AI's predicted close</span>
+    <span><i style="border-color:#34d1bf"></i>actual close</span><span><i style="border-color:#8a96a8;border-top-style:dashed"></i>yesterday</span>
+    <span>● AI on the right / wrong side (tap)</span>`;
+  replaySummary();
+}
+function replaySummary() {
+  const m = (rp && rp.summary) || {};
+  $('panel').innerHTML = m.steps ? `<b>${m.steps} predictions.</b> AI on the right side of yesterday's close
+    ${Math.round(m.ai_side_right * 100)}% of the time vs ${Math.round(m.now_side_right * 100)}% for "close = price now";
+    average miss ${m.ai_avg_miss_pct.toFixed(2)}% vs ${m.now_avg_miss_pct.toFixed(2)}%; AI closer in ${m.ai_closer} of ${m.steps}.
+    <div class="m">Tap a dot for what the AI said then. ${rp.call ? '08:57 call: ' + rp.call + '.' : ''}</div>`
+    : '<span class="m">No AI predictions in this replay.</span>';
+}
+async function loadReplay() {
+  const name = `replay-nifty-${REPLAY}.json`;
+  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/' + name, 'data/' + name]) {
+    try { const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) return drawReplay(await r.json()); } catch (e) {}
+  }
+  $('msg').hidden = false; $('msg').textContent = `No replay for ${REPLAY} yet.`;
+}
+if (REPLAY) {
+  chart.subscribeClick(param => {
+    if (!rp || !param.time) return replaySummary();
+    const s = (rp.steps || []).filter(x => snap(x.time, rp.candles) === param.time).pop();
+    if (!s) return replaySummary();
+    $('panel').innerHTML = `<b>${s.at.slice(11, 16)}</b> NIFTY ${f(s.price)} · ${s.heads} headlines so far
+      <div>AI expected the close at <b>${f(s.ai_close)}</b> (${s.ai_dir || ''}${s.ai_conf != null ? ', ' + s.ai_conf + '% sure' : ''}); actual ${f(rp.close)}</div>
+      <div class="m">${s.why || ''}</div>`;
+  });
+  loadReplay();
+} else {
+  load();
+  setInterval(load, 60000);                    // the data changes every 10 minutes; checking each minute keeps it close
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+}
 </script>
 </body>
 </html>
