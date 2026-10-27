@@ -17,6 +17,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "fii": NIFTY only, FII and client index-futures positions (NSE participant-wise OI) as inputs (fii_study.py)
   mode "exits": NIFTY only, stop-loss and take-profit rules for the from-open trade (exit_study.py)
   mode "pcr": NIFTY only, the previous session's put-call ratio as an input or a filter for the from-open signal
+  mode "kaggleprobe": NIFTY only, can Kaggle's NIFTY 50 1-minute dataset be downloaded without a key (kaggle_probe.py)
   mode "pcrprobe": NIFTY only, NIFTY's put-call ratio from NSE's daily F&O bhavcopy, a download check (pcr_probe.py)
   mode "vix": NIFTY only, India VIX as an input or a stand-aside filter for the from-open signal (vix_study.py)
   mode "resultsize": NIFTY only, how many of the heaviest stocks count as results days (results_size_study.py)
@@ -272,6 +273,11 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key == "nifty":
             import pcr_study
             pcr_study.main()
+        return
+    if mode == "kaggleprobe":                             # NIFTY: years of 1-minute candles from Kaggle, without a key?
+        if key == "nifty":
+            import kaggle_probe
+            kaggle_probe.main()
         return
     if mode == "pcrprobe":                                # NIFTY: can NSE's F&O bhavcopy give a daily put-call ratio
         if key == "nifty":
