@@ -12,6 +12,7 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
     big-move risk and ranges (19 Oct 2026: slightly worse, not used)
   mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
   mode "rolls": futures history with and without the contract-roll adjustment; NIFTY calls without crude (roll_study.py)
+  mode "intrarules": NIFTY only, chase / fade / flip intraday rules with target and stop (intraday_rules_study.py)
   mode "streak": NIFTY only, the 3- and 5-day move and the run of down / up closes as inputs (streak_study.py)
   mode "fii": NIFTY only, FII and client index-futures positions (NSE participant-wise OI) as inputs (fii_study.py)
   mode "exits": NIFTY only, stop-loss and take-profit rules for the from-open trade (exit_study.py)
@@ -251,6 +252,11 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key == "nifty":
             import oct23_study
             oct23_study.main()
+        return
+    if mode == "intrarules":                              # NIFTY: simple intraday rules on 60 days of 5-min candles
+        if key == "nifty":
+            import intraday_rules_study
+            intraday_rules_study.main()
         return
     if mode in ("streak", "fii"):                         # NIFTY: multi-day run / FII positions for the from-open signal
         if key == "nifty":
