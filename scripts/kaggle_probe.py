@@ -18,20 +18,35 @@ HEAD = {"User-Agent": "Mozilla/5.0 (compatible; commodities-trading/1.0)"}
 
 
 def show(path):
-    """The files, and the NIFTY 50 one's columns, first / last rows, size and the session times it covers."""
+    """NIFTY 50, Bank NIFTY and India VIX 5-minute files: rows, first / last rows, days, session times, and NIFTY 50's
+    daily close (its 15:25 candle) against Yahoo's official daily close."""
     files = sorted(f for f in glob.glob(os.path.join(path, "**", "*"), recursive=True) if os.path.isfile(f))
-    print("KAGGLE files " + json.dumps({os.path.relpath(f, path): os.path.getsize(f) // 1024 for f in files}), flush=True)
-    nifty = [f for f in files if "nifty 50" in os.path.basename(f).lower().replace("_", " ")
-             or os.path.basename(f).lower() in ("nifty_50.csv", "nifty50.csv", "nifty 50_minute.csv")]
-    for f in nifty[:2]:
-        df = pd.read_csv(f)
-        print(f"KAGGLE {os.path.basename(f)}: {len(df)} rows, columns {list(df.columns)}", flush=True)
-        print("KAGGLE head\n" + df.head(3).to_string() + "\nKAGGLE tail\n" + df.tail(3).to_string(), flush=True)
-        tcol = next((c for c in df.columns if "date" in c.lower() or "time" in c.lower()), df.columns[0])
-        t = pd.to_datetime(df[tcol], errors="coerce").dropna()
-        print("KAGGLE range " + json.dumps({"first": str(t.min()), "last": str(t.max()), "days": int(t.dt.date.nunique()),
-                                            "earliest_time": str(t.dt.time.min()), "latest_time": str(t.dt.time.max())}),
-              flush=True)
+    print(f"KAGGLE {len(files)} files", flush=True)
+    for name in ("NIFTY 50_5minute.csv", "NIFTY BANK_5minute.csv", "INDIA VIX_5minute.csv", "NIFTY 50_minute.csv"):
+        f = next((x for x in files if os.path.basename(x) == name), None)
+        if not f:
+            print(f"KAGGLE {name}: missing", flush=True)
+            continue
+        df = pd.read_csv(f, parse_dates=["date"])
+        sess = df[(df["date"].dt.time >= pd.Timestamp("09:15").time()) & (df["date"].dt.time <= pd.Timestamp("15:29").time())]
+        days = sess["date"].dt.date
+        per_day = sess.groupby(days).size()
+        print(f"KAGGLE {name}: {len(df)} rows ({len(sess)} in 09:15-15:29), {days.nunique()} days, "
+              f"{days.min()} to {days.max()}, bars per day median {int(per_day.median())}, "
+              f"days with under 70 bars {int((per_day < 70).sum()) if '5minute' in name else '-'}", flush=True)
+        if name == "NIFTY 50_5minute.csv":
+            print("KAGGLE head\n" + df.head(3).to_string() + "\nKAGGLE tail\n" + sess.tail(3).to_string(), flush=True)
+            import yfinance as yf
+            y = yf.download("^NSEI", start="2015-11-01", interval="1d", auto_adjust=False, progress=False)
+            y.columns = [c[0] if isinstance(c, tuple) else c for c in y.columns]
+            yc = pd.Series(y["Close"].values, index=pd.to_datetime(y.index).date)
+            kc = sess.groupby(days)["close"].last()
+            both = kc.index.intersection(yc.index)
+            diff = ((kc[both] / yc[both] - 1) * 100).abs()
+            print("KAGGLE vs Yahoo close " + json.dumps({"days": len(both), "median_pct": round(float(diff.median()), 3),
+                  "p95_pct": round(float(diff.quantile(0.95)), 3), "over_0.5pct": int((diff > 0.5).sum()),
+                  "yahoo_days_missing_in_kaggle": int(len(set(yc.index[yc.index <= kc.index.max()]) - set(kc.index)))}),
+                  flush=True)
     return bool(files)
 
 
