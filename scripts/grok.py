@@ -28,14 +28,46 @@ def _post(body, key):
     return json.loads(urllib.request.urlopen(req, timeout=90).read())
 
 
+def _reason(e):
+    """The API's error message, with anything that looks like a key or token blanked out."""
+    try:
+        body = json.loads(e.read() or b"{}")
+        msg = str(body.get("error") or body.get("code") or body)[:200]
+    except Exception:
+        return ""
+    return re.sub(r"[A-Za-z0-9_\-]{16,}", "[hidden]", msg)
+
+
+_AVAILABLE = None
+
+
+def available(key):
+    """Grok chat models this key can use (asked once per run), newest names first; [] if the list is unavailable."""
+    global _AVAILABLE
+    if _AVAILABLE is None:
+        try:
+            req = urllib.request.Request("https://api.x.ai/v1/models", headers={"Authorization": f"Bearer {key}"})
+            ids = [m.get("id", "") for m in json.loads(urllib.request.urlopen(req, timeout=30).read()).get("data", [])]
+            _AVAILABLE = sorted((i for i in ids if i.startswith("grok") and "image" not in i and "vision" not in i), reverse=True)
+        except Exception:
+            _AVAILABLE = []
+    return _AVAILABLE
+
+
+def key_kind(key):
+    """Which service a key looks like it is for (only the well-known prefix is looked at)."""
+    return ("xAI (Grok)" if key.startswith("xai-") else "Groq (groq.com, a different company from Grok)"
+            if key.startswith("gsk_") else "OpenAI" if key.startswith("sk-") else "unknown")
+
+
 def ask(prompt, search=True, max_tokens=400):
     """Grok's answer as text, or None (no key, an error, or nothing usable). With search, Grok may look at live news
     and X; if the API refuses that option the call is repeated without it."""
-    key = os.environ.get("XAI_API_KEY")
+    key = (os.environ.get("XAI_API_KEY") or "").strip()      # a pasted key can carry a trailing newline
     if not key:
         return None
     msgs = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]
-    for model in MODELS:
+    for model in MODELS + [m for m in available(key) if m not in MODELS]:
         for live in ((True, False) if search else (False,)):
             body = {"model": model, "messages": msgs, "temperature": 0.2, "max_tokens": max_tokens}
             if live:
@@ -46,7 +78,7 @@ def ask(prompt, search=True, max_tokens=400):
                 if text:
                     return text.strip()
             except urllib.error.HTTPError as e:
-                print(f"grok {model}{' +search' if live else ''}: HTTP {e.code}", flush=True)   # never the body
+                print(f"grok {model}{' +search' if live else ''}: HTTP {e.code} {_reason(e)}", flush=True)
                 if e.code in (401, 403, 429):
                     return None                     # bad key, no access or rate limit: trying more will not help
             except Exception as e:
@@ -80,6 +112,17 @@ class Budget:
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["test"]:
+        key = os.environ.get("XAI_API_KEY", "").strip()
+        print(f"key set: {bool(key)}, looks like a key for: {key_kind(key) if key else '-'}")
+        if key:
+            try:
+                req = urllib.request.Request("https://api.x.ai/v1/models", headers={"Authorization": f"Bearer {key}"})
+                ids = [m.get("id") for m in json.loads(urllib.request.urlopen(req, timeout=30).read()).get("data", [])]
+                print("models this key can use:", ", ".join(ids) or "none")
+            except urllib.error.HTTPError as e:
+                print(f"model list: HTTP {e.code} {_reason(e)}")
+            except Exception as e:
+                print(f"model list: {type(e).__name__}")
         r = ask("In one short sentence: what is NIFTY 50?", search=False, max_tokens=60)
         print("grok test:", "OK, " + r[:120] if r else "FAILED (is the XAI_API_KEY secret set?)")
         sys.exit(0 if r else 1)
