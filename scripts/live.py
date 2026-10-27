@@ -118,17 +118,22 @@ def morning_prompt(today, news, record):
             "war or similar that can move NIFTY more than 1%), \"event\": \"one line or empty\"}")
 
 
-def move_prompt(m, today_str):
+def headlines_text(news, n=12):
+    items = sorted((news or {}).get("items", []), key=lambda x: x.get("seen", ""), reverse=True)[:n]
+    return "\nOur latest headlines (newest first):\n- " + "\n- ".join(f"{x.get('seen', '')[11:16]} UTC {x['title']}" for x in items) if items else ""
+
+
+def move_prompt(m, today_str, news=None):
     return (f"On {today_str}, NIFTY 50 moved {m['pct']:+.2f}% between {m['from_at'][11:16]} and {m['at'][11:16]} IST "
             f"(from {m['from']:,.2f} to {m['to']:,.2f}). Using news and X posts from today, in at most two short sentences: "
-            "what most likely drove this move? If nothing clear, say 'no clear news'.")
+            "what most likely drove this move? If nothing clear, say 'no clear news'." + headlines_text(news))
 
 
-def close_prompt(card, today_str, moves, morning):
+def close_prompt(card, today_str, moves, morning, news=None):
     mv = "; ".join(f"{m['at'][11:16]} {m['pct']:+.2f}%" for m in moves) or "none"
     return (f"NIFTY 50 closed {today_str} at {card['close']:,.2f} ({card['move_pct']:+.2f}%). Big moves during the day: "
             f"{mv}. The morning read was: {json.dumps(morning or {})}. In at most three short sentences, why did NIFTY "
-            "move the way it did today? Use today's news and X posts; say 'no clear news' where unsure.")
+            "move the way it did today? Use today's news and X posts; say 'no clear news' where unsure." + headlines_text(news))
 
 
 def bars5():
@@ -203,7 +208,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
                     continue
                 fresh = now - datetime.fromisoformat(m["at"]) <= timedelta(minutes=MOVE_MIN + 10)
                 if fresh:                                   # older ones (a late or first run) are kept, not alerted
-                    m["note"] = budget.ask(move_prompt(m, day), max_tokens=160)
+                    m["note"] = budget.ask(move_prompt(m, day, _load(os.path.join(data_dir, "news-nifty.json"))), max_tokens=160)
                     m["alert"] = status.notify({"kind": "move", "body": (
                         f"{'🔻' if m['dir'] == 'down' else '🔺'} NIFTY {m['pct']:+.2f}% in {MOVE_MIN} min "
                         f"({m['from']:,.2f} → {m['to']:,.2f}, {m['from_at'][11:16]}-{m['at'][11:16]})"
@@ -215,7 +220,8 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
         call_pct = ((pre.get("recorded") or {}).get("close") or {}).get("pred_pct")
         card = scorecard(st.get("preds", []), (rec or {}).get("prev_close") or prev_close, (rec or {}).get("close"), call_pct)
         if card:
-            card["note"] = budget.ask(close_prompt(card, day, st.get("moves", []), st.get("morning")), max_tokens=220)
+            card["note"] = budget.ask(close_prompt(card, day, st.get("moves", []), st.get("morning"),
+                                                   _load(os.path.join(data_dir, "news-nifty.json"))), max_tokens=220)
             st["card"] = card
 
     json.dump(st, open(path, "w"), separators=(",", ":"))
