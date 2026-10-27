@@ -212,6 +212,8 @@ jobs:
         run: |
           bash scripts/store.sh push scoreboard store
           mkdir -p site-snap && cp docs/data/*.json site-snap/ && rm -f site-snap/intraday-*.json
+          # day replays (replay.py) may have been added while this job ran: keep them in the squashed copy
+          latest="$RUNNER_TEMP/site-latest" && bash scripts/store.sh pull site-data "$latest" && cp "$latest"/replay-*.json site-snap/ 2>/dev/null || true
           bash scripts/store.sh push site-data site-snap --squash
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5

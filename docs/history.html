@@ -31,6 +31,7 @@
   .chips { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px; }
   .chip { font-size:12px; padding:3px 9px; border-radius:999px; background:rgba(255,255,255,.07); color:var(--mute); white-space:nowrap; }
   .chip.ok { background:rgba(52,209,191,.14); color:var(--up); } .chip.no { background:rgba(255,107,107,.13); color:var(--down); }
+  a.chip { text-decoration:none; color:var(--accent); }
   .chip.trade { background:rgba(124,180,255,.15); color:var(--accent); }
   .up { color:var(--up); } .down { color:var(--down); }
   .note { color:var(--mute); font-size:12px; margin-top:16px; }
@@ -75,7 +76,8 @@ const chip = (label, dir, hit) => `<span class="chip ${hit ? 'ok' : 'no'}">${lab
       return `<div class="glass day ${move >= 0 ? 'pos' : 'neg'}">
         <div class="date">${fmt(x.d)}<small>${wd}</small></div>
         <div class="px">${x.close.toLocaleString('en-IN')} <span class="${move >= 0 ? 'up' : 'down'}">${pct(move)}</span></div>
-        <div class="chips">${chip('Gap', x.gap, x.gap_hit)}${chip('Close', x.close_call, x.close_hit)}${trade}</div></div>`;
+        <div class="chips">${chip('Gap', x.gap, x.gap_hit)}${chip('Close', x.close_call, x.close_hit)}${trade}
+          <a class="chip" href="live.html?replay=${x.d}">Replay ▸</a></div></div>`;
     }).join('');
   } catch (e) { $('since').textContent = 'NIFTY 50 · no scored days yet'; }
 })();
