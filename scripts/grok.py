@@ -21,9 +21,9 @@ import urllib.request
 PROVIDERS = {
     "xai": {"base": "https://api.x.ai/v1", "models": ["grok-4-latest", "grok-4", "grok-3-latest"], "search": True},
     "groq": {"base": "https://api.groq.com/openai/v1",
-             "models": ["groq/compound", "openai/gpt-oss-120b", "llama-3.3-70b-versatile"], "search": False},
+             "models": ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"], "search": False},   # 27 Oct: gpt-oss-120b answered
 }
-NOT_CHAT = ("whisper", "guard", "tts", "embed", "image", "vision", "prompt")
+NOT_CHAT = ("whisper", "guard", "tts", "embed", "image", "vision", "prompt", "orpheus", "safeguard")
 DAILY_CAP = 20
 SYSTEM = ("You help a retail trader understand NIFTY 50 (India's main stock index) during the trading day. Be factual "
           "and brief; say 'no clear news' when you are not sure. Never give investment advice or a trade instruction.")
