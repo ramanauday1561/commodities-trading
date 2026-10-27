@@ -107,6 +107,34 @@ class Calls(unittest.TestCase):
         self.assertTrue(tc.from_open_block(X, y, np.array([2.5, 0.0]), hist, False)["trade"])
         self.assertLess(b["trade_stats"]["days"], tc.from_open_block(X, y, np.array([2.5, 0.0]))["trade_stats"]["days"])
 
+    def test_from_open_stands_aside_after_us_events(self):
+        rng = np.random.default_rng(2)
+        X = rng.normal(size=(300, 2))
+        y = 0.01 * X[:, 0] + rng.normal(0, 0.004, 300)
+        b = tc.from_open_block(X, y, np.array([2.5, 0.0]), us_today=["Fed decision 28 Oct"])
+        self.assertEqual((b["trade"], b["skipped_for_us_events"], b["us_events"]), (False, True, ["Fed decision 28 Oct"]))
+        self.assertTrue(tc.from_open_block(X, y, np.array([2.5, 0.0]), us_today=[])["trade"])
+        self.assertFalse(tc.from_open_block(X, y, np.array([0.0, 0.0]), us_today=["x"])["skipped_for_us_events"])
+
+    def test_us_events_hit_the_next_session(self):
+        ev = {"fomc": [date(2026, 10, 28)], "cpi": [date(2026, 10, 23)], "jobs": [date(2026, 11, 6)]}
+        self.assertEqual(tc.us_since(ev, date(2026, 10, 28), date(2026, 10, 29)), ["Fed decision 28 Oct"])
+        self.assertEqual(tc.us_since(ev, date(2026, 10, 27), date(2026, 10, 28)), [])      # the Fed comes after the close
+        self.assertEqual(tc.us_since(ev, date(2026, 10, 23), date(2026, 10, 26)), ["US inflation (CPI) 23 Oct"])  # Fri -> Mon
+
+    def test_us_calendar_is_fetched_once_a_day_and_kept_when_a_source_fails(self):
+        import tempfile
+        from unittest import mock
+        d = tempfile.mkdtemp()
+        html = "2026 FOMC Meetings January 27-28 March 17-18*"
+        with mock.patch.object(tc.us_events, "_get", return_value=html) as g, mock.patch.dict(os.environ, {}, clear=True):
+            ev = tc.us_calendar(d, date(2026, 10, 28))
+            self.assertIn(date(2026, 1, 28), ev["fomc"])
+            tc.us_calendar(d, date(2026, 10, 28))
+            self.assertEqual(g.call_count, 1)
+        with mock.patch.object(tc.us_events, "_get", side_effect=OSError("down")), mock.patch.dict(os.environ, {}, clear=True):
+            self.assertIn(date(2026, 1, 28), tc.us_calendar(d, date(2026, 10, 29))["fomc"])
+
     def test_value_at_uses_only_finished_bars(self):
         s = pd.Series([1.0, 2.0], index=pd.to_datetime(["2026-10-13 03:00", "2026-10-13 04:00"]).tz_localize("UTC"))
         self.assertEqual(tc.value_at(s, pd.Timestamp("2026-10-13 03:59", tz="UTC")), 1.0)

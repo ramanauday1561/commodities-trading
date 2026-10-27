@@ -10,7 +10,7 @@ accuracy from 71% to 76% of all days, see accuracy_study.extreme_days):
 From-open signal: for trading from the 09:15 open. A ridge on the overnight inputs trained on the move from the open to
   the close (not vs yesterday's close), and a trade only on its top-20% most confident days (ranked against its own
   past walk-forward calls); every other day is "no trade", and so is any day after heavyweight results
-  (results_calendar.py). Backtest with the fresh/stale split below (preopen_study.py, ~680 days): 83 trades, 52% won,
+  (results_calendar.py) and, from 28 Oct 2026, any session after a US CPI / jobs report or Fed decision (us_since). Backtest with the fresh/stale split below (preopen_study.py, ~680 days): 83 trades, 52% won,
   +0.11% per trade after costs (t 1.0); leaving out the 8 trades after heavyweight results (-0.19% each): 74 trades,
   +0.15% each. Positive in both halves but not statistically proven, so it is scored from the open in the live record.
   Buying the open every day lost ~0.07%/day.
@@ -50,6 +50,7 @@ import pandas as pd
 import yfinance as yf
 
 import results_calendar as rc
+import us_events
 from calendars import is_session
 
 NIFTY = "^NSEI"
@@ -209,14 +210,60 @@ def call_block(X, y, x_today, open_to_close=None, exclude=None):
             "tier": tier_of(abs(pred), np.abs(p)), "tiers": tiers, "test_days": int(ok.sum())}
 
 
-def from_open_block(X, o2c, x_today, results_hist=None, results_today=False):
+def from_open_block(X, o2c, x_today, results_hist=None, results_today=False, us_today=None):
     """The from-open signal: trained on open -> close, so its tier stats are what a trade from the open earned. It
-    stands aside after heavyweight results (results_calendar), and its stats leave those sessions out too."""
+    stands aside after heavyweight results (results_calendar), and its stats leave those sessions out too; and on the
+    session after a US CPI / jobs report or Fed decision (us_today: those events, see us_since)."""
     c = call_block(X, o2c, x_today, o2c, exclude=results_hist)
-    c["trade"] = c["tier"] in TRADE_TIERS and not results_today
-    c["skipped_for_results"] = bool(results_today and c["tier"] in TRADE_TIERS)
+    strong = c["tier"] in TRADE_TIERS
+    c["trade"] = strong and not results_today and not us_today
+    c["skipped_for_results"] = bool(results_today and strong)
+    c["skipped_for_us_events"] = bool(us_today and strong and not results_today)
+    if us_today:
+        c["us_events"] = list(us_today)
     c["trade_stats"] = c["tiers"]["strong"]              # top 20% (cumulative): the days it trades
     return c
+
+
+US_EVENT_NAMES = {"fomc": "Fed decision", "cpi": "US inflation (CPI)", "jobs": "US jobs report"}
+
+
+def us_calendar(store_dir, today):
+    """US CPI / jobs / Fed dates, refreshed once a day (federalreserve.gov's current calendar and FRED; the FRED_API_KEY
+    secret is needed for CPI and jobs) and kept in store/events/us-recent.json; any source that fails keeps its last
+    copy."""
+    path = os.path.join(store_dir, "events", "us-recent.json")
+    old = json.load(open(path)) if os.path.exists(path) else {}
+    if old.get("fetched") == today.isoformat():
+        return {k: [datetime.strptime(d, "%Y-%m-%d").date() for d in v] for k, v in old.items() if k in us_events.KINDS}
+    ev = {}
+    try:
+        cur = us_events.parse_fomc_current(us_events._get(us_events.FOMC_CURRENT))
+        ev["fomc"] = sorted(d for ds in cur.values() for d in ds)
+    except Exception as e:
+        print(f"us events: Fed calendar unavailable ({e!r})", flush=True)
+    key = os.environ.get("FRED_API_KEY")
+    for kind in ("cpi", "jobs"):
+        try:
+            if key:
+                ev[kind] = [d for d in us_events.fetch_fred(kind, key) if d.year >= today.year - 1]
+        except Exception as e:
+            print(f"us events: FRED {kind} unavailable ({e!r})", flush=True)
+    for kind in us_events.KINDS:
+        if not ev.get(kind) and old.get(kind):
+            ev[kind] = [datetime.strptime(d, "%Y-%m-%d").date() for d in old[kind]]
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    json.dump({"fetched": today.isoformat() if ev.get("fomc") else old.get("fetched"),
+               **{k: [d.isoformat() for d in v] for k, v in ev.items()}}, open(path, "w"))
+    return ev
+
+
+def us_since(ev, prev_day, today):
+    """US events that hit today's session: released on a US date from the last session to yesterday. They come out
+    after India's close (CPI / jobs 18:00-19:00 IST, the Fed about 23:30 IST), so NIFTY trades them the next session.
+    28 Oct 2026 (history_study, 59 trades): the from-open trades on those sessions lost -2.18% in total (10 trades);
+    the 49 others made +0.259% each against +0.178% for all. A small sample; adopted on the user's decision."""
+    return [f"{US_EVENT_NAMES[k]} {d:%d %b}" for k in us_events.KINDS for d in ev.get(k, []) if prev_day <= d < today]
 
 
 def intraday_table(nd, bars):
@@ -349,10 +396,16 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         cal = rc.fetch(os.path.join(store_dir, "results", "nifty.json"))
         res_hist = rc.flags(nd.index, cal).reindex(df.index).fillna(False).values.astype(bool) if cal else None
         res_now = rc.since(cal, prev_day, today) if cal else []
+        try:
+            ev = us_calendar(store_dir, today)
+        except Exception as e:                              # no calendar: trade as before rather than not at all
+            print(f"us events: {e!r}", flush=True)
+            ev = {}
+        us_now = us_since(ev, prev_day, today)
         pre = {"cutoff_ist": cutoff.tz_convert(IST).strftime("%H:%M"), "prev_close": round(float(nd["close"].iloc[-1]), 2),
                "moves_pct": {k: round(v * 100, 2) for k, v in f.items()},
                "gap": call_block(df[GAP_FEATS].values, gap, x_gap), "close": call_block(df[FRESH_FEATS].values, day, x_fresh, (1 + day) / (1 + gap) - 1),
-               "from_open": from_open_block(df[OPEN_FEATS].values, o2c, x_open, res_hist, bool(res_now)),
+               "from_open": from_open_block(df[OPEN_FEATS].values, o2c, x_open, res_hist, bool(res_now), us_now),
                "since": str(df.index[0].date())}
         if cal and res_hist is not None and res_hist.any():
             big = np.abs(day) > 0.01                        # how often NIFTY moved more than 1% after results vs not
@@ -360,6 +413,8 @@ def run(store_dir="store", out_dir="docs/data", now=None):
                               "big_day_pct": {"results": round(float(big[res_hist].mean()) * 100),
                                               "other": round(float(big[~res_hist].mean()) * 100),
                                               "results_days": int(res_hist.sum())}}
+        pre["us_events"] = {"since": us_now, "upcoming": [{"date": u["date"], "name": US_EVENT_NAMES[u["kind"]]}
+                                                          for u in us_events.upcoming(ev, today - timedelta(days=1), 3)]}
         out["preopen"] = pre
         made_before_open = (now.hour, now.minute) < OPEN_IST
         if made_before_open:                                # the latest call made before the open is the one scored

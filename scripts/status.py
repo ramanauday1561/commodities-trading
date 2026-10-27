@@ -110,6 +110,10 @@ def decide(today, now):
     if fo.get("skipped_for_results"):
         return {**base, "state": "NOTHING", "kind": "no_trade", "headline": "No trade today",
                 "reason": "Heavyweight results came out since the last close; the signal stands aside on those days."}
+    if fo.get("skipped_for_us_events"):
+        return {**base, "state": "NOTHING", "kind": "no_trade", "headline": "No trade today",
+                "reason": f"US news since the last close ({', '.join(fo.get('us_events') or []) or 'a US release'}); "
+                          "the signal stands aside on the session after US inflation, jobs or Fed news."}
     if fo.get("no_call_before_open"):
         return {**base, "state": "NOTHING", "kind": "no_trade", "headline": "No trade today",
                 "reason": "No call was made before the 09:15 open, so there is no trade to hold."}

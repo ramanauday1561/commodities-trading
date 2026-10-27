@@ -43,6 +43,11 @@ class Decide(unittest.TestCase):
         self.assertEqual(kinds(status.decide(today(trade=False), at(8, 58))), ("NOTHING", "no_trade"))
         self.assertEqual(kinds(status.decide(today(skipped=True, trade=False), at(8, 58))), ("NOTHING", "no_trade"))
         self.assertEqual(kinds(status.decide(today(), at(6, 30))), ("NOTHING", "pending"))
+        us = today(trade=False)
+        us["preopen"]["from_open"].update({"skipped_for_us_events": True, "us_events": ["Fed decision 28 Oct"]})
+        s = status.decide(us, at(8, 58))
+        self.assertEqual(kinds(s), ("NOTHING", "no_trade"))
+        self.assertIn("Fed decision 28 Oct", s["reason"])
         self.assertEqual(kinds(status.decide({"date": "2026-10-21", "status": "closed"}, at(9, 0))), ("NOTHING", "closed"))
         for h, m in ((6, 30), (8, 58), (10, 0), (14, 50), (16, 0)):
             self.assertIn(status.decide(today(st="open"), at(h, m))["state"], ("CALL", "PUT", "STAY", "SELL", "NOTHING"))

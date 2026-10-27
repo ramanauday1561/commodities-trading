@@ -545,7 +545,7 @@ function guideHTML(d) {
       <p>A model is only useful if it clearly beats these. Daily prices are very noisy, so most models do not, and that is an honest, normal result. Treat a hit-rate near the baseline as "no skill".</p></details>
     <details><summary>What the NIFTY trade signal uses (and what was tested and left out)</summary>
       <ul><li><b>Uses</b>: overnight moves in US index futures (split at the US close), Nikkei, Kospi, Hang Seng, the US-listed shares of HDFC Bank, ICICI Bank and Infosys, the rupee, yesterday's NIFTY move and its 3-day move. It trades only its 20% most confident days, from the 09:15 open to the close.</li>
-      <li><b>Stands aside</b> after results from the 11 heaviest NIFTY stocks.</li>
+      <li><b>Stands aside</b> after results from the 11 heaviest NIFTY stocks, and on the session after US inflation (CPI), jobs or Fed news (they come out after India's close; in tests the trades on those days lost money).</li>
       <li><b>Stop</b>: sell if NIFTY moves 0.5% against the trade from the open (risk control: about the same profit, a much smaller worst day).</li>
       <li>The <a href="status.html">Status</a> page shows today's trade and its timeline; the <a href="history.html">History</a> page shows every day's calls and trades.</li>
       <li><b>Live</b>: during the session the page data refreshes every 10 minutes. The Live chart shows today in 10-minute candles with our prediction of the close at every run, the alerts, and big moves (0.4% or more within 20 minutes) with Grok's note on why. Grok's notes are information only: they cannot be tested on past days (Grok already knows what happened), so they are saved every day and will be tested once a few months exist.</li>
@@ -693,6 +693,8 @@ function openSignal(p) {
     ? `${o.direction === 'up' ? '<b class="up">▲ Buy at the open</b>' : '<b class="down">▼ Sell at the open</b>'}, exit at the close <span class="lvl good" style="margin-left:6px">Signal</span>`
     : o.skipped_for_results
       ? `<b>No trade today.</b> <span class="mini">The model would ${o.direction === 'up' ? 'buy' : 'sell'} at the open, but heavyweight results came out since the last close, and in past tests its trades on such days lost money. It stands aside.</span>`
+      : o.skipped_for_us_events
+      ? `<b>No trade today.</b> <span class="mini">The model would ${o.direction === 'up' ? 'buy' : 'sell'} at the open, but US news came out since the last close (${esc((o.us_events || []).join(', '))}), and in past tests its trades on such days lost money. It stands aside.</span>`
       : `<b>No trade today.</b> <span class="mini">The model leans ${o.direction === 'up' ? 'up' : 'down'} from the open, but not strongly enough to trade (it trades only on its most confident days, ranked against its own past calls).</span>`;
   return `<div style="margin:8px 0"><div class="k" style="margin-bottom:2px">Trading from the 09:15 open</div>${body}<div class="sub" style="margin-top:3px">${stats}</div></div>`;
 }

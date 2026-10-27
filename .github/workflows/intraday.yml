@@ -63,6 +63,8 @@ jobs:
         if: steps.gate.outputs.go == 'true'
         continue-on-error: true
         timeout-minutes: 8
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}       # US CPI / jobs dates: the signal stands aside after them
         run: |
           bash scripts/store.sh pull scoreboard store
           python -u scripts/todaycall.py store docs/data
