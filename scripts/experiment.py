@@ -14,6 +14,8 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "rolls": futures history with and without the contract-roll adjustment; NIFTY calls without crude (roll_study.py)
   mode "intrarules": NIFTY only, chase / fade / flip intraday rules with target and stop (intraday_rules_study.py), on the
     stored 5-minute history (intraday_data.py, from 2015); mode "intradata" only updates that history
+  mode "history": NIFTY only, the from-open trade's exits on 5-minute candles, India VIX at the open and event days
+    (history_study.py, on the same stored history)
   mode "streak": NIFTY only, the 3- and 5-day move and the run of down / up closes as inputs (streak_study.py)
   mode "fii": NIFTY only, FII and client index-futures positions (NSE participant-wise OI) as inputs (fii_study.py)
   mode "exits": NIFTY only, stop-loss and take-profit rules for the from-open trade (exit_study.py)
@@ -253,6 +255,11 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key == "nifty":
             import oct23_study
             oct23_study.main()
+        return
+    if mode == "history":                                 # NIFTY: exits, India VIX at the open, event days (5-min history)
+        if key == "nifty":
+            import history_study
+            history_study.main()
         return
     if mode == "intrarules":                              # NIFTY: simple intraday rules on 60 days of 5-min candles
         if key == "nifty":
