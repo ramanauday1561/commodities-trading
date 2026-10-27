@@ -16,6 +16,10 @@ stop (checked on each candle's high / low, the stop first when both are touched)
 Results are NIFTY's move (an at-the-money option moves about half as much, plus its own costs and decay).
 Rule fixed before the run: a rule passes only with at least 20 trades, wins on at least half of them, and earns after
 costs in both halves of the days. About 16 variants are tried, so a narrow pass is likely luck; 60 days is short.
+Result (27 Oct 2026, 31 Jul - 27 Oct, run 40549383733): nothing passed. flip (the 27 Oct pattern) 122 trades, 48% won,
+-0.00% each; chase 0.25 47 trades, 51%, +0.05% but -0.17% in the first half; fade 0.25 54 trades, 33%, -0.11%;
+chase 0.25 on trend days 18 trades, 28%, -0.09% (the first run, with entries before the first hour was over, showed
++0.10% and 55%: that was look-ahead). Not used; the once-a-day from-open signal stays the only trade signal.
 """
 import json
 from datetime import time, timedelta
