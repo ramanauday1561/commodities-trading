@@ -20,8 +20,16 @@ Result (27 Oct 2026, 31 Jul - 27 Oct, run 40549383733): nothing passed. flip (th
 -0.00% each; chase 0.25 47 trades, 51%, +0.05% but -0.17% in the first half; fade 0.25 54 trades, 33%, -0.11%;
 chase 0.25 on trend days 18 trades, 28%, -0.09% (the first run, with entries before the first hour was over, showed
 +0.10% and 55%: that was look-ahead). Not used; the once-a-day from-open signal stays the only trade signal.
+Rerun on 11 years (27 Oct 2026, run 40555822002): with INTRADAY_DIR the study reads our stored 5-minute history
+(intraday_data.py: Kaggle from Jan 2015, then Yahoo), 2,855 days to 27 Oct 2026; the morning call exists only from
+Aug 2024 (the from-open signal needs 2 years of hourly data). Its last 60 days repeat the Yahoo run exactly. Nothing
+passed again. flip (the 27 Oct pattern) lost in all 12 years: 7,212 trades, 42% won, -0.019% each; fade 0.25 lost in
+11 of 12 years (37% won); chase 0.25 +0.004% a trade, 44% won, 8 of 12 years up, first half negative; chase 0.25 on
+trend days +0.007%, 44%; chase 0.25 + morning (Aug 2024 on) 393 trades, 48%, +0.017%, up in 2024, 2025 and 2026 but
+below 50% won and about 4 NIFTY points a trade, less than an option's costs. Nothing changes in the app.
 """
 import json
+import os
 from datetime import time, timedelta
 
 import numpy as np
@@ -36,6 +44,13 @@ START, LAST_ENTRY, EXIT = time(9, 45), time(14, 30), time(15, 15)
 
 
 def days5m():
+    """Our stored history (intraday_data.py, 2015 onwards) when INTRADAY_DIR points at it, else Yahoo's ~60 days."""
+    d = os.environ.get("INTRADAY_DIR")
+    if d:
+        import intraday_data
+        days = {k: g for k, g in intraday_data.load(d, "nifty").items() if len(g) > 60}
+        if days:
+            return days
     raw = yf.download("^NSEI", period="60d", interval="5m", auto_adjust=False, progress=False)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
@@ -134,6 +149,13 @@ def score(pnl_by_day):
     r = {"trades": len(allp), "per_day": round(len(allp) / len(days), 2), "win": round(float(np.mean([x > 0 for x in allp])), 3),
          "avg_pct": round(float(np.mean(allp)), 3), "total_pct": round(float(np.sum(allp)), 2),
          "halves_avg": [round(float(np.mean(a)), 3) if a else None, round(float(np.mean(b)), 3) if b else None]}
+    years = {}
+    for d in days:
+        years.setdefault(d.year, []).extend(pnl_by_day[d])
+    yr = {y: float(np.sum(v)) for y, v in years.items() if v}
+    if len(yr) > 1:
+        r["years_up"] = f"{sum(v > 0 for v in yr.values())}/{len(yr)}"
+        r["by_year_pct"] = {str(y): round(v, 1) for y, v in sorted(yr.items())}
     r["passes"] = (r["trades"] >= 20 and r["win"] >= 0.5 and all(v is not None and v > 0 for v in r["halves_avg"]))
     return r
 
@@ -142,15 +164,19 @@ def main():
     try:
         days = days5m()
         dates = sorted(days)
-        nd = tc.daily()
-        prev = {d: float(nd["close"][nd.index.date < d].iloc[-1]) for d in dates}
+        prev = {d: float(days[p]["Close"].iloc[-1]) for p, d in zip(dates, dates[1:])}   # the last candle's close
+        dates = dates[1:]
         sides = morning_sides(dates)
-        out = {"days": len(dates), "from": str(dates[0]), "to": str(dates[-1]),
-               "morning_side_days": int(sum(1 for d in dates if sides[d]))}
-        for name, make in rules(sides).items():
-            out[name] = score({d: run_day(days[d], make(d), prev[d]) for d in dates})
-        out["passed"] = [k for k, v in out.items() if isinstance(v, dict) and v.get("passes")]
-        print("STUDY intrarules " + json.dumps(out), flush=True)
+        periods = {"all": dates, "last 60 days": dates[-60:]}
+        if len(dates) > 600:
+            periods["last 2 years"] = dates[-500:]
+        for label, ds in periods.items():
+            out = {"period": label, "days": len(ds), "from": str(ds[0]), "to": str(ds[-1]),
+                   "morning_side_days": int(sum(1 for d in ds if sides[d]))}
+            for name, make in rules(sides).items():
+                out[name] = score({d: run_day(days[d], make(d), prev[d]) for d in ds})
+            out["passed"] = [k for k, v in out.items() if isinstance(v, dict) and v.get("passes")]
+            print("STUDY intrarules " + json.dumps(out), flush=True)
     except Exception as e:
         import traceback; traceback.print_exc()
         print(f"STUDY intrarules failed: {e!r}", flush=True)

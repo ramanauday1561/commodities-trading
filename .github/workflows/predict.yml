@@ -185,6 +185,14 @@ jobs:
         run: |
           pip install pandas yfinance exchange_calendars
           python -u scripts/todaycall.py store docs/data
+      - name: 5-minute candle history (NIFTY 50, Bank NIFTY, India VIX; for intraday backtests, not shown on the site)
+        continue-on-error: true
+        timeout-minutes: 8
+        run: |
+          pip install -q pandas yfinance requests
+          bash scripts/store.sh pull intraday-data intra
+          python -u scripts/intraday_data.py update intra
+          bash scripts/store.sh push intraday-data intra
       - name: Status page, phone alert and the day's scorecard
         continue-on-error: true
         env:
