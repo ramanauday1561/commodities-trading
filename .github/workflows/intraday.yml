@@ -72,16 +72,23 @@ jobs:
         continue-on-error: true
         timeout-minutes: 4
         run: python -u scripts/news.py docs/data "$RUNNER_TEMP/news-store"
-      - name: Status page and phone alert (CALL / PUT / STAY / SELL / NOTHING)
+      - name: Status page, phone alerts and the live chart (Grok notes are information only)
         if: steps.gate.outputs.go == 'true'
         continue-on-error: true
         env:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
           TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
+          XAI_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.XAI_API_KEY || '' }}
+          PYTHONPATH: scripts
         run: |
           bash scripts/store.sh pull scoreboard store
+          before=$(jq -r '"\(.date)\(.state)\(.kind)"' docs/data/status.json 2>/dev/null || echo none)
+          python -u scripts/live.py docs/data store morning || true
           python -u scripts/status.py docs/data store
+          python -u scripts/live.py docs/data store run || true
+          after=$(jq -r '"\(.date)\(.state)\(.kind)"' docs/data/status.json 2>/dev/null || echo none)
+          if [ "$before" != "$after" ]; then echo 1 > "$RUNNER_TEMP/status_changed"; fi
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then bash scripts/store.sh push scoreboard store; fi
       - name: Hourly NIFTY candles for the chart
         if: steps.gate.outputs.go == 'true'
@@ -93,12 +100,18 @@ jobs:
         continue-on-error: true
         run: |
           snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
-          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/status-today.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
+          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/status-today.json docs/data/live-nifty.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
           bash scripts/store.sh push site-data "$snap"
-      - id: have
-        if: steps.gate.outputs.go == 'true'
-        run: |
-          if [ -f docs/data/index.json ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+      - id: have                    # runs come every 10 minutes; the site is republished about every 30 (at the :05 and
+        if: steps.gate.outputs.go == 'true'   # :35 runs), before the open, after the close and whenever the Status
+        run: |                        # page changes. The live chart and Status page read site-data, fresh every run.
+          hm=$(TZ=Asia/Kolkata date +%H%M); m=$((10#${hm:2:2}))
+          changed=$(cat "$RUNNER_TEMP/status_changed" 2>/dev/null || echo 0)
+          if [ -f docs/data/index.json ] && { [ $((m % 30)) -lt 10 ] || [ "$hm" -lt 0920 ] || [ "$hm" -ge 1530 ] || [ "$changed" = 1 ] || [ "${{ github.event_name }}" = "schedule" ]; }; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"; echo "not republishing the site this run (site-data is updated)"
+          fi
       - if: steps.have.outputs.ok == 'true'
         uses: actions/configure-pages@v6
       - if: steps.have.outputs.ok == 'true'

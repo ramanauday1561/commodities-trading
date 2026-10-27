@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Live</title>
+<meta name="theme-color" content="#070a12">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root { --bg:#070a12; --text:#eef1f6; --mute:#9aa6b8; --edge:rgba(255,255,255,.10); --up:#34d1bf; --down:#ff6b6b;
+          --pred:#f5a623; --accent:#7cb4ff; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden;
+               font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { position:fixed; inset:0; display:flex; flex-direction:column;
+          padding:calc(env(safe-area-inset-top) + 10px) calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 10px); }
+  .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .px b { font-size:19px; letter-spacing:-.01em; white-space:nowrap; } .px b span { font-size:15px; } .px small { display:block; color:var(--mute); font-size:12px; }
+  .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(255,255,255,.06); }
+  .legend { display:flex; flex-wrap:wrap; gap:4px 12px; color:var(--mute); font-size:11px; margin:6px 0 4px; }
+  .legend i { display:inline-block; width:14px; height:0; border-top:2px solid; vertical-align:middle; margin-right:4px; }
+  #chart { flex:1; min-height:0; position:relative; }
+  #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mute); text-align:center; padding:20px; }
+  #panel { border-top:1px solid var(--edge); padding:8px 2px 0; font-size:13px; min-height:38px; color:var(--text); }
+  #panel .m { color:var(--mute); }
+  .up { color:var(--up); } .down { color:var(--down); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="px"><b id="px">NIFTY 50</b><small id="when">Loading…</small></div>
+    <a href="status.html">Close</a>
+  </div>
+  <div class="legend">
+    <span><i style="border-color:var(--pred)"></i>our prediction of the close</span>
+    <span><i style="border-color:var(--pred);border-top-style:dotted;opacity:.6"></i>likely range</span>
+    <span><i style="border-color:#8a96a8;border-top-style:dashed"></i>yesterday's close</span>
+    <span>● alerts · ⚡ big moves (tap)</span>
+  </div>
+  <div id="chart"><div id="msg" hidden></div></div>
+  <div id="panel"></div>
+</div>
+<script src="lightweight-charts.js"></script>
+<script>
+// Data: site-data (updated by every 10-minute run) first, the copy published with the site as a fallback.
+const SOURCES = ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/live-nifty.json',
+                 'data/live-nifty.json'];
+const $ = id => document.getElementById(id);
+const f = x => x == null ? '' : x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pc = x => `${x >= 0 ? '+' : ''}${x.toFixed(2)}%`;
+const hhmm = t => new Date(t * 1000).toISOString().slice(11, 16);     // chart times are IST clock times as UTC
+
+const chart = LightweightCharts.createChart($('chart'), {
+  autoSize: true, layout: { background: { color: 'transparent' }, textColor: '#9aa6b8', fontSize: 11 },
+  grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.05)' } },
+  rightPriceScale: { borderColor: 'rgba(255,255,255,.1)' },
+  timeScale: { borderColor: 'rgba(255,255,255,.1)', timeVisible: true, secondsVisible: false, rightOffset: 4 },
+  crosshair: { mode: 0 }, handleScale: { axisPressedMouseMove: true },
+});
+const candles = chart.addCandlestickSeries({ upColor: '#34d1bf', downColor: '#ff6b6b', borderVisible: false,
+  wickUpColor: '#34d1bf', wickDownColor: '#ff6b6b' });
+const pred = chart.addLineSeries({ color: '#f5a623', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'prediction' });
+// the range is wide early in the day; it must not stretch the price scale away from the candles
+const band = { color: 'rgba(245,166,35,.45)', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false,
+               crosshairMarkerVisible: false, autoscaleInfoProvider: () => null };
+const lo = chart.addLineSeries(band), hi = chart.addLineSeries(band);
+let lines = [], data = null, first = true, last = '';
+
+function snap(t, c) {                       // a run's time -> the 10-minute candle it belongs to
+  if (!c.length) return t;
+  const t0 = c[0].time, s = t0 + Math.floor((t - t0) / 600) * 600;
+  return Math.max(t0, Math.min(s, c[c.length - 1].time));
+}
+function series(points, key, c) {           // one value per candle time, the latest run in each 10 minutes
+  const m = new Map();
+  points.filter(p => p[key] != null).forEach(p => m.set(snap(p.time, c), p[key]));
+  return [...m].sort((a, b) => a[0] - b[0]).map(([time, value]) => ({ time, value }));
+}
+function draw(d) {
+  data = d;
+  const c = d.candles || [];
+  $('msg').hidden = c.length > 0;
+  $('msg').textContent = d.status === 'pre_open' || !c.length ? "Today's 10-minute chart starts after the 09:15 open." : '';
+  candles.setData(c);
+  pred.setData(series(d.preds || [], 'pred', c)); lo.setData(series(d.preds || [], 'lo', c)); hi.setData(series(d.preds || [], 'hi', c));
+  lines.forEach(l => candles.removePriceLine(l)); lines = [];
+  const add = (price, color, title, style = 2) => price && lines.push(candles.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
+  add(d.prev_close, '#8a96a8', "yesterday");
+  if (d.call && d.call.target) add(d.call.target, '#f5a623', `08:57 call`, 3);
+  if (d.trade) { add(d.trade.entry, '#7cb4ff', `${d.trade.side} entry`, 0); add(d.trade.stop, '#ff6b6b', 'stop', 0); }
+  const marks = (d.marks || []).filter(m => c.length).map(m => {
+    const k = m.kind, up = k === 'call', dn = k === 'put';
+    return { time: snap(m.time, c), position: up ? 'belowBar' : 'aboveBar', shape: up ? 'arrowUp' : dn ? 'arrowDown' : k === 'stop' || k === 'sell' ? 'square' : 'circle',
+             color: up ? '#34d1bf' : dn ? '#ff6b6b' : k === 'stop' ? '#ff6b6b' : k === 'sell' ? '#7cb4ff' : '#9aa6b8',
+             text: ['call', 'put', 'stop', 'sell'].includes(k) ? m.state : '' };
+  });
+  const moves = (d.moves || []).filter(m => c.length).map(m => {
+    const t = Date.parse(m.at.slice(0, 16) + ':00Z') / 1000;
+    return { time: snap(t, c), position: m.dir === 'up' ? 'belowBar' : 'aboveBar', shape: 'circle', color: '#f2c14e', text: '⚡' };
+  });
+  candles.setMarkers([...marks, ...moves].sort((a, b) => a.time - b.time));
+  if (first && c.length) { chart.timeScale().fitContent(); first = false; }
+  const now = d.price ?? (c.length ? c[c.length - 1].close : null);
+  $('px').innerHTML = `NIFTY 50 ${now ? f(now) : ''} ${d.move_pct != null ? `<span class="${d.move_pct >= 0 ? 'up' : 'down'}">${pc(d.move_pct)}</span>` : ''}`;
+  const upd = d.updated ? d.updated.slice(11, 16) : '';
+  $('when').textContent = d.status === 'open' ? `Updated ${upd} IST · updates every 10 min` : `Updated ${upd} IST · ${d.status === 'closed' ? 'market closed' : 'before the open'}`;
+  if (!$('panel').dataset.pinned) summary();
+}
+function summary() {
+  const d = data || {}, p = $('panel'), m = d.morning, card = d.card;
+  if (card) {
+    p.innerHTML = `Closed ${f(card.close)} <span class="${card.move_pct >= 0 ? 'up' : 'down'}">${pc(card.move_pct)}</span>`
+      + (card.call_close ? ` · 08:57 call ${f(card.call_close)} (${card.call_right ? 'right' : 'wrong'} side)` : '')
+      + (card.runs ? ` · predictions ${card.avg_miss_pct.toFixed(2)}% off on average${card.right_side_since ? `, right side from ${card.right_side_since.slice(11, 16)}` : ''}` : '')
+      + (card.note ? `<div class="m">Why (Grok): ${card.note}</div>` : '');
+  } else if (m) {
+    p.innerHTML = `<span class="m">Grok's morning read (info only):</span> ${m.score > 0 ? '+' : ''}${m.score} · ${(m.reasons || []).join(' · ')}`;
+  } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
+}
+chart.subscribeClick(param => {
+  if (!param.time || !data) { delete $('panel').dataset.pinned; summary(); return; }
+  const c = data.candles || [], t = param.time;
+  const k = c.find(x => x.time === t);
+  const runs = (data.preds || []).filter(p => snap(p.time, c) === t);
+  const pr = runs[runs.length - 1];
+  const mv = (data.moves || []).find(m => snap(Date.parse(m.at.slice(0, 16) + ':00Z') / 1000, c) === t);
+  const mk = (data.marks || []).filter(m => snap(m.time, c) === t);
+  let h = `<b>${hhmm(t)}</b>`;
+  if (k) h += ` · O ${f(k.open)} H ${f(k.high)} L ${f(k.low)} C ${f(k.close)}`;
+  if (pr) h += `<div>We expected the close near <b>${f(pr.pred)}</b>${pr.lo ? ` (likely ${f(pr.lo)} – ${f(pr.hi)})` : ''}${pr.check ? `; hourly check: ${pr.check}` : ''}</div>`;
+  mk.forEach(m => h += `<div>● ${m.at.slice(11, 16)} ${m.state}: ${m.headline || ''}</div>`);
+  if (mv) h += `<div>⚡ ${pc(mv.pct)} (${f(mv.from)} → ${f(mv.to)})${mv.note ? `: ${mv.note}` : ''}</div>`;
+  $('panel').innerHTML = h; $('panel').dataset.pinned = '1';
+});
+async function load() {
+  for (const src of SOURCES) {
+    try {
+      const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) continue;
+      const d = await r.json();
+      const istToday = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+      if (d.date !== istToday && src !== SOURCES[SOURCES.length - 1]) continue;
+      if (d.updated !== last) { last = d.updated; draw(d); }
+      return;
+    } catch (e) { /* next source */ }
+  }
+  $('msg').hidden = false; $('msg').textContent = 'No live data yet today.';
+}
+load();
+setInterval(load, 60000);                      // the data changes every 10 minutes; checking each minute keeps it close
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>

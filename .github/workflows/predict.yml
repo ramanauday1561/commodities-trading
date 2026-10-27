@@ -185,13 +185,17 @@ jobs:
         run: |
           pip install pandas yfinance exchange_calendars
           python -u scripts/todaycall.py store docs/data
-      - name: Status page and phone alert (CALL / PUT / STAY / SELL / NOTHING)
+      - name: Status page, phone alert and the day's scorecard
         continue-on-error: true
         env:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
           TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
-        run: python -u scripts/status.py docs/data store       # journal saved with the scoreboard below
+          XAI_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.XAI_API_KEY || '' }}
+          PYTHONPATH: scripts
+        run: |                       # after the close: the live chart's scorecard and Grok's why, then the summary
+          python -u scripts/live.py docs/data store close || true
+          python -u scripts/status.py docs/data store         # journal saved with the scoreboard below
       - name: News (GDELT headlines; history kept for later evaluation, not a model input)
         continue-on-error: true
         timeout-minutes: 4

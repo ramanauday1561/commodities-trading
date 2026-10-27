@@ -1,0 +1,241 @@
+"""The live NIFTY chart (docs/live.html): today in 10-minute candles, our prediction at every run, alerts, big moves.
+
+Usage: python scripts/live.py <data_dir> <store_dir> morning|run|close
+  morning  (08:40-09:15, before status.py) Grok's read of the overnight news and X: a score from -2 (very bearish)
+           to +2 (very bullish), three reasons and a big-event flag. Information only: the 08:57 alert shows it.
+  run      (every intraday run, after status.py) adds this run's prediction (where today should close, with the
+           likely range, from intraday.py, and the hourly check), rebuilds today's 10-minute candles from 5-minute
+           ones, finds big moves (NIFTY 0.4% or more within 20 minutes) and sends each new one to the phone with
+           Grok's note on why.
+  close    (the post-close run, before status.py) the day's scorecard (how far the 08:57 call and each prediction were
+           from the close, and from when they stayed on the right side) and Grok's note on why the day moved.
+Everything is kept in <store>/live/<date>.json (scoreboard branch) and published as <data_dir>/live-nifty.json.
+Times on the chart are IST clock times written as if UTC, as in hourly.py.
+"""
+import json
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+import grok
+import status
+
+IST = ZoneInfo("Asia/Kolkata")
+MOVE_PCT, MOVE_MIN = 0.4, 20            # a big move: this many % within this many minutes
+MOVE_GAP_MIN = 30                       # one note per direction per half hour
+OPEN = (9, 15)
+
+
+def _load(path, default=None):
+    try:
+        return json.load(open(path))
+    except (OSError, ValueError):
+        return default
+
+
+def ist_epoch(t):
+    """An aware time -> seconds of its IST clock time as if UTC (what the chart shows)."""
+    t = t.astimezone(IST)
+    return int(datetime(t.year, t.month, t.day, t.hour, t.minute, tzinfo=timezone.utc).timestamp())
+
+
+def candles10(bars):
+    """bars: [(aware start time, open, high, low, close)] in 5 minutes, one day -> 10-minute candles from 09:15."""
+    out = {}
+    for t, o, h, l, c in sorted(bars):
+        t = t.astimezone(IST)
+        mins = (t.hour * 60 + t.minute) - (OPEN[0] * 60 + OPEN[1])
+        if mins < 0:
+            continue
+        start = t.replace(second=0, microsecond=0) - timedelta(minutes=mins % 10)
+        k = ist_epoch(start)
+        if k not in out:
+            out[k] = {"time": k, "open": o, "high": h, "low": l, "close": c}
+        else:
+            b = out[k]
+            b["high"], b["low"], b["close"] = max(b["high"], h), min(b["low"], l), c
+    return [{**b, **{x: round(b[x], 2) for x in ("open", "high", "low", "close")}} for _, b in sorted(out.items())]
+
+
+def find_moves(bars, known=()):
+    """Moves of MOVE_PCT% or more between a 5-minute close and the close MOVE_MIN minutes earlier; at most one per
+    direction per MOVE_GAP_MIN minutes. bars as in candles10. Returns all of today's, oldest first."""
+    pts = sorted((t.astimezone(IST) + timedelta(minutes=5), c) for t, o, h, l, c in bars)   # close time, close
+    moves = list(known)
+    for i, (t, c) in enumerate(pts):
+        back = [p for p in pts[:i] if t - p[0] <= timedelta(minutes=MOVE_MIN)]
+        if not back:
+            continue
+        t0, c0 = back[0]
+        pct = (c / c0 - 1) * 100
+        if abs(pct) < MOVE_PCT:
+            continue
+        d = "up" if pct > 0 else "down"
+        if any(m["dir"] == d and abs(t - datetime.fromisoformat(m["at"])) < timedelta(minutes=MOVE_GAP_MIN) for m in moves):
+            continue
+        moves.append({"at": t.isoformat(timespec="minutes"), "from_at": t0.isoformat(timespec="minutes"), "dir": d,
+                      "pct": round(pct, 2), "from": round(c0, 2), "to": round(c, 2)})
+    return sorted(moves, key=lambda m: m["at"])
+
+
+def scorecard(preds, prev_close, close, call_pct=None):
+    """How the predictions did once the close is known."""
+    if not preds or not prev_close or not close:
+        return None
+    up = close > prev_close
+    miss = [abs(p["pred"] / close - 1) * 100 for p in preds if p.get("pred")]
+    side = [(p["at"], (p["pred"] > prev_close) == up) for p in preds if p.get("pred")]
+    since = None
+    for at, ok in reversed(side):
+        if not ok:
+            break
+        since = at
+    out = {"close": close, "move_pct": round((close / prev_close - 1) * 100, 2), "runs": len(miss),
+           "avg_miss_pct": round(sum(miss) / len(miss), 2) if miss else None, "right_side_since": since}
+    if call_pct is not None:
+        target = prev_close * (1 + call_pct / 100)
+        out.update({"call_close": round(target, 2), "call_miss_pct": round(abs(target / close - 1) * 100, 2),
+                    "call_right": (call_pct > 0) == up})
+    return out
+
+
+def morning_prompt(today, news, record):
+    p = (today or {}).get("preopen") or {}
+    rows = [f"{r['d']}: gap call {r['gap']} ({'right' if r.get('gap_hit') else 'wrong'}), close call {r['close_call']} "
+            f"({'right' if r.get('close_hit') else 'wrong'}), close {r.get('close')}" for r in (record or [])[:8]]
+    heads = [x["title"] for x in sorted((news or {}).get("items", []), key=lambda x: x.get("seen", ""), reverse=True)[:12]]
+    return ("It is before the 09:15 IST open of the Indian market today. Read the latest news and X posts about NIFTY 50, "
+            "its heaviest stocks (HDFC Bank, ICICI Bank, Reliance, Infosys, TCS, Bharti Airtel, L&T, ITC, Kotak, Axis, "
+            "SBI), oil, the rupee and global markets overnight.\n"
+            f"Overnight moves (%): {json.dumps(p.get('moves_pct', {}))}\n"
+            f"Our models' pre-open calls: gap {(p.get('gap') or {}).get('direction')}, close "
+            f"{(p.get('close') or {}).get('direction')} ({(p.get('close') or {}).get('pred_pct')}%), heavyweight results "
+            f"since the last close: {((p.get('results') or {}).get('since')) or 'none'}\n"
+            f"Our recent record:\n" + "\n".join(rows) + "\nRecent headlines we saw:\n- " + "\n- ".join(heads) +
+            "\n\nAnswer with only a JSON object: {\"score\": integer from -2 (very bearish) to 2 (very bullish) for "
+            "NIFTY today, \"reasons\": [three short reasons], \"big_event\": true or false (a result surprise, policy, "
+            "war or similar that can move NIFTY more than 1%), \"event\": \"one line or empty\"}")
+
+
+def move_prompt(m, today_str):
+    return (f"On {today_str}, NIFTY 50 moved {m['pct']:+.2f}% between {m['from_at'][11:16]} and {m['at'][11:16]} IST "
+            f"(from {m['from']:,.2f} to {m['to']:,.2f}). Using news and X posts from today, in at most two short sentences: "
+            "what most likely drove this move? If nothing clear, say 'no clear news'.")
+
+
+def close_prompt(card, today_str, moves, morning):
+    mv = "; ".join(f"{m['at'][11:16]} {m['pct']:+.2f}%" for m in moves) or "none"
+    return (f"NIFTY 50 closed {today_str} at {card['close']:,.2f} ({card['move_pct']:+.2f}%). Big moves during the day: "
+            f"{mv}. The morning read was: {json.dumps(morning or {})}. In at most three short sentences, why did NIFTY "
+            "move the way it did today? Use today's news and X posts; say 'no clear news' where unsure.")
+
+
+def bars5():
+    """Today's 5-minute NIFTY candles [(aware start, o, h, l, c)], or []."""
+    import pandas as pd
+    import yfinance as yf
+    raw = yf.download("^NSEI", period="1d", interval="5m", auto_adjust=False, progress=False)
+    raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
+    raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
+    idx = pd.DatetimeIndex(raw.index)
+    idx = idx.tz_localize("UTC") if idx.tz is None else idx
+    today = datetime.now(IST).date()
+    return [(t.to_pydatetime(), float(r.Open), float(r.High), float(r.Low), float(r.Close))
+            for t, r in zip(idx, raw.itertuples()) if t.tz_convert(IST).date() == today]
+
+
+def marks(store_dir, day):
+    """Alerts and state changes from the day's journal, for the chart."""
+    rows, out, last = _load(os.path.join(store_dir, "journal", f"{day}.json"), []), [], None
+    for r in rows:
+        key = (r.get("state"), r.get("kind"))
+        sent = any(v == "sent" for v in (r.get("alert") or {}).values())
+        if key != last or sent:
+            t = datetime.fromisoformat(r["at"])
+            out.append({"at": r["at"], "time": ist_epoch(t), "state": r["state"], "kind": r.get("kind"),
+                        "headline": r.get("headline"), "alert": sent})
+        last = key
+    return [m for m in out if m["kind"] not in ("pending",)]
+
+
+def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
+    now = now or datetime.now(IST)
+    day = now.date().isoformat()
+    today = _load(os.path.join(data_dir, "today-nifty.json"), {}) or {}
+    if today.get("date") != day or today.get("status") == "holiday":
+        print("live: no session today", flush=True)
+        return None
+    path = os.path.join(store_dir, "live", f"{day}.json")
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    st = _load(path, {}) or {}
+    budget = grok.Budget(st)
+    pre = today.get("preopen") or {}
+    prev_close = pre.get("prev_close")
+    hm = (now.hour, now.minute)
+
+    if mode == "morning" and (8, 40) <= hm < OPEN and not st.get("morning"):
+        r = grok.json_from(budget.ask(morning_prompt(today, _load(os.path.join(data_dir, "news-nifty.json")),
+                                                     (today.get("record") or {}).get("recent"))))
+        if r and isinstance(r.get("score"), (int, float)):
+            st["morning"] = {"at": now.isoformat(timespec="minutes"), "score": max(-2, min(2, int(r["score"]))),
+                             "reasons": [str(x) for x in (r.get("reasons") or [])][:3],
+                             "big_event": bool(r.get("big_event")), "event": str(r.get("event") or "")}
+
+    if mode == "run" and today.get("status") == "open":
+        i, n = today.get("intraday") or {}, _load(os.path.join(data_dir, "intraday-nifty.json"), {}) or {}
+        if i.get("price"):
+            pt = {"at": now.isoformat(timespec="minutes"), "time": ist_epoch(now), "price": i["price"],
+                  "pred": n.get("pred_close") or i["price"], "lo": n.get("p10"), "hi": n.get("p90"),
+                  "check": i.get("direction"), "check_acc": i.get("accuracy")}
+            st["preds"] = [p for p in st.get("preds", []) if p["at"][:16] != pt["at"][:16]] + [pt]
+        try:
+            b = get_bars()
+        except Exception as e:
+            print(f"live: 5-minute candles failed: {e!r}", flush=True)
+            b = []
+        if b:
+            st["candles"] = candles10(b)
+            old = {m["at"] for m in st.get("moves", [])}
+            moves = find_moves(b, st.get("moves", []))
+            for m in moves:
+                if m["at"] in old:
+                    continue
+                fresh = now - datetime.fromisoformat(m["at"]) <= timedelta(minutes=MOVE_MIN + 10)
+                if fresh:                                   # older ones (a late or first run) are kept, not alerted
+                    m["note"] = budget.ask(move_prompt(m, day), max_tokens=160)
+                    m["alert"] = status.notify({"kind": "move", "body": (
+                        f"{'🔻' if m['dir'] == 'down' else '🔺'} NIFTY {m['pct']:+.2f}% in {MOVE_MIN} min "
+                        f"({m['from']:,.2f} → {m['to']:,.2f}, {m['from_at'][11:16]}-{m['at'][11:16]})"
+                        + (f"\nWhy (Grok): {m['note']}" if m.get("note") else "") + "\nInfo, not a trade signal.")})
+            st["moves"] = moves
+
+    if mode == "close" and not st.get("card"):
+        rec = next((r for r in (today.get("record") or {}).get("recent", []) if r.get("d") == day), None)
+        call_pct = ((pre.get("recorded") or {}).get("close") or {}).get("pred_pct")
+        card = scorecard(st.get("preds", []), (rec or {}).get("prev_close") or prev_close, (rec or {}).get("close"), call_pct)
+        if card:
+            card["note"] = budget.ask(close_prompt(card, day, st.get("moves", []), st.get("morning")), max_tokens=220)
+            st["card"] = card
+
+    json.dump(st, open(path, "w"), separators=(",", ":"))
+    rc = (pre.get("recorded") or {})
+    fo, cl = rc.get("from_open") or {}, rc.get("close") or {}
+    i = today.get("intraday") or {}
+    side = ("CALL" if fo.get("direction") == "up" else "PUT") if fo.get("trade") else None
+    out = {"date": day, "updated": now.isoformat(timespec="minutes"), "status": today.get("status"),
+           "prev_close": prev_close, "price": i.get("price"), "move_pct": i.get("move_pct"),
+           "call": {"made_at": rc.get("made_at"), "dir": cl.get("direction"), "pred_pct": cl.get("pred_pct"),
+                    "target": round(prev_close * (1 + cl["pred_pct"] / 100), 2) if prev_close and cl.get("pred_pct") is not None else None},
+           "trade": {"side": side, "entry": i.get("open"), "stop": round(status.stop_level(side, i["open"]), 2)}
+                    if side and i.get("open") else None,
+           "candles": st.get("candles", []), "preds": st.get("preds", []), "moves": st.get("moves", []),
+           "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card")}
+    json.dump(out, open(os.path.join(data_dir, "live-nifty.json"), "w"), separators=(",", ":"))
+    print(f"live {mode}: {len(out['candles'])} candles, {len(out['preds'])} predictions, {len(out['moves'])} moves, "
+          f"grok calls today {st.get('grok_calls', 0)}", flush=True)
+    return out
+
+
+if __name__ == "__main__":
+    main(sys.argv[1], sys.argv[2], sys.argv[3])

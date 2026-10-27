@@ -217,7 +217,7 @@ class Updates(unittest.TestCase):
         self.assertEqual(s2["info_at"], "2026-10-22T11:05+05:30")
         _, again = self.run_at(live(today(trade=False, st="open")), s2, at(11, 15), NEWS)   # a retry 10 min later
         self.assertEqual(again, [])
-        s3, later = self.run_at(live(today(trade=False, st="open")), s2, at(11, 50), NEWS)
+        s3, later = self.run_at(live(today(trade=False, st="open")), s2, at(12, 5), NEWS)    # about hourly
         self.assertEqual(len(later), 1)
         self.assertIn("no new headlines", later[0].args[0]["body"])                        # already sent at 11:05
 
@@ -265,6 +265,32 @@ class Updates(unittest.TestCase):
         s2, calls = self.run_at(today(trade=False, st="closed"), s1, at(15, 50))
         self.assertEqual(calls, [])
         self.assertFalse(s2.get("summary_sent"))
+
+
+class GrokLines(unittest.TestCase):
+    """Grok's notes ride along in the 08:57 alert and the summary (information only)."""
+
+    def test_morning_read_in_the_alert_and_the_day_in_the_summary(self):
+        with tempfile.TemporaryDirectory() as dd:
+            json.dump(today(trade=False), open(os.path.join(dd, "today-nifty.json"), "w"))
+            json.dump({"date": "2026-10-22", "morning": {"score": -1, "reasons": ["oil up", "weak Asia"], "big_event": False},
+                       "card": {"close": 22687.65, "move_pct": -0.54, "call_close": 22700.0, "call_right": True,
+                                "call_miss_pct": 0.06, "runs": 30, "avg_miss_pct": 0.21,
+                                "right_side_since": "2026-10-22T11:05+05:30", "note": "Banks fell after results."}},
+                      open(os.path.join(dd, "live-nifty.json"), "w"))
+            with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "1"}), \
+                    mock.patch.object(status, "notify", return_value={"telegram": "sent"}) as n:
+                s1 = status.main(dd, at(8, 58))
+                self.assertIn("Grok's morning read (info only, not part of the signal): -1 bearish. oil up; weak Asia",
+                              n.call_args.args[0]["reason"])
+                self.assertNotIn("Grok", s1["reason"])                            # the page keeps the plain reason
+                rec = [{"d": "2026-10-22", "gap": "down", "gap_hit": True, "close_call": "down", "close_hit": True,
+                        "open": 22687.75, "close": 22687.65, "prev_close": 22811.35}]
+                json.dump(today(trade=False, st="closed", recent=rec), open(os.path.join(dd, "today-nifty.json"), "w"))
+                status.main(dd, at(15, 50))
+                body = n.call_args.args[0]["body"]
+                self.assertIn("right side from 11:05", body)
+                self.assertIn("Why (Grok): Banks fell after results.", body)
 
 
 class Channels(unittest.TestCase):
