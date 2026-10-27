@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -82,7 +83,7 @@ def key_kind(key):
             if key.startswith("gsk_") else "OpenAI" if key.startswith("sk-") else "unknown")
 
 
-def ask(prompt, search=True, max_tokens=400):
+def ask(prompt, search=True, max_tokens=400, wait_on_limit=False):
     """Grok's answer as text, or None (no key, an error, or nothing usable). With search, Grok may look at live news
     and X; if the API refuses that option the call is repeated without it."""
     key = (os.environ.get("XAI_API_KEY") or "").strip()      # a pasted key can carry a trailing newline
@@ -103,6 +104,19 @@ def ask(prompt, search=True, max_tokens=400):
                     return text.strip()
             except urllib.error.HTTPError as e:
                 print(f"grok {model}{' +search' if live else ''}: HTTP {e.code} {_reason(e)}", flush=True)
+                if e.code == 429 and wait_on_limit:          # a replay can wait out the per-minute limit
+                    for _ in range(4):
+                        time.sleep(min(60, float(e.headers.get("retry-after") or 20)))
+                        try:
+                            out = _post(body, key)
+                            text = (out.get("choices") or [{}])[0].get("message", {}).get("content")
+                            if text:
+                                return text.strip()
+                        except urllib.error.HTTPError as e2:
+                            if e2.code != 429:
+                                break
+                            e = e2
+                    return None
                 if e.code in (401, 403, 429):
                     return None                     # bad key, no access or rate limit: trying more will not help
             except Exception as e:

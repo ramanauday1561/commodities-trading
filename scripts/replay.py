@@ -24,7 +24,7 @@ import live
 IST = ZoneInfo("Asia/Kolkata")
 QUERIES = ["Nifty", "Sensex", "Indian stock market", "Dalal Street"]
 MAX_CALLS = 40
-GAP_S = 2.5                                   # stay well inside the AI service's per-minute limit
+GAP_S = 4                                     # stay inside the AI service's per-minute limit (Groq's free tier)
 
 
 def day_bars(day):
@@ -120,7 +120,7 @@ def main(data_dir, store_dir, day=None, ask=None, bars=None, heads=None, pc=None
             if calls < MAX_CALLS:
                 calls += 1
                 r = grok.json_from(ask(step_prompt(day, t, pc, opn, price, hi, lo, closes, call, known), search=False,
-                                       max_tokens=220))
+                                       max_tokens=220, **({"wait_on_limit": True} if ask is grok.ask else {})))
                 if r and isinstance(r.get("close"), (int, float)):
                     s.update({"ai_close": round(float(r["close"]), 2), "ai_dir": r.get("direction"),
                               "ai_conf": r.get("confidence"), "why": str(r.get("why") or "")[:240]})
