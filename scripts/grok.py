@@ -29,21 +29,32 @@ SYSTEM = ("You help a retail trader understand NIFTY 50 (India's main stock inde
           "and brief; say 'no clear news' when you are not sure. Never give investment advice or a trade instruction.")
 
 
+UA = "Mozilla/5.0 (compatible; commodities-trading/1.0)"   # Groq's firewall refuses Python's default user agent
+
+
+def _headers(key):
+    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": UA}
+
+
 def provider(key):
     return PROVIDERS["groq" if key.startswith("gsk_") else "xai"]
 
 
 def _post(body, key):
     req = urllib.request.Request(provider(key)["base"] + "/chat/completions", data=json.dumps(body).encode(),
-                                 headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+                                 headers=_headers(key))
     return json.loads(urllib.request.urlopen(req, timeout=90).read())
 
 
 def _reason(e):
     """The API's error message, with anything that looks like a key or token blanked out."""
     try:
-        body = json.loads(e.read() or b"{}")
-        msg = str(body.get("error") or body.get("code") or body)[:200]
+        raw = e.read() or b""
+        try:
+            body = json.loads(raw or b"{}")
+            msg = str(body.get("error") or body.get("code") or body)[:200]
+        except ValueError:
+            msg = raw.decode("utf-8", "replace")[:200]
     except Exception:
         return ""
     return re.sub(r"[A-Za-z0-9_\-]{16,}", "[hidden]", msg)
@@ -57,7 +68,7 @@ def available(key):
     global _AVAILABLE
     if _AVAILABLE is None:
         try:
-            req = urllib.request.Request(provider(key)["base"] + "/models", headers={"Authorization": f"Bearer {key}"})
+            req = urllib.request.Request(provider(key)["base"] + "/models", headers=_headers(key))
             ids = [m.get("id", "") for m in json.loads(urllib.request.urlopen(req, timeout=30).read()).get("data", [])]
             _AVAILABLE = sorted((i for i in ids if not any(x in i for x in NOT_CHAT)), reverse=True)
         except Exception:
@@ -129,7 +140,7 @@ if __name__ == "__main__":
         print(f"key set: {bool(key)}, looks like a key for: {key_kind(key) if key else '-'}")
         if key:
             try:
-                req = urllib.request.Request(provider(key)["base"] + "/models", headers={"Authorization": f"Bearer {key}"})
+                req = urllib.request.Request(provider(key)["base"] + "/models", headers=_headers(key))
                 ids = [m.get("id") for m in json.loads(urllib.request.urlopen(req, timeout=30).read()).get("data", [])]
                 print("models this key can use:", ", ".join(ids) or "none")
             except urllib.error.HTTPError as e:
