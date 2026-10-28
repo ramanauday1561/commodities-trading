@@ -6,6 +6,7 @@ our inputs it has and how far back, on a few sample days. Nothing is saved.
 import json
 import lzma
 import struct
+import time
 from datetime import date
 
 import requests
@@ -33,7 +34,47 @@ def candles(sym, d):
     return out
 
 
+HOURLY = "https://datafeed.dukascopy.com/datafeed/{sym}/{y}/{m:02d}/BID_candles_hour_1.bi5"   # one file a month
+MONTHLY = {"es": "USA500IDXUSD", "nq": "USATECHIDXUSD", "nikkei": "JPNIDXJPY", "hangseng": "HKGIDXHKD",
+           "kospi?": "KORIDXKRW", "china A50 (check)": "CHIIDXUSD", "aus200 (check)": "AUSIDXAUD"}
+
+
+def get(url, tries=4):
+    """The file, waiting out Dukascopy's rate limit (HTTP 503) and timeouts; (status, bytes)."""
+    for k in range(tries):
+        try:
+            r = requests.get(url, headers=HEAD, timeout=60)
+            if r.status_code != 503:
+                return r.status_code, r.content
+        except requests.RequestException:
+            pass
+        time.sleep(8 * (k + 1))
+    return "503/timeout", b""
+
+
+def monthly():
+    """Hourly candle files (one per month): which symbols and years exist."""
+    for name, sym in MONTHLY.items():
+        row = {}
+        for y in (2015, 2017, 2019, 2021, 2023, 2026):
+            st, body = get(HOURLY.format(sym=sym, y=y, m=2))          # March (months count from 0)
+            if st == 200 and body:
+                raw = lzma.decompress(body)
+                n = len(raw) // 24
+                t0, o = struct.unpack(">2i", raw[:8])
+                row[y] = f"{n} hours, first close {struct.unpack('>5if', raw[:24])[2]}"
+            else:
+                row[y] = f"{st}"
+            time.sleep(2)
+        print("DUKA-H " + json.dumps({f"{name} {sym}": row}), flush=True)
+
+
 def main():
+    monthly()
+    return
+
+
+def daily_files():
     res = {}
     for name, syms in CANDIDATES.items():
         for sym in syms:
