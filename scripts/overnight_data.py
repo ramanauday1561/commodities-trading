@@ -21,6 +21,7 @@ SYMBOLS = {"es": "USA500IDXUSD", "nq": "USATECHIDXUSD", "nikkei": "JPNIDXJPY", "
            "india": "INDIDXUSD"}     # India 50 CFD: follows SGX / GIFT Nifty, so it trades while NSE is closed
 URL = "https://datafeed.dukascopy.com/datafeed/{sym}/{y}/{m:02d}/BID_candles_hour_1.bi5"   # month counted from 0
 FIRST = date(2015, 1, 1)
+STARTS = {"india": date(2017, 12, 1)}          # Dukascopy's India 50 history begins in December 2017
 SCALE = 1000.0                     # index CFD prices are stored in thousandths
 HEAD = {"User-Agent": "Mozilla/5.0 (compatible; commodities-trading/1.0)"}
 
@@ -52,9 +53,9 @@ def fetch(sym, y, m, tries=6):
     raise TimeoutError("throttled")
 
 
-def months(today=None):
+def months(today=None, first=FIRST):
     today = today or datetime.now(timezone.utc).date()
-    y, m = FIRST.year, FIRST.month
+    y, m = first.year, first.month
     while (y, m) <= (today.year, today.month):
         yield y, m
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
@@ -68,7 +69,7 @@ def update(key, d, minutes=50, get=fetch, today=None, part=0, parts=1):
     stop = time.time() + minutes * 60
     today = today or datetime.now(timezone.utc).date()
     saved = missing = absent = 0
-    for n, (y, m) in enumerate(months(today)):
+    for n, (y, m) in enumerate(months(today, STARTS.get(key, FIRST))):
         if n % parts != part:
             continue
         path = os.path.join(folder, f"{y}-{m:02d}.csv")
