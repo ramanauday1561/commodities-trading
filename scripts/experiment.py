@@ -276,6 +276,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             import history_study
             history_study.main()
         return
+    if mode == "gift":                                    # NIFTY: GIFT Nifty (India 50 CFD) for the trade from the open
+        if key == "nifty":
+            import gift_study
+            gift_study.main()
+        return
     if mode == "giftprobe":                               # NIFTY: where years of GIFT / SGX Nifty prices can come from
         if key == "nifty":
             import gift_probe
