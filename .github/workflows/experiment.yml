@@ -31,7 +31,7 @@ jobs:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance lightgbm exchange_calendars
       - name: 5-minute candle history (modes "intradata", "intrarules" and "history"; intraday_data.py, intraday-data branch)
-        if: (github.event.inputs.mode == 'intradata' || github.event.inputs.mode == 'intrarules' || github.event.inputs.mode == 'history') && matrix.key == 'nifty'
+        if: (github.event.inputs.mode == 'intradata' || github.event.inputs.mode == 'intrarules' || github.event.inputs.mode == 'history' || github.event.inputs.mode == 'longsignal') && matrix.key == 'nifty'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
@@ -39,6 +39,11 @@ jobs:
           bash scripts/store.sh pull intraday-data intra
           python -u scripts/intraday_data.py update intra
           bash scripts/store.sh push intraday-data intra
+      - name: Overnight history for mode "longsignal" (the four overnight-* branches)
+        if: github.event.inputs.mode == 'longsignal' && matrix.key == 'nifty'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: for k in es nq nikkei hangseng; do bash scripts/store.sh pull "overnight-$k" od; done
       - name: Hourly overnight history from Dukascopy (mode "dukafetch"; one market per matrix job, resumable)
         if: github.event.inputs.mode == 'dukafetch'
         env:
