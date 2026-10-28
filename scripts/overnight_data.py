@@ -60,14 +60,17 @@ def months(today=None):
         y, m = (y + 1, 1) if m == 12 else (y, m + 1)
 
 
-def update(key, d, minutes=50, get=fetch, today=None):
-    """Fetch the missing months within the time budget; returns (saved, missing, skipped as not published)."""
+def update(key, d, minutes=50, get=fetch, today=None, part=0, parts=1):
+    """Fetch the missing months within the time budget; returns (saved, missing, skipped as not published). With
+    parts > 1 only every parts-th month (from `part`), so several runners can share one market."""
     folder = os.path.join(d, key)
     os.makedirs(folder, exist_ok=True)
     stop = time.time() + minutes * 60
     today = today or datetime.now(timezone.utc).date()
     saved = missing = absent = 0
-    for y, m in months(today):
+    for n, (y, m) in enumerate(months(today)):
+        if n % parts != part:
+            continue
         path = os.path.join(folder, f"{y}-{m:02d}.csv")
         current = (y, m) == (today.year, today.month)
         if os.path.exists(path) and not current:
@@ -103,4 +106,5 @@ def load(d, key):
 
 
 if __name__ == "__main__":
-    update(sys.argv[1], sys.argv[2], float(sys.argv[3]) if len(sys.argv) > 3 else 50)
+    update(sys.argv[1], sys.argv[2], float(sys.argv[3]) if len(sys.argv) > 3 else 50,
+           part=int(sys.argv[4]) if len(sys.argv) > 4 else 0, parts=int(sys.argv[5]) if len(sys.argv) > 5 else 1)
