@@ -256,6 +256,21 @@ def main(key, test_days=750, step=2, mode="variants"):
             import oct23_study
             oct23_study.main()
         return
+    if mode == "longsignal":                              # NIFTY: the 09:15 signal on ~11 years of overnight history
+        if key == "nifty":
+            import long_signal_study
+            long_signal_study.main()
+        return
+    if mode == "kagglesearch":                            # NIFTY: Kaggle datasets with years of intraday overnight inputs
+        if key == "nifty":
+            import kaggle_search
+            kaggle_search.main()
+        return
+    if mode == "dukaprobe":                               # NIFTY: years of hourly overnight inputs from Dukascopy?
+        if key == "nifty":
+            import dukascopy_probe
+            dukascopy_probe.main()
+        return
     if mode == "history":                                 # NIFTY: exits, India VIX at the open, event days (5-min history)
         if key == "nifty":
             import history_study
