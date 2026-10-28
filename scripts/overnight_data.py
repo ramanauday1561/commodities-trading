@@ -5,7 +5,7 @@ hourly candles for index CFDs, one LZMA file per month, back to 2015 (checked wi
 S&P 500 (ES), Nasdaq 100 (NQ), Nikkei 225 and Hang Seng. KOSPI and USD/INR are not there. Its server throttles hard
 (HTTP 503), so files are fetched slowly with retries, within a time budget, and the run is repeated until all months
 are in. Months already saved are not fetched again (the current month always is).
-Usage: python scripts/overnight_data.py <key> <dir> [minutes]   key: es | nq | nikkei | hangseng
+Usage: python scripts/overnight_data.py <key> <dir> [minutes]   key: es | nq | nikkei | hangseng | india
 Files: <dir>/<key>/<YYYY-MM>.csv with end (UTC, the hour candle's end) and close.
 """
 import lzma
@@ -17,7 +17,8 @@ from datetime import date, datetime, timedelta, timezone
 
 import requests
 
-SYMBOLS = {"es": "USA500IDXUSD", "nq": "USATECHIDXUSD", "nikkei": "JPNIDXJPY", "hangseng": "HKGIDXHKD"}
+SYMBOLS = {"es": "USA500IDXUSD", "nq": "USATECHIDXUSD", "nikkei": "JPNIDXJPY", "hangseng": "HKGIDXHKD",
+           "india": "INDIDXUSD"}     # India 50 CFD: follows SGX / GIFT Nifty, so it trades while NSE is closed
 URL = "https://datafeed.dukascopy.com/datafeed/{sym}/{y}/{m:02d}/BID_candles_hour_1.bi5"   # month counted from 0
 FIRST = date(2015, 1, 1)
 SCALE = 1000.0                     # index CFD prices are stored in thousandths

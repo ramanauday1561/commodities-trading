@@ -50,7 +50,7 @@ jobs:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
         run: |
-          k=$(python -c "print({'nifty':'es','gold':'nq','silver':'nikkei','crude':'hangseng'}['${{ matrix.key }}'])")
+          k=$(python -c "print({'nifty':'india','gold':'nq','silver':'nikkei','crude':'hangseng'}['${{ matrix.key }}'])")
           bash scripts/store.sh pull "overnight-$k" od
           python -u scripts/overnight_data.py "$k" od 48
           bash scripts/store.sh push "overnight-$k" od
