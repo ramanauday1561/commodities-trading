@@ -128,7 +128,8 @@ def main():
         series.update({k: us_close_series(t) for k, t in (("hdb", "HDB"), ("ibn", "IBN"), ("infy", "INFY"))})
         nd = nifty_daily()
         df = tc.history(nd, series)
-        df = df[df.index >= FIRST]
+        end = min(series[k].index[-1] for k in ("es", "nq", "nikkei", "hangseng")).tz_convert(None).normalize()
+        df = df[(df.index >= FIRST) & (df.index <= end)]     # Dukascopy publishes a month's file after it ends
         intra = intraday_data.load(os.environ.get("INTRADAY_DIR", "intra"), "nifty")
         o2c = ((1 + df["day"]) / (1 + df["gap"]) - 1).values
         skip = skip_days(df, nd)
@@ -158,7 +159,8 @@ def main():
         yskip = skip_days(yd, nd)
         live = trades(yd, p_live, t_live, yskip, intra)
         start = df.index[-RECENT].date()
-        out["last 2 years: live signal (Yahoo, 2 years)"] = summary({d: v for d, v in live.items() if d >= start})
+        out["last 2 years: live signal (Yahoo, 2 years)"] = summary({d: v for d, v in live.items()
+                                                                    if start <= d <= df.index[-1].date()})
 
         a = out["long signal, all years"]
         out["works_on_11_years"] = bool(a.get("trades", 0) >= 50 and all(h is not None and h > 0 for h in a["avg_halves"])
