@@ -38,7 +38,7 @@
     <a href="status.html">Close</a>
   </div>
   <div class="legend" id="legend">
-    <span><i style="border-color:var(--pred)"></i>our prediction of the close</span>
+    <span><i style="border-color:var(--pred)"></i>our nowcast of the close (it follows the price; it cannot see turns coming)</span>
     <span><i style="border-color:var(--pred);border-top-style:dotted;opacity:.6"></i>likely range</span>
     <span><i style="border-color:#8a96a8;border-top-style:dashed"></i>yesterday's close</span>
     <span>● alerts · ⚡ big moves (tap)</span>
@@ -136,6 +136,11 @@ function summary() {
   } else if (m) {
     p.innerHTML = `<span class="m">Grok's morning read (info only):</span> ${m.score > 0 ? '+' : ''}${m.score} · ${(m.reasons || []).join(' · ')}`;
   } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
+  const dl = d.daylike;                       // daylike.py: past days that looked like today so far
+  if (dl && d.status === 'open') p.innerHTML += `<div style="margin-top:4px">Days like today (${dl.days} since 2015, at ${dl.at}): rose into the close
+    <b>${Math.round(dl.up * 100)}%</b> of the time, ${pc(dl.avg_pct)} on average, usually between
+    ${pc(dl.range_pct[0])} and ${pc(dl.range_pct[1])} (${dl.read}).
+    <span class="m">Not a trade signal: no intraday rule has passed on 11 years.</span></div>`;
   p.innerHTML += moneyBox(d.money);
 }
 chart.subscribeClick(param => {

@@ -108,7 +108,9 @@ def main(data_dir, store_dir, day=None, ask=None, bars=None, heads=None, pc=None
     ends = [(t.astimezone(IST) + timedelta(minutes=5), o, h, l, c) for t, o, h, l, c in sorted(b)]
     steps, calls = [], 0
     t = datetime.combine(day, datetime.min.time(), IST).replace(hour=9, minute=25)
-    last = datetime.combine(day, datetime.min.time(), IST).replace(hour=15, minute=25)
+    last = min(datetime.combine(day, datetime.min.time(), IST).replace(hour=15, minute=25),
+               ends[-1][0])              # a day still in progress: stop at the last finished candle (28 Oct 2026, a
+                                         # mid-session replay asked the AI 8 times about the same frozen candle)
     while t <= last:
         done = [x for x in ends if x[0] <= t]
         if done:

@@ -165,6 +165,16 @@ def marks(store_dir, day):
     return [m for m in out if m["kind"] not in ("pending",)]
 
 
+def _daylike(data_dir, today, now):
+    """What NIFTY did from here to the close on past days like today so far (daylike.py), or None."""
+    try:
+        import daylike
+        return daylike.for_today(_load(os.path.join(data_dir, "daylike-nifty.json")), today, now)
+    except Exception as e:
+        print(f"live: daylike failed: {e!r}", flush=True)
+        return None
+
+
 def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
     now = now or datetime.now(IST)
     day = now.date().isoformat()
@@ -245,7 +255,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
                     if side and i.get("open") else None,
            "candles": st.get("candles", []), "preds": st.get("preds", []), "moves": st.get("moves", []),
            "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card"),
-           "money": st.get("money")}
+           "money": st.get("money"), "daylike": _daylike(data_dir, today, now)}
     json.dump(out, open(os.path.join(data_dir, "live-nifty.json"), "w"), separators=(",", ":"))
     print(f"live {mode}: {len(out['candles'])} candles, {len(out['preds'])} predictions, {len(out['moves'])} moves, "
           f"grok calls today {st.get('grok_calls', 0)}", flush=True)
