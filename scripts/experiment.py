@@ -276,6 +276,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             import history_study
             history_study.main()
         return
+    if mode == "giftprobe":                               # NIFTY: where years of GIFT / SGX Nifty prices can come from
+        if key == "nifty":
+            import gift_probe
+            gift_probe.main()
+        return
     if mode == "intrarules":                              # NIFTY: simple intraday rules on 60 days of 5-min candles
         if key == "nifty":
             import intraday_rules_study
