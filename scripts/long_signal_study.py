@@ -14,6 +14,16 @@ the close with the 0.5% stop on 5-minute candles (intraday_data.py), 0.03% costs
 Rules fixed before the run: (2) "works on 11 years" needs earnings after costs in both halves and in at least 7 of the
 10 full years 2016-2025; (3) switching the live signal to long training needs more per trade than the live signal in both halves
 of the last 2 years and a higher total.
+Result (28 Oct 2026, run 40737181025; 2,871 sessions, 2 Feb 2015 - 30 Sep 2026; 705 stood aside for results / US news):
+  1. the Dukascopy inputs track the Yahoo ones: correlation 0.93 / 0.90 (S&P 500 day / night), 0.93 / 0.90 (Nasdaq),
+     0.88 (Nikkei), 0.93 (Hang Seng), 0.99 (the three ADRs) over 721 shared sessions
+  2. the long signal: 190 trades, 43% won, +0.116% a trade after costs (+22% in total), but +0.206% in the first half
+     and +0.027% in the second; by year +1.9 +4.9 -0.2 +10.5 +1.6 +5.1 +2.6 -0.9 -2.0 +0.4 -2.2 +0.5 (2015-2026), so
+     6 of 10 full years up: it FAILS the 11-year rule. The edge was real in 2015-2021 (+26%) and has gone since 2022
+     (-3.3% in 2022-2026). A likely reason: since July 2023 GIFT Nifty trades almost round the clock, so the opening
+     gap already prices the overnight markets and little is left for the move from the open.
+  3. the last 2 years: trained on all years, 13 trades, -0.132% each; on the latest 500 days, 55 trades, +0.033%; the
+     live signal 35 trades, +0.098% (-0.144% / +0.326% by half). No switch to long training.
 """
 import json
 import os
