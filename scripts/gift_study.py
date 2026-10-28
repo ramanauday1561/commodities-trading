@@ -61,7 +61,9 @@ def main():
         nd = ls.nifty_daily()
         df = tc.history(nd, series)
         end = min(s.index[-1] for s in [*series.values()][:4] + [india]).tz_convert(None).normalize()
-        df = df[(df.index >= ls.FIRST) & (df.index <= end)]
+        # the India 50 CFD followed SGX Nifty and stopped trading when it moved to GIFT City (July 2023): one flat
+        # candle a month after that, so only Dec 2017 - Jun 2023 has the overnight prices (checked 29 Oct 2026)
+        df = df[(df.index >= ls.FIRST) & (df.index <= end) & (df.index < GIFT_ERA)]
         df = df.join(gift_inputs(df, nd, india))
         df = df[df["gift_ok"]]
         intra = intraday_data.load(os.environ.get("INTRADAY_DIR", "intra"), "nifty")
@@ -74,8 +76,7 @@ def main():
         # 1. does it trade at night; how much of the gap it explains
         r2 = lambda x, y: round(float(np.corrcoef(x, y)[0, 1] ** 2), 3)
         out["night_hours_with_trades_median"] = float(df["night_moves"].median())
-        out["gap_explained_r2"] = {"all": r2(df["gift_gap"], df["gap"]), "before Jul 2023": r2(df.loc[~era, "gift_gap"], df.loc[~era, "gap"]),
-                                   "since Jul 2023": r2(df.loc[era, "gift_gap"], df.loc[era, "gap"])}
+        out["gap_explained_r2"] = r2(df["gift_gap"], df["gap"])
         out["gap_explained_by_overnight_markets_r2"] = round(float(np.corrcoef(
             tc.walk_forward(df[ls.LONG].values, df["gap"].values)[tc.MIN_HIST:], df["gap"].values[tc.MIN_HIST:])[0, 1] ** 2), 3)
 
@@ -84,13 +85,11 @@ def main():
         for name, feats in (("LONG", ls.LONG), ("LONG + GIFT", ls.LONG + GIFT)):
             p, t = ls.wf(df[feats].values, o2c)
             tr = ls.trades(df, p, t, skip, intra)
-            res[name] = {"all years": ls.summary(tr),
-                         "since Jul 2023": ls.summary({d: v for d, v in tr.items() if pd.Timestamp(d) >= GIFT_ERA})}
+            res[name] = {"all years": ls.summary(tr)}
         out.update(res)
         a, b = res["LONG + GIFT"]["all years"], res["LONG"]["all years"]
         out["gift_helps"] = bool(a.get("trades", 0) >= 30 and a["total_pct"] > b["total_pct"]
-                                 and all(x > y for x, y in zip(a["avg_halves"], b["avg_halves"]))
-                                 and res["LONG + GIFT"]["since Jul 2023"].get("total_pct", 0) > 0)
+                                 and all(x > y for x, y in zip(a["avg_halves"], b["avg_halves"])))
 
         # 3. the gap surprise alone
         for name, sign in (("fade the surprise", -1), ("follow the surprise", 1)):
