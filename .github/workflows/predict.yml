@@ -195,6 +195,7 @@ jobs:
           bash scripts/store.sh pull intraday-data intra
           python -u scripts/intraday_data.py update intra
           bash scripts/store.sh push intraday-data intra
+          PYTHONPATH=scripts python -u scripts/daylike.py intra docs/data     # "days like today" table for the session
       - name: Status page, phone alert and the day's scorecard
         continue-on-error: true
         env:

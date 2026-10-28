@@ -229,8 +229,8 @@ def headlines(news, since=None, n=2):
     return [x["title"].strip() for x in items[:n] if x.get("title")]
 
 
-def info_update(today, new, news=None, since=None):
-    """The hourly update during the session (None outside it)."""
+def info_update(today, new, news=None, since=None, daylike_line=""):
+    """The hourly update during the session (None outside it). daylike_line: daylike.line() for now, if any."""
     i = (today or {}).get("intraday") or {}
     if (today or {}).get("status") != "open" or not i.get("price"):
         return None
@@ -248,6 +248,8 @@ def info_update(today, new, news=None, since=None):
     elif new.get("side") and opn:
         trade = f" ({_pct((price / opn - 1) * 100 * (1 if new['side'] == 'CALL' else -1))} for the {new['side']} since the open)"
     lines.append(f"Status: {new['state']}, {new['headline'][0].lower() + new['headline'][1:]}{trade}")
+    if daylike_line:
+        lines.append(daylike_line)
     news_now = headlines(news, since)
     lines.append("News: " + (" | ".join(news_now) if news_now else "no new headlines"))
     return {"kind": "info", "body": "\n".join(lines)}
@@ -329,6 +331,16 @@ def save_journal(store_dir, row, day):
     return rows + [row]
 
 
+def _daylike(load, today, now):
+    """The 'days like today' line (daylike.py) for the hourly update; empty when unavailable."""
+    try:
+        import daylike
+        return daylike.line(daylike.for_today(load("daylike-nifty.json"), today, now))
+    except Exception as e:                                   # never stops the update
+        print(f"daylike: {e!r}", flush=True)
+        return ""
+
+
 def main(data_dir, now=None, store_dir=None):
     now = now or datetime.now(IST)
     load = lambda name: json.load(open(os.path.join(data_dir, name))) if os.path.exists(os.path.join(data_dir, name)) else None
@@ -357,7 +369,7 @@ def main(data_dir, now=None, store_dir=None):
             print("summary:", extra["summary"])
     elif channels() and not alert and INFO_FROM <= _hm(now) < INFO_TO and (
             not new.get("info_at") or now - datetime.fromisoformat(new["info_at"]) >= timedelta(minutes=INFO_GAP_MIN)):
-        msg = info_update(today, new, load("news-nifty.json"), new.get("info_at"))
+        msg = info_update(today, new, load("news-nifty.json"), new.get("info_at"), _daylike(load, today, now))
         if msg:
             extra["info"] = notify(msg, silent=True)
             new["info_at"] = now.isoformat(timespec="minutes")
