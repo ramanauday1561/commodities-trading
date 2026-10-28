@@ -16,6 +16,20 @@ on 5-minute candles, 0.03% costs; LONG = long_signal_study.LONG):
   3. the gap surprise alone: trade against it (the open overshot) or with it, when it is 0.15% or more
 Rules fixed before the run: the GIFT inputs help if LONG + GIFT earns more per trade than LONG in both halves, more in
 total, and makes money since July 2023 (the GIFT era). The surprise rule needs 30+ trades, half won, both halves up.
+Data found (29 Oct 2026): no free GIFT Nifty history (Kaggle, NSE IX's site and SGX's tick files have none usable).
+Dukascopy's India 50 CFD followed SGX Nifty and stopped when SGX Nifty moved to GIFT City: hourly prices from Dec 2017
+to Jun 2023 only (one flat candle a month after that). So the GIFT-era part of the rule cannot be checked.
+Result (run 40755746709, 1,373 sessions, Dec 2017 - Jun 2023):
+  1. it traded 9 night hours a day (median) and explained 78% of the variation of NIFTY's 09:15 gap (R^2 0.782), against
+     62% for our overnight markets: the open does take in what SGX / GIFT Nifty priced overnight
+  2. LONG 186 trades, 38% won, +0.068% a trade (+0.115% / +0.022% by half); LONG + GIFT 149 trades, 46% won, +0.173%
+     (+0.284% / +0.064%): better in both halves, but both lost money in 2022 and the first half of 2023 (-1.2%, -1.9%)
+  3. fading the opening surprise (NIFTY opened 0.15%+ away from where SGX Nifty pointed, trade back towards it):
+     648 trades, 46% won, +0.089% (+0.138% / +0.041%), up in 5 of 7 years; fails "half won". Following it lost.
+  Fading the plain gap (no SGX price; NIFTY 5-minute history, 2015-2026, 0.5% stop, checked by hand the same day):
+     0.15%+ gaps 2,008 trades, 46% won, +0.051%; since Jul 2023 +0.016% and losing in the later half. Not used.
+Nothing changes in the app: GIFT Nifty helped in 2018-2021 but no free history exists for the years since, so it
+cannot be tested where it matters. Recording a daily GIFT Nifty quote from now on would let it be tested later.
 """
 import json
 import os
