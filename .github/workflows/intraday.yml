@@ -103,7 +103,7 @@ jobs:
         continue-on-error: true
         run: |
           snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
-          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/status-today.json docs/data/live-nifty.json docs/data/gift-nifty.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
+          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/status-today.json docs/data/live-nifty.json docs/data/next-nifty.json docs/data/gift-nifty.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
           bash scripts/store.sh push site-data "$snap"
       - id: have                    # runs come every 10 minutes; the site is republished about every 30 (at the :05 and
         if: steps.gate.outputs.go == 'true'   # :35 runs), before the open, after the close and whenever the Status

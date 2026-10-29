@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Next 10 minutes</title>
+<meta name="theme-color" content="#070a12">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+  :root { --bg:#070a12; --text:#eef1f6; --mute:#9aa6b8; --edge:rgba(255,255,255,.10); --up:#34d1bf; --down:#ff6b6b;
+          --warn:#f2c14e; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden;
+               font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  .wrap { position:fixed; inset:0; display:flex; flex-direction:column;
+          padding:calc(env(safe-area-inset-top) + 32px) calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 10px); }
+  .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+  .top b { font-size:19px; letter-spacing:-.01em; } .top small { display:block; color:var(--mute); font-size:12px; }
+  .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(255,255,255,.06); }
+  .now { margin:8px 0 6px; padding:10px 12px; border:1px solid var(--edge); border-radius:12px; background:rgba(255,255,255,.04); }
+  .now .big { font-size:22px; font-weight:700; letter-spacing:-.01em; }
+  .warn { color:var(--mute); font-size:12px; margin-top:4px; }
+  .warn b { color:var(--warn); font-weight:600; }
+  #chart { flex:1; min-height:160px; position:relative; }
+  #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mute); text-align:center; padding:20px; }
+  #msg[hidden] { display:none; }
+  #panel { border-top:1px solid var(--edge); padding:8px 2px 0; font-size:13px; max-height:38vh; overflow:auto; }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
+  td, th { padding:4px; border-top:1px solid var(--edge); text-align:left; } th { color:var(--mute); font-weight:500; }
+  .n { text-align:right; white-space:nowrap; } .m { color:var(--mute); }
+  .up { color:var(--up); } .down { color:var(--down); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><b>Next 10 minutes</b><small id="when">Loading…</small></div>
+    <a href="live.html">Live</a>
+  </div>
+  <div class="now" id="now">…</div>
+  <div id="chart"><div id="msg" hidden></div></div>
+  <div id="panel"></div>
+</div>
+<script src="lightweight-charts.js"></script>
+<script>
+// The model's lean for each next 10-minute candle (scripts/nextcandle.py, written by live.py every 10-minute run), and
+// how each lean turned out. Information only: on 11 years it was right 53% of the time and lost money after option
+// costs in every year (nextcandle_study.py), so it is never a CALL / PUT signal.
+const SOURCES = ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/next-nifty.json',
+                 'data/next-nifty.json'];
+const DELTA = 0.5, COST = 1.85, LOT = 65;      // an at-the-money option moves about half; a round trip ~1.85 option points
+const $ = id => document.getElementById(id);
+const f = x => x == null ? '' : x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(Math.round(x)).toLocaleString('en-IN')}`;
+const chart = LightweightCharts.createChart($('chart'), {
+  autoSize: true, layout: { background: { color: 'transparent' }, textColor: '#9aa6b8', fontSize: 11 },
+  grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.05)' } },
+  rightPriceScale: { borderColor: 'rgba(255,255,255,.1)' },
+  timeScale: { borderColor: 'rgba(255,255,255,.1)', timeVisible: true, secondsVisible: false, rightOffset: 4 },
+  crosshair: { mode: 0 },
+});
+const candles = chart.addCandlestickSeries({ upColor: '#34d1bf', downColor: '#ff6b6b', borderVisible: false,
+  wickUpColor: '#34d1bf', wickDownColor: '#ff6b6b' });
+let last = '', first = true;
+
+function epoch(date, hm) { return Date.parse(`${date}T${hm}:00Z`) / 1000; }   // chart times: IST clock as UTC
+
+function score(d) {
+  const c = d.candles || [], byT = new Map(c.map((x, i) => [x.time, i]));
+  return (d.leans || []).map(l => {
+    const t = epoch(d.date, l.at), i = byT.get(t);
+    if (i == null || i === 0) return { ...l, t, pending: true };
+    const move = c[i].close - c[i - 1].close, side = l.lean === 'up' ? 1 : -1;
+    return { ...l, t, move, right: Math.sign(move) === side, rs: (DELTA * side * move - COST) * LOT };
+  });
+}
+
+function draw(d) {
+  const c = d.candles || [], s = score(d), done = s.filter(x => !x.pending), cur = s[s.length - 1];
+  $('msg').hidden = c.length > 0;
+  $('msg').textContent = c.length ? '' : "Today's candles start after the 09:15 open.";
+  candles.setData(c);
+  candles.setMarkers(s.map(x => ({ time: x.t, position: x.lean === 'up' ? 'belowBar' : 'aboveBar',
+    shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending ? '#9aa6b8' : x.right ? '#34d1bf' : '#ff6b6b',
+    text: x.confident ? '★' : '' })).sort((a, b) => a.time - b.time));
+  if (first && c.length) { chart.timeScale().fitContent(); first = false; }
+  $('when').textContent = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? 'every 10 min' : d.status === 'closed' ? 'market closed' : 'before the open'}`;
+  const rec = (d.record && d.record.text) || 'not tested';
+  $('now').innerHTML = (cur && cur.pending && d.status === 'open'
+      ? `<div class="m">${cur.at} to ${addMin(cur.at, 10)}</div><div class="big ${cur.lean === 'up' ? 'up' : 'down'}">${cur.lean === 'up' ? '▲ leans up' : '▼ leans down'}
+         <span style="font-size:14px;font-weight:500">${cur.pts >= 0 ? '+' : ''}${cur.pts} pts${cur.confident ? ' · ★ more confident' : ''}</span></div>`
+      : `<div class="big m" style="font-size:16px">${d.status === 'open' ? 'Waiting for the next 10-minute candle' : 'No live lean (market closed)'}</div>`)
+    + `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}.</div>`;
+  const right = done.filter(x => x.right).length, money = done.reduce((a, x) => a + x.rs, 0);
+  const conf = done.filter(x => x.confident), cRight = conf.filter(x => x.right).length;
+  $('panel').innerHTML = (done.length
+      ? `<div><b>Today: ${right} of ${done.length} right (${Math.round(right / done.length * 100)}%)</b>`
+        + (conf.length ? ` · ★ more confident: ${cRight} of ${conf.length}` : '')
+        + `. Trading every lean with 1 lot of an at-the-money option: <b class="${money >= 0 ? 'up' : 'down'}">${rs(money)}</b> after costs.</div>`
+      : '<div class="m">No lean scored yet today.</div>')
+    + (s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
+        + s.slice().reverse().map(x => `<tr><td>${x.at}${x.confident ? ' ★' : ''}</td><td class="${x.lean === 'up' ? 'up' : 'down'}">${x.lean} ${x.pts >= 0 ? '+' : ''}${x.pts}</td>`
+          + (x.pending ? '<td class="n m">pending</td><td></td>' : `<td class="n ${x.right ? 'up' : 'down'}">${x.move >= 0 ? '+' : ''}${x.move.toFixed(1)} ${x.right ? '✓' : '✗'}</td><td class="n ${x.rs >= 0 ? 'up' : 'down'}">${rs(x.rs)}</td>`)
+          + '</tr>').join('') + '</table>' : '')
+    + `<div class="m" style="margin-top:6px">Arrows: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).
+       ₹ per lot assumes the option moves half as much as NIFTY and a round trip costs about ₹120.${d.trained_until ? ` Model trained on candles to ${d.trained_until}.` : ''}</div>`;
+}
+
+function addMin(hm, m) { const [h, mm] = hm.split(':').map(Number), t = h * 60 + mm + m; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
+
+async function load() {
+  for (const src of SOURCES) {
+    try {
+      const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (d.updated !== last) { last = d.updated; draw(d); }
+      return;
+    } catch (e) { /* next source */ }
+  }
+  $('msg').hidden = false; $('msg').textContent = 'No data yet today.';
+}
+load();
+setInterval(load, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>

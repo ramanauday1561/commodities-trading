@@ -168,10 +168,6 @@ function summary() {
     p.innerHTML = `<span class="m">Grok's morning read (info only):</span> ${m.score > 0 ? '+' : ''}${m.score} · ${(m.reasons || []).join(' · ')}`;
   } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
   p.innerHTML += checkLine(check30(d));
-  const nx = d.next;                          // nextcandle.py: the model's lean for the next 10 minutes, info only
-  if (nx && d.status === 'open') p.innerHTML += `<div style="margin-top:4px">Next 10 min (from ${nx.at}): model leans
-    <b class="${nx.lean === 'up' ? 'up' : 'down'}">${nx.lean}</b> (${nx.pts >= 0 ? '+' : ''}${nx.pts} pts${nx.confident ? ', one of its more confident calls' : ''}).
-    <span class="m">Info only, not a CALL / PUT: ${nx.record.text}.</span></div>`;
   const dl = d.daylike;                       // daylike.py: past days that looked like today so far
   if (dl && d.status === 'open') p.innerHTML += `<div style="margin-top:4px">Days like today (${dl.days} since 2015, at ${dl.at}): rose into the close
     <b>${Math.round(dl.up * 100)}%</b> of the time, ${pc(dl.avg_pct)} on average, usually between

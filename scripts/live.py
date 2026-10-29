@@ -287,7 +287,17 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
                                                    _load(os.path.join(data_dir, "news-nifty.json"))), max_tokens=220)
             st["card"] = card
 
+    if mode == "run":                                       # the next-candle page (next.html), separate from Live
+        nx = _next(data_dir, today, now)
+        if nx:
+            st["leans"] = [x for x in st.get("leans", []) if x["at"] != nx["at"]] + [
+                {"made": now.strftime("%H:%M"), **{k: nx[k] for k in ("at", "lean", "pts", "confident")}}]
     json.dump(st, open(path, "w"), separators=(",", ":"))
+    meta = _load(os.path.join(data_dir, "nextcandle-meta.json"), {}) or {}
+    json.dump({"date": day, "updated": now.isoformat(timespec="minutes"), "status": today.get("status"),
+               "prev_close": prev_close, "candles": st.get("candles", []), "leans": st.get("leans", []),
+               "record": meta.get("record"), "trained_until": meta.get("trained_until")},
+              open(os.path.join(data_dir, "next-nifty.json"), "w"), separators=(",", ":"))
     rc = (pre.get("recorded") or {})
     fo, cl = rc.get("from_open") or {}, rc.get("close") or {}
     i = today.get("intraday") or {}
@@ -300,8 +310,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
                     if side and i.get("open") else None,
            "candles": st.get("candles", []), "preds": st.get("preds", []), "moves": st.get("moves", []),
            "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card"),
-           "money": st.get("money"), "daylike": _daylike(data_dir, today, now),
-           "next": _next(data_dir, today, now) if mode == "run" else None}
+           "money": st.get("money"), "daylike": _daylike(data_dir, today, now)}
     json.dump(out, open(os.path.join(data_dir, "live-nifty.json"), "w"), separators=(",", ":"))
     print(f"live {mode}: {len(out['candles'])} candles, {len(out['preds'])} predictions, {len(out['moves'])} moves, "
           f"grok calls today {st.get('grok_calls', 0)}", flush=True)

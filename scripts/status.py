@@ -382,11 +382,7 @@ def main(data_dir, now=None, store_dir=None):
             print("summary:", extra["summary"])
     elif channels() and not alert and INFO_FROM <= _hm(now) < INFO_TO and (
             not new.get("info_at") or now - datetime.fromisoformat(new["info_at"]) >= timedelta(minutes=INFO_GAP_MIN)):
-        nx = ((load("live-nifty.json") or {}).get("next") or {}) if (load("live-nifty.json") or {}).get("date") == new["date"] else {}
-        nline = (f"Next 10 min (from {nx['at']}): model leans {nx['lean']} ({nx['pts']:+.0f} pts). Info only: "
-                 f"{nx['record']['text']}." if nx.get("lean") else "")
-        msg = info_update(today, new, load("news-nifty.json"), new.get("info_at"),
-                          "\n".join(x for x in (_daylike(load, today, now), nline) if x))
+        msg = info_update(today, new, load("news-nifty.json"), new.get("info_at"), _daylike(load, today, now))
         if msg:
             extra["info"] = notify(msg, silent=True)
             new["info_at"] = now.isoformat(timespec="minutes")

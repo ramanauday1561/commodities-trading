@@ -129,6 +129,16 @@ class Main(unittest.TestCase):
         out, a, _ = self.run_at("run", 9, 55, closes, grok_answer='{"close": 30000}')     # not a forecast: dropped
         self.assertNotIn("ai_close", out["preds"][-1])
 
+    def test_next_candle_page_file_keeps_the_days_leans(self):
+        lean = {"at": "10:15", "lean": "up", "pts": 2.0, "confident": False, "record": {"text": "x"}}
+        with mock.patch.object(live, "_next", return_value=lean):
+            self.run_at("run", 10, 5, [22760.0] * 10)
+        with mock.patch.object(live, "_next", return_value={**lean, "at": "10:25", "lean": "down"}):
+            self.run_at("run", 10, 15, [22760.0] * 12)
+        nx = json.load(open(os.path.join(self.dd, "next-nifty.json")))
+        self.assertEqual([(x["at"], x["lean"], x["made"]) for x in nx["leans"]], [("10:15", "up", "10:05"), ("10:25", "down", "10:15")])
+        self.assertNotIn("next", json.load(open(os.path.join(self.dd, "live-nifty.json"))))   # the Live page is unchanged
+
     def test_no_session_no_file(self):
         self.today["date"] = "2026-10-26"
         json.dump(self.today, open(os.path.join(self.dd, "today-nifty.json"), "w"))
