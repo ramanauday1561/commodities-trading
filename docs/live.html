@@ -131,6 +131,31 @@ function moneyBox(mo) {
     + (other ? ` · ${other.name} <b class="${cls(other.rs)}">${rs(other.rs)}</b>` : '') + ` <span class="m">(tap)</span></summary>
     <table>${rows}</table><div class="m">${mo.basis}. Over 11 years of 5-minute candles only the 09:15 signal has made money; no intraday rule passed.</div></details>`;
 }
+// The 30-minute check (29 Oct 2026): a prediction drawn at the time it was made can look right just by following the
+// price, so each run's prediction is compared with where NIFTY actually was 30 minutes later, beside "the price stays
+// where it is". A line that only follows the price does no better than "stays".
+function later30(p, c) {
+  const t = snap(p.time, c) + 1800, k = c.find(x => x.time === t);
+  return k ? k.open : null;                 // the 10-minute candle starting 30 minutes later opens at about t + 30
+}
+function check30(d) {
+  const c = d.candles || [], rows = [];
+  (d.preds || []).forEach(p => {
+    const fut = later30(p, c);
+    if (fut == null || p.pred == null) return;
+    rows.push({ model: Math.abs(p.pred - fut), stays: Math.abs(p.price - fut), ai: p.ai_close ? Math.abs(p.ai_close - fut) : null });
+  });
+  if (!rows.length) return null;
+  const avg = xs => xs.reduce((a, b) => a + b, 0) / xs.length, ai = rows.filter(r => r.ai != null);
+  return { n: rows.length, model: avg(rows.map(r => r.model)), stays: avg(rows.map(r => r.stays)),
+           ai: ai.length ? avg(ai.map(r => r.ai)) : null, aiStays: ai.length ? avg(ai.map(r => r.stays)) : null, aiN: ai.length };
+}
+function checkLine(k) {
+  if (!k) return '';
+  const verdict = (x, base) => x < base - 2 ? 'better than "stays"' : x > base + 2 ? 'worse than "stays"' : 'no better than "stays"';
+  return `<div style="margin-top:4px">30-minute check (${k.n} runs): off from the price 30 min later by model ${k.model.toFixed(0)} pts
+    (${verdict(k.model, k.stays)})${k.ai != null ? `, AI ${k.ai.toFixed(0)} pts (${verdict(k.ai, k.aiStays)})` : ''}, "the price stays" ${k.stays.toFixed(0)} pts.</div>`;
+}
 function summary() {
   const d = data || {}, p = $('panel'), m = d.morning, card = d.card;
   if (card) {
@@ -142,6 +167,7 @@ function summary() {
   } else if (m) {
     p.innerHTML = `<span class="m">Grok's morning read (info only):</span> ${m.score > 0 ? '+' : ''}${m.score} · ${(m.reasons || []).join(' · ')}`;
   } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
+  p.innerHTML += checkLine(check30(d));
   const dl = d.daylike;                       // daylike.py: past days that looked like today so far
   if (dl && d.status === 'open') p.innerHTML += `<div style="margin-top:4px">Days like today (${dl.days} since 2015, at ${dl.at}): rose into the close
     <b>${Math.round(dl.up * 100)}%</b> of the time, ${pc(dl.avg_pct)} on average, usually between
@@ -162,6 +188,9 @@ chart.subscribeClick(param => {
   if (k) h += ` · O ${f(k.open)} H ${f(k.high)} L ${f(k.low)} C ${f(k.close)}`;
   if (pr) h += `<div>Predicted close then: model <b>${f(pr.pred)}</b>${pr.ai_close ? `, AI <b>${f(pr.ai_close)}</b>${pr.ai_conf != null ? ` (${pr.ai_conf}% sure)` : ''}` : ''}${pr.lo ? `; likely ${f(pr.lo)} – ${f(pr.hi)}` : ''}</div>`
     + (pr.ai_why ? `<div class="m">AI: ${pr.ai_why}</div>` : '');
+  const fut = pr ? later30(pr, c) : null;
+  if (pr && fut != null) h += `<div>30 min later NIFTY was ${f(fut)}: model ${Math.abs(pr.pred - fut).toFixed(0)} pts off`
+    + (pr.ai_close ? `, AI ${Math.abs(pr.ai_close - fut).toFixed(0)}` : '') + `, "stays" ${Math.abs(pr.price - fut).toFixed(0)}</div>`;
   mk.forEach(m => h += `<div>● ${m.at.slice(11, 16)} ${m.state}: ${m.headline || ''}</div>`);
   if (mv) h += `<div>⚡ ${pc(mv.pct)} (${f(mv.from)} → ${f(mv.to)})${mv.note ? `: ${mv.note}` : ''}</div>`;
   $('panel').innerHTML = h; $('panel').dataset.pinned = '1';
