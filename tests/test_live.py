@@ -61,6 +61,31 @@ class Scorecard(unittest.TestCase):
         self.assertEqual(c["runs"], 3)
 
 
+class TrackRecord(unittest.TestCase):
+    """Each line against "the close = the price then", and Grok's morning read, over the stored days."""
+
+    def test_nearer_than_the_price_then_ties_left_out(self):
+        preds = [{"price": 100.0, "pred": 104.0, "ai_close": 101.0},     # close 105: 1 off vs 5 off, nearer
+                 {"price": 103.0, "pred": 103.0},                         # the same as the price: left out
+                 {"price": 105.5, "pred": 107.0}]                         # 2 off vs 0.5 off: not nearer
+        self.assertEqual(live.closer(preds, "pred", 105.0), (1, 2))
+        self.assertEqual(live.closer(preds, "ai_close", 105.0), (1, 1))
+
+    def test_record_over_the_stored_days(self):
+        store = tempfile.mkdtemp()
+        os.makedirs(os.path.join(store, "live"))
+        day = lambda move, score, preds: {"card": {"close": 100.0, "move_pct": move}, "morning": {"score": score}, "preds": preds}
+        json.dump(day(-0.2, -1, [{"price": 101.0, "pred": 100.5}]), open(os.path.join(store, "live", "2026-10-28.json"), "w"))
+        json.dump(day(1.05, -1, [{"price": 98.0, "pred": 97.0, "ai_close": 99.0}, {"price": 99.0, "pred": 99.5}]),
+                  open(os.path.join(store, "live", "2026-10-29.json"), "w"))
+        json.dump({"preds": [{"price": 1.0, "pred": 1.0}]}, open(os.path.join(store, "live", "2026-10-30.json"), "w"))  # no close yet
+        r = live.track_record(store)
+        self.assertEqual([x["d"] for x in r["days"]], ["2026-10-28", "2026-10-29"])
+        self.assertEqual(r["model"], {"closer": 2, "n": 3, "days": 2})
+        self.assertEqual(r["ai"], {"closer": 1, "n": 1, "days": 1})
+        self.assertEqual(r["morning"], {"right": 1, "calls": 2, "neutral": 0})
+
+
 class Budget(unittest.TestCase):
     def test_stops_at_the_daily_cap_and_needs_the_key(self):
         st = {"grok_calls": grok.DAILY_CAP}

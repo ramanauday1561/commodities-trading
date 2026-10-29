@@ -241,7 +241,10 @@ def info_update(today, new, news=None, since=None, daylike_line=""):
         acc = i.get("accuracy")
         hint = "" if acc is None else (f", {round(acc * 100)}% of moves like this held" if acc >= 0.65
                                        else f", {round(acc * 100)}%: too small a move to call")
-        lines.append(f"Hourly check: closes {'above' if i['direction'] == 'up' else 'below'} yesterday{hint}")
+        # 29 Oct 2026: "94% held" read like the odds of a CALL bought now; it is only the odds of staying on this side
+        # of yesterday's close. The odds of rising further are the "Days like today" line.
+        lines.append(f"Hourly check: closes {'above' if i['direction'] == 'up' else 'below'} yesterday's close{hint}"
+                     + (" (not the odds it goes further from here)" if acc is not None and acc >= 0.65 else ""))
     trade = ""
     if new.get("kind") == "stop":
         trade = f" (stopped out at -{STOP_PCT:.2f}%)"
@@ -291,8 +294,12 @@ def grok_morning(live, day):
     if not m:
         return ""
     word = {-2: "very bearish", -1: "bearish", 0: "neutral", 1: "bullish", 2: "very bullish"}.get(m.get("score"), "")
-    return (f"\n\U0001F916 Grok's morning read (info only, not part of the signal): {m['score']:+d} {word}. "
+    rec = ((live or {}).get("record") or {}).get("morning") or {}
+    tally = (f" Its record: right on {rec['right']} of {rec['calls']} days" + (f" ({rec['neutral']} neutral not counted)" if rec.get("neutral") else "") + "."
+             if rec.get("calls") else " Its record starts today.")
+    text = (f"\n\U0001F916 Grok's morning read (info only, not part of the signal): {m['score']:+d} {word}. "
             + "; ".join(m.get("reasons") or []) + (f". Big event: {m['event']}" if m.get("big_event") and m.get("event") else ""))
+    return text.rstrip(". ") + "." + tally
 
 
 def gift_morning(g, day):
