@@ -197,6 +197,7 @@ jobs:
           python -u scripts/intraday_data.py update intra
           bash scripts/store.sh push intraday-data intra
           PYTHONPATH=scripts python -u scripts/daylike.py intra docs/data     # "days like today" table for the session
+          pip install -q lightgbm && PYTHONPATH=scripts python -u scripts/nextcandle.py train intra docs/data   # next-candle lean (info)
       - name: Status page, phone alert and the day's scorecard
         continue-on-error: true
         env:
@@ -224,6 +225,7 @@ jobs:
         run: |
           bash scripts/store.sh push scoreboard store
           mkdir -p site-snap && cp docs/data/*.json site-snap/ && rm -f site-snap/intraday-*.json
+          cp docs/data/nextcandle-model.txt site-snap/ 2>/dev/null || true    # the next-candle model (nextcandle.py)
           # day replays (replay.py) may have been added while this job ran: keep them in the squashed copy
           latest="$RUNNER_TEMP/site-latest" && bash scripts/store.sh pull site-data "$latest" && cp "$latest"/replay-*.json site-snap/ 2>/dev/null || true
           bash scripts/store.sh push site-data site-snap --squash
