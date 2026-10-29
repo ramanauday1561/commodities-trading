@@ -34,7 +34,7 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <div><b>Next 10 minutes</b><small id="when">Loading…</small></div>
+    <div data-nav><div><b>Next 10 minutes</b><small id="when">Loading…</small></div></div>
     <a href="live.html">Live</a>
   </div>
   <div class="now" id="now">…</div>
@@ -124,5 +124,6 @@ load();
 setInterval(load, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

@@ -34,7 +34,7 @@
 <body>
 <div class="wrap">
   <div class="top">
-    <div class="px"><b id="px">NIFTY 50</b><small id="when">Loading…</small></div>
+    <div data-nav><div class="px"><b id="px">NIFTY 50</b><small id="when">Loading…</small></div></div>
     <a href="status.html">Close</a>
   </div>
   <div class="legend" id="legend">
@@ -284,5 +284,6 @@ if (REPLAY) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 }
 </script>
+<script src="nav.js"></script>
 </body>
 </html>
