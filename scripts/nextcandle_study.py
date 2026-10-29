@@ -14,6 +14,14 @@ Money: an at-the-money option moves about half as much as NIFTY; a round trip on
   (brokerage, STT, fees and the bid-ask spread), about 1.85 option points, so a trade earns 0.5 x NIFTY points - 1.85.
 Rule fixed before the run: the model is usable for CALL / PUT only if its top-20% most confident trades win at least
 55% of the time, earn after option costs in both halves of the test years and in at least 6 of the 10 test years.
+Result (29 Oct 2026, 99,915 candles, 2,855 days, test years 2017-2026; HORIZON=3 and 6 run the same way): nothing passed.
+  next 10 minutes (the average candle moves 10.9 NIFTY points): the model's top-20% calls were right 53.1% of the time
+    (51.1% for all calls), but lost 1.12 option points a trade after costs (about -Rs73 a lot), and lost in all 10
+    years. "Follow the last candle" was right 49.3%, "reverse it" 50.6%: both lost more.
+  next 30 minutes (18.9 points on average): 53.3% right, -0.27 option points a trade, 4 of 10 years up.
+  next 60 minutes (26.6 points): 53.1% right, -0.10 option points a trade (about -Rs6 a lot), 4 of 10 years up.
+The model sees a little more than a coin flip, but a 10-minute candle is too small for an option trade to cover its
+costs; longer horizons get close to break-even and no further. Not used for CALL / PUT.
 """
 import json
 import os

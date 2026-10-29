@@ -286,6 +286,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             import gift_probe
             gift_probe.main()
         return
+    if mode == "nextcandle":                              # NIFTY: predicting the next 10-minute candle for CALL / PUT
+        if key == "nifty":
+            import nextcandle_study
+            nextcandle_study.main()
+        return
     if mode == "intrarules":                              # NIFTY: simple intraday rules on 60 days of 5-min candles
         if key == "nifty":
             import intraday_rules_study

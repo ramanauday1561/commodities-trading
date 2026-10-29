@@ -31,7 +31,7 @@ jobs:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance lightgbm exchange_calendars
       - name: 5-minute candle history (modes "intradata", "intrarules" and "history"; intraday_data.py, intraday-data branch)
-        if: (github.event.inputs.mode == 'intradata' || github.event.inputs.mode == 'intrarules' || github.event.inputs.mode == 'history' || github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'gift') && matrix.key == 'nifty'
+        if: (github.event.inputs.mode == 'intradata' || github.event.inputs.mode == 'intrarules' || github.event.inputs.mode == 'history' || github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'gift' || github.event.inputs.mode == 'nextcandle') && matrix.key == 'nifty'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
@@ -40,7 +40,7 @@ jobs:
           python -u scripts/intraday_data.py update intra
           bash scripts/store.sh push intraday-data intra
       - name: Overnight history for mode "longsignal" (the four overnight-* branches)
-        if: (github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'gift') && matrix.key == 'nifty'
+        if: (github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'gift' || github.event.inputs.mode == 'nextcandle') && matrix.key == 'nifty'
         env:
           GH_TOKEN: ${{ github.token }}
         run: for k in es nq nikkei hangseng india india-p0 india-p1 india-p2 india-p3; do bash scripts/store.sh pull "overnight-$k" od; done
