@@ -291,6 +291,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             import nextcandle_study
             nextcandle_study.main()
         return
+    if mode == "trendday":                                # NIFTY: ride a strong morning to 15:15 (29 Oct 2026)
+        if key == "nifty":
+            import trendday_study
+            trendday_study.main()
+        return
     if mode == "intrarules":                              # NIFTY: simple intraday rules on 60 days of 5-min candles
         if key == "nifty":
             import intraday_rules_study

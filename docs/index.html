@@ -435,6 +435,15 @@ function riskCard(d) {
 }
 
 const TIER = { very_strong: 'Very strong call', strong: 'Strong call', lean: 'Lean', none: 'No clear call' };
+// 29 Oct 2026: "94% held" was read as the odds of a CALL bought then. It is only the odds of the close staying on this
+// side of yesterday's close; the odds of going further from here come from days like today (daylike.py, via live.py).
+function furtherLine(d, dir) {
+  const l = d._live, dl = l && l.date === (d._today || {}).date && l.status === 'open' ? l.daylike : null;
+  const side = dir === 'up' ? 'above' : 'below';
+  if (!dl) return ` That is about staying ${side} yesterday's close, not the odds of going further from here.`;
+  const further = dir === 'up' ? dl.up : 1 - dl.up;
+  return ` That is about staying ${side} yesterday's close. Going further ${dir === 'up' ? 'up' : 'down'} from here, what a CALL or PUT bought now needs, happened on <b>${Math.round(further * 100)}%</b> of ${dl.days} days like today.`;
+}
 function todayCard(d) {
   const t = d._today;
   const todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
@@ -476,7 +485,7 @@ function todayCard(d) {
       ? `<div class="sub" style="margin-top:6px">Opening call ${p.gap.direction === 'up' ? '▲' : '▼'}: NIFTY opened at ${f(i.open)} (${pc((i.open / p.prev_close - 1) * 100)}), ${(i.open > p.prev_close) === (p.gap.direction === 'up') ? '<b class="up">right</b>' : '<b class="down">wrong</b>'}.</div>` : '';
     intr = (i.accuracy != null
       ? `<div style="margin-top:12px"><div class="k" style="margin-bottom:2px">Update at ${esc(i.asof)} IST</div>NIFTY is <b class="${cls(i.move_pct)}">${pc(i.move_pct)}</b> vs yesterday (${f(i.price)}), so the close is likely ${arrow(i.direction)}.
-         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} by a similar amount (${i.bucket_pct.toFixed(2)}% or more, up to the next step) by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${i.test_days} days tested).</div></div>`
+         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} by a similar amount (${i.bucket_pct.toFixed(2)}% or more, up to the next step) by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${i.test_days} days tested).${furtherLine(d, i.direction)}</div></div>`
       : `<div class="sub" style="margin-top:12px">At ${esc(i.asof)} IST NIFTY is ${pc(i.move_pct)} vs yesterday. The intraday update starts at 10:15.</div>`) + gapRes + verdict;
   } else if (i && t.status === 'closed' && p) {
     const ok = (c, up) => c.tier === 'none' ? 'no call' : ((c.direction === 'up') === up ? '<b class="up">right</b>' : '<b class="down">wrong</b>');
@@ -590,7 +599,7 @@ async function select(key) {
     }
     if (!d.models || !Object.keys(d.models).length) throw new Error('data format not recognised, hard-refresh the page');
     const side = async name => { try { const r = await fetch(`data/${name}-${key}.json?t=` + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
-    [d._score, d._intraday, d._news, d._today, d._hourly] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly')]);
+    [d._score, d._intraday, d._news, d._today, d._hourly, d._live] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly'), key === 'nifty' ? side('live') : null]);
     if (my !== token) return;
     render(d);
   } catch (e) {
@@ -674,7 +683,7 @@ function callLine(d) {
     msg = `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day: too small a move to call the close (moves this size held only ${pct(i.accuracy)} of the time).`;
   } else if (i && t.status === 'open' && i.accuracy != null) {
     const agree = p && p.close.tier !== 'none' && p.close.direction === i.direction;
-    msg = `At ${esc(i.asof)} the session points to a close ${word(i.direction)} (moves like this held ${pct(i.accuracy)} of the time)${p && p.close.tier !== 'none' ? (agree ? ', in line with the morning call.' : ', against the morning call.') : '.'}`;
+    msg = `At ${esc(i.asof)} the session points to a close ${word(i.direction)} (moves like this held ${pct(i.accuracy)} of the time, vs yesterday's close, not from here)${p && p.close.tier !== 'none' ? (agree ? ', in line with the morning call.' : ', against the morning call.') : '.'}`;
   } else if (i && t.status === 'closed' && p && p.close.tier !== 'none') {
     msg = `Today's call was ${word(p.close.direction)}; it closed ${pc(i.move_pct)}, so the call was ${(p.close.direction === 'up') === (i.move_pct > 0) ? '<b class="up">right</b>' : '<b class="down">wrong</b>'}.`;
   } else if (p) {
@@ -758,7 +767,7 @@ function headline(d, first, last, upPct) {
     const p = t.preopen, i = t.intraday;
     if (i && t.status === 'open' && i.accuracy != null && i.accuracy >= 0.85)
       return { ...likely(i.direction), pill: `${pct(i.accuracy)} held`, from: 'call',
-               text: `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day. When it was this far ${i.direction === 'up' ? 'up' : 'down'} at this time, it closed on the same side ${pct(i.accuracy)} of the time.` };
+               text: `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day. When it was this far ${i.direction === 'up' ? 'up' : 'down'} at this time, it closed on the same side ${pct(i.accuracy)} of the time.${furtherLine(d, i.direction)}` };
     // Once the session is moving against the morning call, stop showing it as the answer (lesson from 15 Oct 2026).
     if (p && p.close.tier !== 'none' && i && t.status === 'open' && i.direction !== p.close.direction && Math.abs(i.move_pct) >= 0.25)
       return { word: 'Morning call in doubt', cls: 'warn', pill: `${pc(i.move_pct)} now`, from: 'call',

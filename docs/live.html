@@ -118,8 +118,12 @@ function draw(d) {
   if (!$('panel').dataset.pinned) summary();
 }
 // "₹2 lakh today" (daymoney.py): what each way of trading the day made, per NIFTY lot, beside its 11-year result
-let moneyOpen = false;
-document.addEventListener('toggle', e => { if (e.target.classList && e.target.classList.contains('money')) moneyOpen = e.target.open; }, true);
+let moneyOpen = false, recordOpen = false;
+document.addEventListener('toggle', e => {
+  if (!e.target.classList) return;
+  if (e.target.classList.contains('record')) recordOpen = e.target.open;
+  else if (e.target.classList.contains('money')) moneyOpen = e.target.open;
+}, true);
 function moneyBox(mo) {
   if (!mo || !mo.rows || !mo.rows.length) return '';
   const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
@@ -156,23 +160,45 @@ function checkLine(k) {
   return `<div style="margin-top:4px">30-minute check (${k.n} runs): off from the price 30 min later by model ${k.model.toFixed(0)} pts
     (${verdict(k.model, k.stays)})${k.ai != null ? `, AI ${k.ai.toFixed(0)} pts (${verdict(k.ai, k.aiStays)})` : ''}, "the price stays" ${k.stays.toFixed(0)} pts.</div>`;
 }
+const beat = (k, n) => `<b class="${k / n > 0.5 ? 'up' : 'down'}">${k} of ${n}</b>`;
+// The track record over every stored day (live.py track_record): is each line nearer the close than just taking the
+// price at that moment, and was Grok's morning read on the right side of the day's move?
+function recordLine(r) {
+  if (!r) return '';
+  const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const ms = r.morning || {};
+  return `<details class="money record"${recordOpen ? ' open' : ''}><summary><b>Track record since ${day(r.since)}</b> <span class="m">(tap)</span></summary>
+    <div>Nearer the close than "the close = the price then": model ${r.model.n ? beat(r.model.closer, r.model.n) : '—'} runs
+    (${r.model.days} day${r.model.days === 1 ? '' : 's'})${r.ai.n ? `, AI ${beat(r.ai.closer, r.ai.n)} (${r.ai.days} day${r.ai.days === 1 ? '' : 's'})` : ''}. Below half means the line
+    adds nothing to the price itself.</div>
+    <div>Grok's morning read on the right side of the day: ${ms.calls ? beat(ms.right, ms.calls) + ' days' : 'no calls yet'}${ms.neutral ? ` (${ms.neutral} neutral)` : ''}.</div>
+    <table>${r.days.slice().reverse().map(x => `<tr><td>${day(x.d)}</td><td class="n ${x.move_pct >= 0 ? 'up' : 'down'}">${pc(x.move_pct)}</td>
+      <td class="n">model ${x.model_n ? `${x.model_closer}/${x.model_n}` : '—'}</td><td class="n">AI ${x.ai_n ? `${x.ai_closer}/${x.ai_n}` : '—'}</td>
+      <td class="n">morning ${x.morning == null ? '—' : (x.morning > 0 ? '+' : '') + x.morning + (x.morning_right == null ? '' : x.morning_right ? ' ✓' : ' ✗')}</td></tr>`).join('')}</table></details>`;
+}
 function summary() {
   const d = data || {}, p = $('panel'), m = d.morning, card = d.card;
   if (card) {
     p.innerHTML = `Closed ${f(card.close)} <span class="${card.move_pct >= 0 ? 'up' : 'down'}">${pc(card.move_pct)}</span>`
       + (card.call_close ? ` · 08:57 forecast ${f(card.call_close)} (${card.call_right ? 'right' : 'wrong'} side)` : '')
       + (card.runs ? `<div>Predicted closes vs the real close: model ${card.avg_miss_pct.toFixed(2)}% off on average`
-         + (card.ai_runs ? `, AI ${card.ai_avg_miss_pct.toFixed(2)}% off (right side ${Math.round(card.ai_side_right * 100)}% of the time)` : '') + '</div>' : '')
+         + (card.ai_runs ? `, AI ${card.ai_avg_miss_pct.toFixed(2)}% off` : '') + '</div>' : '')
+      + (card.model_n ? `<div>Nearer the close than "the close = the price then": model ${beat(card.model_closer, card.model_n)}`
+         + (card.ai_n ? `, AI ${beat(card.ai_closer, card.ai_n)}` : '') + '</div>' : '')
       + (card.note ? `<div class="m">Why (Grok): ${card.note}</div>` : '');
   } else if (m) {
     p.innerHTML = `<span class="m">Grok's morning read (info only):</span> ${m.score > 0 ? '+' : ''}${m.score} · ${(m.reasons || []).join(' · ')}`;
   } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
   p.innerHTML += checkLine(check30(d));
   const dl = d.daylike;                       // daylike.py: past days that looked like today so far
-  if (dl && d.status === 'open') p.innerHTML += `<div style="margin-top:4px">Days like today (${dl.days} since 2015, at ${dl.at}): rose into the close
-    <b>${Math.round(dl.up * 100)}%</b> of the time, ${pc(dl.avg_pct)} on average, usually between
-    ${pc(dl.range_pct[0])} and ${pc(dl.range_pct[1])} (${dl.read}).
+  // two different questions (29 Oct 2026: "94% held" was read as the odds of a CALL bought then): staying on this side
+  // of yesterday's close, and going further from here, which is what an option bought now needs
+  if (dl && d.status === 'open') p.innerHTML += `<div style="margin-top:4px">Days like today (${dl.days} since 2015, at ${dl.at}):
+    closed ${d.move_pct >= 0 ? 'above' : 'below'} yesterday's close ${Math.round((d.move_pct >= 0 ? dl.close_above : 1 - dl.close_above) * 100)}% of the time,
+    but <b>rose further from here only ${Math.round(dl.up * 100)}%</b>, ${pc(dl.avg_pct)} on average, usually between
+    ${pc(dl.range_pct[0])} and ${pc(dl.range_pct[1])} (${dl.read}). A CALL or PUT bought now needs the second number.
     <span class="m">Not a trade signal: no intraday rule has passed on 11 years.</span></div>`;
+  p.innerHTML += recordLine(d.record);
   p.innerHTML += moneyBox(d.money);
 }
 chart.subscribeClick(param => {

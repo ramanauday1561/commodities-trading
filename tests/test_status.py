@@ -298,6 +298,26 @@ class GrokLines(unittest.TestCase):
                 self.assertIn("Why (Grok): Banks fell after results.", body)
 
 
+class HonestLines(unittest.TestCase):
+    """29 Oct 2026: the hourly check is about yesterday's close, and Grok's morning read carries its record."""
+
+    def test_hourly_check_says_it_is_not_the_odds_of_going_further(self):
+        t = {"status": "open", "intraday": {"price": 22850.0, "move_pct": 0.66, "open": 22690.0, "direction": "up",
+                                            "accuracy": 0.94}}
+        body = status.info_update(t, {"state": "NOTHING", "headline": "No trade today"})["body"]
+        self.assertIn("Hourly check: closes above yesterday's close, 94% of moves like this held "
+                      "(not the odds it goes further from here)", body)
+        t["intraday"]["accuracy"] = 0.6
+        self.assertNotIn("further", status.info_update(t, {"state": "NOTHING", "headline": "No trade today"})["body"])
+
+    def test_morning_read_with_its_record(self):
+        m = {"score": -1, "reasons": ["oil up", "weak Asia."], "big_event": False}
+        line = status.grok_morning({"date": "2026-10-30", "morning": m,
+                                    "record": {"morning": {"right": 1, "calls": 2, "neutral": 1}}}, "2026-10-30")
+        self.assertTrue(line.endswith("-1 bearish. oil up; weak Asia. Its record: right on 1 of 2 days (1 neutral not counted)."))
+        self.assertTrue(status.grok_morning({"date": "2026-10-30", "morning": m}, "2026-10-30").endswith("Its record starts today."))
+
+
 class Channels(unittest.TestCase):
     def test_telegram_and_ntfy_each_get_the_alert_and_one_failing_does_not_stop_the_other(self):
         sent = []
