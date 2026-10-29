@@ -65,11 +65,16 @@ let last = '', first = true;
 
 function epoch(date, hm) { return Date.parse(`${date}T${hm}:00Z`) / 1000; }   // chart times: IST clock as UTC
 
+// A lean is scored only once its candle has finished: a later candle exists, the data was written 10+ minutes after
+// the candle started, or the market has closed. (The run writes a minute or two into each new candle, so the newest
+// candle in the file is usually still forming: scoring it then judged the lean on its first minute.)
 function score(d) {
   const c = d.candles || [], byT = new Map(c.map((x, i) => [x.time, i]));
+  const asOf = d.updated ? epoch(d.date, d.updated.slice(11, 16)) : 0;
   return (d.leans || []).map(l => {
     const t = epoch(d.date, l.at), i = byT.get(t);
-    if (i == null || i === 0) return { ...l, t, pending: true };
+    const finished = i != null && (i < c.length - 1 || asOf >= t + 600 || d.status === 'closed');
+    if (i == null || i === 0 || !finished) return { ...l, t, pending: true };
     const move = c[i].close - c[i - 1].close, side = l.lean === 'up' ? 1 : -1;
     return { ...l, t, move, right: Math.sign(move) === side, rs: (DELTA * side * move - COST) * LOT };
   });
@@ -86,7 +91,11 @@ function draw(d) {
   if (first && c.length) { chart.timeScale().fitContent(); first = false; }
   $('when').textContent = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? 'every 10 min' : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   const rec = (d.record && d.record.text) || 'not tested';
-  $('now').innerHTML = (cur && cur.pending && d.status === 'open'
+  const nowIST = Date.now() / 1000 + 19800, late = cur && d.status === 'open' && nowIST >= cur.t + 600 + 120;
+  $('now').innerHTML = (late
+      ? `<div class="big m" style="font-size:16px">Waiting for the ${addMin(cur.at, 10)} update</div>
+         <div class="m">It runs every 10 minutes, but GitHub sometimes starts it a few minutes late. The page refreshes by itself.</div>`
+      : cur && cur.pending && d.status === 'open'
       ? `<div class="m">${cur.at} to ${addMin(cur.at, 10)}</div><div class="big ${cur.lean === 'up' ? 'up' : 'down'}">${cur.lean === 'up' ? '▲ leans up' : '▼ leans down'}
          <span style="font-size:14px;font-weight:500">${cur.pts >= 0 ? '+' : ''}${cur.pts} pts${cur.confident ? ' · ★ more confident' : ''}</span></div>`
       : `<div class="big m" style="font-size:16px">${d.status === 'open' ? 'Waiting for the next 10-minute candle' : 'No live lean (market closed)'}</div>`)
