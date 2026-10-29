@@ -61,6 +61,31 @@ class Scorecard(unittest.TestCase):
         self.assertEqual(c["runs"], 3)
 
 
+class TrackRecord(unittest.TestCase):
+    """Each line against "the close = the price then", and Grok's morning read, over the stored days."""
+
+    def test_nearer_than_the_price_then_ties_left_out(self):
+        preds = [{"price": 100.0, "pred": 104.0, "ai_close": 101.0},     # close 105: 1 off vs 5 off, nearer
+                 {"price": 103.0, "pred": 103.0},                         # the same as the price: left out
+                 {"price": 105.5, "pred": 107.0}]                         # 2 off vs 0.5 off: not nearer
+        self.assertEqual(live.closer(preds, "pred", 105.0), (1, 2))
+        self.assertEqual(live.closer(preds, "ai_close", 105.0), (1, 1))
+
+    def test_record_over_the_stored_days(self):
+        store = tempfile.mkdtemp()
+        os.makedirs(os.path.join(store, "live"))
+        day = lambda move, score, preds: {"card": {"close": 100.0, "move_pct": move}, "morning": {"score": score}, "preds": preds}
+        json.dump(day(-0.2, -1, [{"price": 101.0, "pred": 100.5}]), open(os.path.join(store, "live", "2026-10-28.json"), "w"))
+        json.dump(day(1.05, -1, [{"price": 98.0, "pred": 97.0, "ai_close": 99.0}, {"price": 99.0, "pred": 99.5}]),
+                  open(os.path.join(store, "live", "2026-10-29.json"), "w"))
+        json.dump({"preds": [{"price": 1.0, "pred": 1.0}]}, open(os.path.join(store, "live", "2026-10-30.json"), "w"))  # no close yet
+        r = live.track_record(store)
+        self.assertEqual([x["d"] for x in r["days"]], ["2026-10-28", "2026-10-29"])
+        self.assertEqual(r["model"], {"closer": 2, "n": 3, "days": 2})
+        self.assertEqual(r["ai"], {"closer": 1, "n": 1, "days": 1})
+        self.assertEqual(r["morning"], {"right": 1, "calls": 2, "neutral": 0})
+
+
 class Budget(unittest.TestCase):
     def test_stops_at_the_daily_cap_and_needs_the_key(self):
         st = {"grok_calls": grok.DAILY_CAP}
@@ -118,7 +143,26 @@ class Main(unittest.TestCase):
         out, a, n = self.run_at("run", 13, 0, closes)
         self.assertEqual(len(out["moves"]), 1)
         n.assert_not_called()
-        a.assert_not_called()
+        self.assertFalse(any("moved" in c.args[0] for c in a.call_args_list))      # no note asked for an old move
+
+    def test_the_ai_predicts_the_close_beside_our_model(self):
+        closes = [22760.0] * 6 + [22740.0, 22720.0]
+        ans = '{"close": 22735, "direction": "down", "confidence": 60, "why": "Slipping with banks."}'
+        out, a, _ = self.run_at("run", 9, 55, closes, grok_answer=ans)
+        p = out["preds"][-1]
+        self.assertEqual((p["pred"], p["ai_close"], p["ai_conf"]), (22690.0, 22735.0, 60))
+        out, a, _ = self.run_at("run", 9, 55, closes, grok_answer='{"close": 30000}')     # not a forecast: dropped
+        self.assertNotIn("ai_close", out["preds"][-1])
+
+    def test_next_candle_page_file_keeps_the_days_leans(self):
+        lean = {"at": "10:15", "lean": "up", "pts": 2.0, "confident": False, "record": {"text": "x"}}
+        with mock.patch.object(live, "_next", return_value=lean):
+            self.run_at("run", 10, 5, [22760.0] * 10)
+        with mock.patch.object(live, "_next", return_value={**lean, "at": "10:25", "lean": "down"}):
+            self.run_at("run", 10, 15, [22760.0] * 12)
+        nx = json.load(open(os.path.join(self.dd, "next-nifty.json")))
+        self.assertEqual([(x["at"], x["lean"], x["made"]) for x in nx["leans"]], [("10:15", "up", "10:05"), ("10:25", "down", "10:15")])
+        self.assertNotIn("next", json.load(open(os.path.join(self.dd, "live-nifty.json"))))   # the Live page is unchanged
 
     def test_no_session_no_file(self):
         self.today["date"] = "2026-10-26"

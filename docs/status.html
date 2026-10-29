@@ -38,7 +38,7 @@
 </style>
 </head>
 <body>
-  <h1>NIFTY · Status</h1>
+  <h1 data-nav>NIFTY · Status</h1>
   <div id="word" class="NOTHING">…</div>
   <p id="headline"></p>
   <p id="reason"></p>
@@ -118,5 +118,6 @@ load();
 setInterval(load, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

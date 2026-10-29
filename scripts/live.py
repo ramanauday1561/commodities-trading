@@ -8,10 +8,15 @@ Usage: python scripts/live.py <data_dir> <store_dir> morning|run|close
            ones, finds big moves (NIFTY 0.4% or more within 20 minutes) and sends each new one to the phone with
            Grok's note on why.
   close    (the post-close run, before status.py) the day's scorecard (how far the 08:57 call and each prediction were
-           from the close, and from when they stayed on the right side) and Grok's note on why the day moved.
+           from the close, from when they stayed on the right side, and how often each line was nearer the close than
+           "the close = the price then") and Grok's note on why the day moved.
+Every run also publishes the track record over all stored days (track_record): our model and the AI against "the
+price then", and Grok's morning read against the day's move (29 Oct 2026, after a day both lines only followed the
+price and the bearish morning read met a +1.05% day).
 Everything is kept in <store>/live/<date>.json (scoreboard branch) and published as <data_dir>/live-nifty.json.
 Times on the chart are IST clock times written as if UTC, as in hourly.py.
 """
+import glob
 import json
 import os
 import sys
@@ -101,6 +106,46 @@ def scorecard(preds, prev_close, close, call_pct=None):
     return out
 
 
+def closer(preds, key, close):
+    """How often a predicted close (key) was nearer the real close than "the close = the price then", ties left out.
+    (29 Oct 2026: the model line was off 0.38% on average, the same as just taking the price then, and nearer in only
+    12 of 34 runs; the AI was nearer in 7 of 15. An average miss alone made both look useful.)"""
+    rows = [(abs(p[key] - close), abs(p["price"] - close)) for p in preds if p.get(key) and p.get("price")]
+    rows = [(a, b) for a, b in rows if round(a, 2) != round(b, 2)]
+    return sum(a < b for a, b in rows), len(rows)
+
+
+def day_record(st):
+    """One finished day from its store file: our lines against "the price then", and Grok's morning read."""
+    card = (st or {}).get("card") or {}
+    close, move = card.get("close"), card.get("move_pct")
+    if not close or move is None:
+        return None
+    preds = st.get("preds", [])
+    (mb, mn), (ab, an) = closer(preds, "pred", close), closer(preds, "ai_close", close)
+    score = (st.get("morning") or {}).get("score")
+    return {"move_pct": move, "model_closer": mb, "model_n": mn, "ai_closer": ab, "ai_n": an, "morning": score,
+            "morning_right": None if not score or not move else (score > 0) == (move > 0)}
+
+
+def track_record(store_dir, keep=20):
+    """Every finished day in <store>/live: the last `keep` days and the totals since the first."""
+    days = []
+    for f in sorted(glob.glob(os.path.join(store_dir, "live", "*.json"))):
+        r = day_record(_load(f, {}))
+        if r:
+            days.append({"d": os.path.basename(f)[:-5], **r})
+    if not days:
+        return None
+    tot = lambda k: sum(x[k] for x in days)
+    calls = [x for x in days if x["morning_right"] is not None]
+    return {"days": days[-keep:], "since": days[0]["d"],
+            "model": {"closer": tot("model_closer"), "n": tot("model_n"), "days": sum(1 for x in days if x["model_n"])},
+            "ai": {"closer": tot("ai_closer"), "n": tot("ai_n"), "days": sum(1 for x in days if x["ai_n"])},
+            "morning": {"right": sum(x["morning_right"] for x in calls), "calls": len(calls),
+                        "neutral": sum(1 for x in days if x["morning"] == 0)}}
+
+
 def morning_prompt(today, news, record):
     p = (today or {}).get("preopen") or {}
     rows = [f"{r['d']}: gap call {r['gap']} ({'right' if r.get('gap_hit') else 'wrong'}), close call {r['close_call']} "
@@ -137,6 +182,20 @@ def close_prompt(card, today_str, moves, morning, news=None):
             "move the way it did today? Use today's news and X posts; say 'no clear news' where unsure." + headlines_text(news))
 
 
+AI_RUNS = 40                         # AI close predictions a day (one per 10-minute run, 09:25-15:25)
+
+
+def ai_prompt(day, now, pc, opn, price, hi, lo, closes, call, news=None):
+    """The AI's prediction of today's close at this run (same question as replay.py), with our latest headlines."""
+    path = ", ".join(f"{c:,.0f}" for c in closes[-8:])
+    return (f"It is {now:%H:%M} IST on {day}, during the Indian market session (09:15-15:30). NIFTY 50: yesterday's "
+            f"close {pc:,.2f}; opened {opn:,.2f}; now {price:,.2f} ({(price / pc - 1) * 100:+.2f}%); day's high {hi:,.2f}, "
+            f"low {lo:,.2f}; last 10-minute closes: {path}. Our models' call at 08:57: {call or 'none'}."
+            + headlines_text(news) + "\n\nPredict where NIFTY 50 closes today at 15:30. Answer with only a JSON object: "
+            "{\"close\": number, \"direction\": \"up\" or \"down\" (vs yesterday's close), \"confidence\": 0-100, "
+            "\"why\": \"one short sentence\"}")
+
+
 def bars5():
     """Today's 5-minute NIFTY candles [(aware start, o, h, l, c)], or []."""
     import pandas as pd
@@ -163,6 +222,28 @@ def marks(store_dir, day):
                         "headline": r.get("headline"), "alert": sent})
         last = key
     return [m for m in out if m["kind"] not in ("pending",)]
+
+
+def _daylike(data_dir, today, now):
+    """What NIFTY did from here to the close on past days like today so far (daylike.py), or None."""
+    try:
+        import daylike
+        return daylike.for_today(_load(os.path.join(data_dir, "daylike-nifty.json")), today, now)
+    except Exception as e:
+        print(f"live: daylike failed: {e!r}", flush=True)
+        return None
+
+
+def _next(data_dir, today, now):
+    """The model's lean for the next 10-minute candle (nextcandle.py), information only, or None."""
+    if (today or {}).get("status") != "open":
+        return None
+    try:
+        import nextcandle
+        return nextcandle.lean(data_dir, now)
+    except Exception as e:
+        print(f"live: next candle failed: {e!r}", flush=True)
+        return None
 
 
 def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
@@ -202,6 +283,19 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
             b = []
         if b:
             st["candles"] = candles10(b)
+            last = (st.get("preds") or [None])[-1]
+            asked = sum(1 for p in st.get("preds", []) if p.get("ai_asked"))
+            if last and last["at"][:16] == now.isoformat(timespec="minutes")[:16] and asked < AI_RUNS and prev_close:
+                last["ai_asked"] = True                     # the AI's own prediction of the close, beside our model's
+                rc = (pre.get("recorded") or {}).get("close") or {}
+                call = f"close {rc.get('direction')} ({rc.get('pred_pct')}%)" if rc else None
+                r = grok.json_from(budget.ask(ai_prompt(day, now, prev_close, b[0][1], b[-1][4], max(x[2] for x in b),
+                                                        min(x[3] for x in b), [c["close"] for c in st["candles"]], call,
+                                                        _load(os.path.join(data_dir, "news-nifty.json"))),
+                                              search=False, max_tokens=220))
+                if r and isinstance(r.get("close"), (int, float)) and abs(r["close"] / b[-1][4] - 1) < 0.015:
+                    last.update({"ai_close": round(float(r["close"]), 2), "ai_conf": r.get("confidence"),
+                                 "ai_why": str(r.get("why") or "")[:200]})
             old = {m["at"] for m in st.get("moves", [])}
             moves = find_moves(b, st.get("moves", []))
             for m in moves:
@@ -220,6 +314,15 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
         rec = next((r for r in (today.get("record") or {}).get("recent", []) if r.get("d") == day), None)
         call_pct = ((pre.get("recorded") or {}).get("close") or {}).get("pred_pct")
         card = scorecard(st.get("preds", []), (rec or {}).get("prev_close") or prev_close, (rec or {}).get("close"), call_pct)
+        ai = [p for p in st.get("preds", []) if p.get("ai_close")]
+        if card and ai:                                     # the AI's predictions scored the same way as our model's
+            pc0 = (rec or {}).get("prev_close") or prev_close
+            card["ai_runs"] = len(ai)
+            card["ai_avg_miss_pct"] = round(sum(abs(p["ai_close"] / card["close"] - 1) for p in ai) / len(ai) * 100, 2)
+            card["ai_side_right"] = round(sum((p["ai_close"] > pc0) == (card["close"] > pc0) for p in ai) / len(ai), 2)
+        if card:
+            card["model_closer"], card["model_n"] = closer(st.get("preds", []), "pred", card["close"])
+            card["ai_closer"], card["ai_n"] = closer(st.get("preds", []), "ai_close", card["close"])
         if not st.get("money"):                              # the "₹2 lakh today" box (daymoney.py)
             try:
                 rec_fo = {"from_open": (pre.get("recorded") or {}).get("from_open")}
@@ -232,7 +335,17 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
                                                    _load(os.path.join(data_dir, "news-nifty.json"))), max_tokens=220)
             st["card"] = card
 
+    if mode == "run":                                       # the next-candle page (next.html), separate from Live
+        nx = _next(data_dir, today, now)
+        if nx:
+            st["leans"] = [x for x in st.get("leans", []) if x["at"] != nx["at"]] + [
+                {"made": now.strftime("%H:%M"), **{k: nx[k] for k in ("at", "lean", "pts", "confident")}}]
     json.dump(st, open(path, "w"), separators=(",", ":"))
+    meta = _load(os.path.join(data_dir, "nextcandle-meta.json"), {}) or {}
+    json.dump({"date": day, "updated": now.isoformat(timespec="minutes"), "status": today.get("status"),
+               "prev_close": prev_close, "candles": st.get("candles", []), "leans": st.get("leans", []),
+               "record": meta.get("record"), "trained_until": meta.get("trained_until")},
+              open(os.path.join(data_dir, "next-nifty.json"), "w"), separators=(",", ":"))
     rc = (pre.get("recorded") or {})
     fo, cl = rc.get("from_open") or {}, rc.get("close") or {}
     i = today.get("intraday") or {}
@@ -245,7 +358,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
                     if side and i.get("open") else None,
            "candles": st.get("candles", []), "preds": st.get("preds", []), "moves": st.get("moves", []),
            "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card"),
-           "money": st.get("money")}
+           "money": st.get("money"), "daylike": _daylike(data_dir, today, now), "record": track_record(store_dir)}
     json.dump(out, open(os.path.join(data_dir, "live-nifty.json"), "w"), separators=(",", ":"))
     print(f"live {mode}: {len(out['candles'])} candles, {len(out['preds'])} predictions, {len(out['moves'])} moves, "
           f"grok calls today {st.get('grok_calls', 0)}", flush=True)

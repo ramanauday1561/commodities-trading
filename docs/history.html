@@ -40,8 +40,7 @@
 <body>
 <main>
   <header class="glass">
-    <div><h1>History</h1><div class="sub" id="since">NIFTY 50 · loading…</div></div>
-    <nav><a href="status.html">Status</a><a href="./#nifty">Forecast</a></nav>
+    <div data-nav><div><h1>History</h1><div class="sub" id="since">NIFTY 50 · loading…</div></div></div>
   </header>
   <div class="tiles" id="tiles"></div>
   <div class="days" id="days"></div>
@@ -82,5 +81,6 @@ const chip = (label, dir, hit) => `<span class="chip ${hit ? 'ok' : 'no'}">${lab
   } catch (e) { $('since').textContent = 'NIFTY 50 · no scored days yet'; }
 })();
 </script>
+<script src="nav.js"></script>
 </body>
 </html>

@@ -263,10 +263,45 @@ def main(key, test_days=750, step=2, mode="variants"):
             import midday_study
             midday_study.main()
         return
+    if mode == "longsignal":                              # NIFTY: the 09:15 signal on ~11 years of overnight history
+        if key == "nifty":
+            import long_signal_study
+            long_signal_study.main()
+        return
+    if mode == "kagglesearch":                            # NIFTY: Kaggle datasets with years of intraday overnight inputs
+        if key == "nifty":
+            import kaggle_search
+            kaggle_search.main()
+        return
+    if mode == "dukaprobe":                               # NIFTY: years of hourly overnight inputs from Dukascopy?
+        if key == "nifty":
+            import dukascopy_probe
+            dukascopy_probe.main()
+        return
     if mode == "history":                                 # NIFTY: exits, India VIX at the open, event days (5-min history)
         if key == "nifty":
             import history_study
             history_study.main()
+        return
+    if mode == "gift":                                    # NIFTY: GIFT Nifty (India 50 CFD) for the trade from the open
+        if key == "nifty":
+            import gift_study
+            gift_study.main()
+        return
+    if mode == "giftprobe":                               # NIFTY: where years of GIFT / SGX Nifty prices can come from
+        if key == "nifty":
+            import gift_probe
+            gift_probe.main()
+        return
+    if mode == "nextcandle":                              # NIFTY: predicting the next 10-minute candle for CALL / PUT
+        if key == "nifty":
+            import nextcandle_study
+            nextcandle_study.main()
+        return
+    if mode == "trendday":                                # NIFTY: ride a strong morning to 15:15 (29 Oct 2026)
+        if key == "nifty":
+            import trendday_study
+            trendday_study.main()
         return
     if mode == "intrarules":                              # NIFTY: simple intraday rules on 60 days of 5-min candles
         if key == "nifty":

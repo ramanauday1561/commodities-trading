@@ -229,8 +229,8 @@ def headlines(news, since=None, n=2):
     return [x["title"].strip() for x in items[:n] if x.get("title")]
 
 
-def info_update(today, new, news=None, since=None):
-    """The hourly update during the session (None outside it)."""
+def info_update(today, new, news=None, since=None, daylike_line=""):
+    """The hourly update during the session (None outside it). daylike_line: daylike.line() for now, if any."""
     i = (today or {}).get("intraday") or {}
     if (today or {}).get("status") != "open" or not i.get("price"):
         return None
@@ -241,13 +241,18 @@ def info_update(today, new, news=None, since=None):
         acc = i.get("accuracy")
         hint = "" if acc is None else (f", {round(acc * 100)}% of moves like this held" if acc >= 0.65
                                        else f", {round(acc * 100)}%: too small a move to call")
-        lines.append(f"Hourly check: closes {'above' if i['direction'] == 'up' else 'below'} yesterday{hint}")
+        # 29 Oct 2026: "94% held" read like the odds of a CALL bought now; it is only the odds of staying on this side
+        # of yesterday's close. The odds of rising further are the "Days like today" line.
+        lines.append(f"Hourly check: closes {'above' if i['direction'] == 'up' else 'below'} yesterday's close{hint}"
+                     + (" (not the odds it goes further from here)" if acc is not None and acc >= 0.65 else ""))
     trade = ""
     if new.get("kind") == "stop":
         trade = f" (stopped out at -{STOP_PCT:.2f}%)"
     elif new.get("side") and opn:
         trade = f" ({_pct((price / opn - 1) * 100 * (1 if new['side'] == 'CALL' else -1))} for the {new['side']} since the open)"
     lines.append(f"Status: {new['state']}, {new['headline'][0].lower() + new['headline'][1:]}{trade}")
+    if daylike_line:
+        lines.append(daylike_line)
     news_now = headlines(news, since)
     lines.append("News: " + (" | ".join(news_now) if news_now else "no new headlines"))
     return {"kind": "info", "body": "\n".join(lines)}
@@ -289,8 +294,24 @@ def grok_morning(live, day):
     if not m:
         return ""
     word = {-2: "very bearish", -1: "bearish", 0: "neutral", 1: "bullish", 2: "very bullish"}.get(m.get("score"), "")
-    return (f"\n\U0001F916 Grok's morning read (info only, not part of the signal): {m['score']:+d} {word}. "
+    rec = ((live or {}).get("record") or {}).get("morning") or {}
+    tally = (f" Its record: right on {rec['right']} of {rec['calls']} days" + (f" ({rec['neutral']} neutral not counted)" if rec.get("neutral") else "") + "."
+             if rec.get("calls") else " Its record starts today.")
+    text = (f"\n\U0001F916 Grok's morning read (info only, not part of the signal): {m['score']:+d} {word}. "
             + "; ".join(m.get("reasons") or []) + (f". Big event: {m['event']}" if m.get("big_event") and m.get("event") else ""))
+    return text.rstrip(". ") + "." + tally
+
+
+def gift_morning(g, day):
+    """GIFT Nifty for the 08:57 alert (gift_record.py), or ''. Its own change includes its premium over NIFTY, so only
+    the premium-adjusted gap is called NIFTY's expected gap (29 Oct 2026: -0.27% own change, NIFTY opened -0.04%)."""
+    if not g or not str(g.get("fetched", "")).startswith(day) or not g.get("price"):
+        return ""
+    if g.get("gap_pct") is not None:
+        return (f"\nGIFT Nifty {g['price']:,.1f} at {str(g.get('quote_time', ''))[-5:]}: points to a NIFTY open "
+                f"{g['gap_pct']:+.2f}% from yesterday's close (after its {g['premium']:+.0f}-point premium). Info only.")
+    return (f"\nGIFT Nifty {g['price']:,.1f} at {str(g.get('quote_time', ''))[-5:]} ({g.get('change_pct')}% on its own close, "
+            "which includes its premium over NIFTY: not NIFTY's gap). Info only.")
 
 
 def grok_close(live, day):
@@ -329,6 +350,16 @@ def save_journal(store_dir, row, day):
     return rows + [row]
 
 
+def _daylike(load, today, now):
+    """The 'days like today' line (daylike.py) for the hourly update; empty when unavailable."""
+    try:
+        import daylike
+        return daylike.line(daylike.for_today(load("daylike-nifty.json"), today, now))
+    except Exception as e:                                   # never stops the update
+        print(f"daylike: {e!r}", flush=True)
+        return ""
+
+
 def main(data_dir, now=None, store_dir=None):
     now = now or datetime.now(IST)
     load = lambda name: json.load(open(os.path.join(data_dir, name))) if os.path.exists(os.path.join(data_dir, name)) else None
@@ -343,7 +374,8 @@ def main(data_dir, now=None, store_dir=None):
         new["since"] = new["updated"]
         quiet = new.get("kind") in ("pending", "closed")          # the close gets the summary below instead
         if channels() and not quiet:
-            line = grok_morning(load("live-nifty.json"), new["date"]) if new.get("kind") in ("call", "put", "no_trade") else ""
+            line = (grok_morning(load("live-nifty.json"), new["date"]) + gift_morning(load("gift-nifty.json"), new["date"])
+                    if new.get("kind") in ("call", "put", "no_trade") else "")
             alert = notify({**new, "reason": new["reason"] + line})   # never raises: the page update always goes on
             print("alert:", new["state"], alert)
     else:
@@ -357,7 +389,7 @@ def main(data_dir, now=None, store_dir=None):
             print("summary:", extra["summary"])
     elif channels() and not alert and INFO_FROM <= _hm(now) < INFO_TO and (
             not new.get("info_at") or now - datetime.fromisoformat(new["info_at"]) >= timedelta(minutes=INFO_GAP_MIN)):
-        msg = info_update(today, new, load("news-nifty.json"), new.get("info_at"))
+        msg = info_update(today, new, load("news-nifty.json"), new.get("info_at"), _daylike(load, today, now))
         if msg:
             extra["info"] = notify(msg, silent=True)
             new["info_at"] = now.isoformat(timespec="minutes")

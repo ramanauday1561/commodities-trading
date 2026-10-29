@@ -165,16 +165,13 @@
 <div class="glow" aria-hidden="true"><i></i><i></i><i></i></div>
 <main>
   <header class="glass">
-    <div>
+    <div data-nav><div style="min-width:0">
       <h1 id="title">Kronos forecast</h1>
       <div class="sub" id="sub">Loading…</div>
-    </div>
+    </div></div>
     <div class="btns"><div class="badge" id="badge"></div>
       <button id="rerunBtn" class="act" title="Run the full analysis again now: fresh news, prices, all forecasts and today's call (about 10-15 minutes). Best before 9:00 IST so the call is recorded before the open."><span class="lg">Rerun analysis</span><span class="sm">Rerun</span></button>
       <button id="recheckBtn" class="act" title="Quick mid-day check (1-3 minutes): price so far, news and today's call, and whether the session still agrees with the morning call.">Recheck</button>
-      <button onclick="location.href='status.html'" title="Status: CALL, PUT, STAY, SELL or NOTHING for NIFTY today">Status</button>
-      <button onclick="location.href='live.html'" title="Today in 10-minute candles with our predictions, full screen">Live</button>
-      <button onclick="location.href='history.html'" title="Every day's calls and trades, right or wrong">History</button>
       <button id="helpBtn" title="How to read this page"aria-label="Guide"><span class="lg">Guide</span><span class="sm">?</span></button></div>
   </header>
   <div id="runStatus" class="runstatus" hidden></div>
@@ -438,6 +435,15 @@ function riskCard(d) {
 }
 
 const TIER = { very_strong: 'Very strong call', strong: 'Strong call', lean: 'Lean', none: 'No clear call' };
+// 29 Oct 2026: "94% held" was read as the odds of a CALL bought then. It is only the odds of the close staying on this
+// side of yesterday's close; the odds of going further from here come from days like today (daylike.py, via live.py).
+function furtherLine(d, dir) {
+  const l = d._live, dl = l && l.date === (d._today || {}).date && l.status === 'open' ? l.daylike : null;
+  const side = dir === 'up' ? 'above' : 'below';
+  if (!dl) return ` That is about staying ${side} yesterday's close, not the odds of going further from here.`;
+  const further = dir === 'up' ? dl.up : 1 - dl.up;
+  return ` That is about staying ${side} yesterday's close. Going further ${dir === 'up' ? 'up' : 'down'} from here, what a CALL or PUT bought now needs, happened on <b>${Math.round(further * 100)}%</b> of ${dl.days} days like today.`;
+}
 function todayCard(d) {
   const t = d._today;
   const todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
@@ -479,7 +485,7 @@ function todayCard(d) {
       ? `<div class="sub" style="margin-top:6px">Opening call ${p.gap.direction === 'up' ? '▲' : '▼'}: NIFTY opened at ${f(i.open)} (${pc((i.open / p.prev_close - 1) * 100)}), ${(i.open > p.prev_close) === (p.gap.direction === 'up') ? '<b class="up">right</b>' : '<b class="down">wrong</b>'}.</div>` : '';
     intr = (i.accuracy != null
       ? `<div style="margin-top:12px"><div class="k" style="margin-bottom:2px">Update at ${esc(i.asof)} IST</div>NIFTY is <b class="${cls(i.move_pct)}">${pc(i.move_pct)}</b> vs yesterday (${f(i.price)}), so the close is likely ${arrow(i.direction)}.
-         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} by a similar amount (${i.bucket_pct.toFixed(2)}% or more, up to the next step) by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${i.test_days} days tested).</div></div>`
+         <div class="sub" style="margin-top:3px">When NIFTY was ${i.direction === 'up' ? 'up' : 'down'} by a similar amount (${i.bucket_pct.toFixed(2)}% or more, up to the next step) by ${esc(i.checkpoint)}, it closed on the same side <b>${Math.round(i.accuracy * 100)}%</b> of the time (${i.test_days} days tested).${furtherLine(d, i.direction)}</div></div>`
       : `<div class="sub" style="margin-top:12px">At ${esc(i.asof)} IST NIFTY is ${pc(i.move_pct)} vs yesterday. The intraday update starts at 10:15.</div>`) + gapRes + verdict;
   } else if (i && t.status === 'closed' && p) {
     const ok = (c, up) => c.tier === 'none' ? 'no call' : ((c.direction === 'up') === up ? '<b class="up">right</b>' : '<b class="down">wrong</b>');
@@ -546,6 +552,7 @@ function guideHTML(d) {
     <details><summary>What the NIFTY trade signal uses (and what was tested and left out)</summary>
       <ul><li><b>Uses</b>: overnight moves in US index futures (split at the US close), Nikkei, Kospi, Hang Seng, the US-listed shares of HDFC Bank, ICICI Bank and Infosys, the rupee, yesterday's NIFTY move and its 3-day move. It trades only its 20% most confident days, from the 09:15 open to the close.</li>
       <li><b>Stands aside</b> after results from the 11 heaviest NIFTY stocks, and on the session after US inflation (CPI), jobs or Fed news (they come out after India's close; in tests the trades on those days lost money).</li>
+      <li><b>11-year test</b> (28 Oct 2026, free hourly history from Dukascopy, without KOSPI and the rupee): 190 trades, +0.12% each after costs, but the profit came in 2015&ndash;2021; since 2022 it has been about break-even. Treat it as a small, unproven edge and trade small.</li>
       <li><b>Stop</b>: sell if NIFTY moves 0.5% against the trade from the open (risk control: about the same profit, a much smaller worst day).</li>
       <li>The <a href="status.html">Status</a> page shows today's trade and its timeline; the <a href="history.html">History</a> page shows every day's calls and trades.</li>
       <li><b>Live</b>: during the session the page data refreshes every 10 minutes. The Live chart shows today in 10-minute candles with our prediction of the close at every run, the alerts, and big moves (0.4% or more within 20 minutes) with Grok's note on why. Grok's notes are information only: they cannot be tested on past days (Grok already knows what happened), so they are saved every day and will be tested once a few months exist.</li>
@@ -580,7 +587,9 @@ async function select(key) {
   $('app').innerHTML = '<div class="skeleton">Loading forecast…</div>';
   showErr('');
   try {
-    const res = await fetch(`data/${key}.json?t=` + Date.now(), { cache: 'no-store' });
+    const res = await getData(`data/${key}.json`);
+    if (my !== token) return;
+    if (!res) throw new Error('offline');
     if (!res.ok) throw new Error(`data/${key}.json not found`);
     const d = await res.json();
     if (my !== token) return;          // user switched again while loading
@@ -590,16 +599,29 @@ async function select(key) {
     }
     if (!d.models || !Object.keys(d.models).length) throw new Error('data format not recognised, hard-refresh the page');
     const side = async name => { try { const r = await fetch(`data/${name}-${key}.json?t=` + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
-    [d._score, d._intraday, d._news, d._today, d._hourly] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly')]);
+    [d._score, d._intraday, d._news, d._today, d._hourly, d._live] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly'), key === 'nifty' ? side('live') : null]);
     if (my !== token) return;
     render(d);
   } catch (e) {
     if (my !== token) return;
     $('app').innerHTML = '';
     $('sub').textContent = '';
-    showErr(e instanceof TypeError ? 'No connection, and this market has not been opened on this device yet.' : 'Could not render: ' + e.message);
+    currentData = null;
+    showErr(e.message === 'offline' ? 'Could not reach the server. It will load by itself when the connection is back, or tap the market to try again.'
+                                    : 'Could not render: ' + e.message);
   }
 }
+
+// A phone app's first requests after waking can fail for a moment (iOS: "Load failed"), so try three times
+// before calling it offline; null = no answer from the network or the offline copy.
+async function getData(path) {
+  for (let i = 0; i < 3; i++) {
+    try { return await fetch(path + '?t=' + Date.now(), { cache: 'no-store' }); }
+    catch (e) { await new Promise(r => setTimeout(r, 800 * (i + 1))); }
+  }
+  return null;
+}
+addEventListener('online', () => { if (current && !currentData) select(current); });
 
 /* ---------------- model selection ---------------- */
 let modelKey = 'default', currentData = null;
@@ -661,7 +683,7 @@ function callLine(d) {
     msg = `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day: too small a move to call the close (moves this size held only ${pct(i.accuracy)} of the time).`;
   } else if (i && t.status === 'open' && i.accuracy != null) {
     const agree = p && p.close.tier !== 'none' && p.close.direction === i.direction;
-    msg = `At ${esc(i.asof)} the session points to a close ${word(i.direction)} (moves like this held ${pct(i.accuracy)} of the time)${p && p.close.tier !== 'none' ? (agree ? ', in line with the morning call.' : ', against the morning call.') : '.'}`;
+    msg = `At ${esc(i.asof)} the session points to a close ${word(i.direction)} (moves like this held ${pct(i.accuracy)} of the time, vs yesterday's close, not from here)${p && p.close.tier !== 'none' ? (agree ? ', in line with the morning call.' : ', against the morning call.') : '.'}`;
   } else if (i && t.status === 'closed' && p && p.close.tier !== 'none') {
     msg = `Today's call was ${word(p.close.direction)}; it closed ${pc(i.move_pct)}, so the call was ${(p.close.direction === 'up') === (i.move_pct > 0) ? '<b class="up">right</b>' : '<b class="down">wrong</b>'}.`;
   } else if (p) {
@@ -745,7 +767,7 @@ function headline(d, first, last, upPct) {
     const p = t.preopen, i = t.intraday;
     if (i && t.status === 'open' && i.accuracy != null && i.accuracy >= 0.85)
       return { ...likely(i.direction), pill: `${pct(i.accuracy)} held`, from: 'call',
-               text: `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day. When it was this far ${i.direction === 'up' ? 'up' : 'down'} at this time, it closed on the same side ${pct(i.accuracy)} of the time.` };
+               text: `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day. When it was this far ${i.direction === 'up' ? 'up' : 'down'} at this time, it closed on the same side ${pct(i.accuracy)} of the time.${furtherLine(d, i.direction)}` };
     // Once the session is moving against the morning call, stop showing it as the answer (lesson from 15 Oct 2026).
     if (p && p.close.tier !== 'none' && i && t.status === 'open' && i.direction !== p.close.direction && Math.abs(i.move_pct) >= 0.25)
       return { word: 'Morning call in doubt', cls: 'warn', pill: `${pc(i.move_pct)} now`, from: 'call',
@@ -1050,7 +1072,8 @@ let loadedAt = 0;
 async function loadAll() {
   try {
     if (typeof LightweightCharts === 'undefined') throw new Error('chart library failed to load (hard-refresh the page)');
-    const res = await fetch('data/index.json?t=' + Date.now(), { cache: 'no-store' });
+    const res = await getData('data/index.json');
+    if (!res) throw new Error('could not reach the server, try again in a moment');
     if (!res.ok) throw new Error('data not found, run the "Predict next candles" workflow');
     manifest = await res.json();
     let saved = null; try { saved = localStorage.getItem('inst'); } catch (e) {}
@@ -1080,5 +1103,6 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
   $('installClose').onclick = () => { $('installHint').hidden = true; try { localStorage.setItem('installHint', '1'); } catch (e) {} };
 })();
 </script>
+<script src="nav.js"></script>
 </body>
 </html>
