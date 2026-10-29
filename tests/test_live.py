@@ -118,7 +118,16 @@ class Main(unittest.TestCase):
         out, a, n = self.run_at("run", 13, 0, closes)
         self.assertEqual(len(out["moves"]), 1)
         n.assert_not_called()
-        a.assert_not_called()
+        self.assertFalse(any("moved" in c.args[0] for c in a.call_args_list))      # no note asked for an old move
+
+    def test_the_ai_predicts_the_close_beside_our_model(self):
+        closes = [22760.0] * 6 + [22740.0, 22720.0]
+        ans = '{"close": 22735, "direction": "down", "confidence": 60, "why": "Slipping with banks."}'
+        out, a, _ = self.run_at("run", 9, 55, closes, grok_answer=ans)
+        p = out["preds"][-1]
+        self.assertEqual((p["pred"], p["ai_close"], p["ai_conf"]), (22690.0, 22735.0, 60))
+        out, a, _ = self.run_at("run", 9, 55, closes, grok_answer='{"close": 30000}')     # not a forecast: dropped
+        self.assertNotIn("ai_close", out["preds"][-1])
 
     def test_no_session_no_file(self):
         self.today["date"] = "2026-10-26"
