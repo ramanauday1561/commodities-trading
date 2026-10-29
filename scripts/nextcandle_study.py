@@ -46,24 +46,26 @@ def tens(g):
     return out[out["n"] == 2]
 
 
-def rows(nifty, bank, vix, h=1):
+def rows(nifty, bank, vix, h=1, live=False):
+    """One row per finished 10-minute candle; live=True keeps today's last candles (their outcome is not known yet)."""
     ds = sorted(nifty)
     out = []
     for a, d in zip(ds, ds[1:]):
         g, pg = nifty[d], nifty[a]
-        if len(g) < 70:
+        if len(g) < (2 if live else 70):
             continue
         t, pc = tens(g), float(pg["Close"].iloc[-1])
         prev_day = pc / float(nifty[ds[ds.index(a) - 1]]["Close"].iloc[-1]) - 1 if ds.index(a) else 0.0
-        bt = tens(bank[d]) if d in bank and len(bank[d]) > 60 else None
-        vt = tens(vix[d]) if d in vix and len(vix[d]) > 60 else None
+        least = 2 if live else 60
+        bt = tens(bank[d]) if d in bank and len(bank[d]) > least else None
+        vt = tens(vix[d]) if d in vix and len(vix[d]) > least else None
         vpc = float(vix[a]["Close"].iloc[-1]) if a in vix and len(vix[a]) else np.nan
         c = t["Close"].values
         opn = float(t["Open"].iloc[0])
-        for k in range(1, len(t) - h):
+        for k in range(1, len(t) - (0 if live else h)):
             hi, lo = t["High"].values[:k + 1].max(), t["Low"].values[:k + 1].min()
             r = lambda i: c[i] / c[i - 1] - 1 if i >= 1 else c[0] / opn - 1
-            row = {"d": d, "k": k, "price": c[k], "y": c[k + h] / c[k] - 1,
+            row = {"d": d, "k": k, "price": c[k], "y": c[k + h] / c[k] - 1 if k + h < len(c) else np.nan,
                    "r1": r(k), "r2": r(k - 1), "r3": r(k - 2) if k >= 2 else 0.0,
                    "r30": c[k] / c[max(k - 3, 0)] - 1, "since_open": c[k] / opn - 1, "vs_prev": c[k] / pc - 1,
                    "gap": opn / pc - 1, "range": (hi - lo) / pc, "pos": (c[k] - lo) / (hi - lo) if hi > lo else 0.5,

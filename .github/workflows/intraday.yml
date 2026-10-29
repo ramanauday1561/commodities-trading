@@ -52,7 +52,7 @@ jobs:
         with:
           python-version: "3.11"
       - if: steps.gate.outputs.go == 'true'
-        run: pip install yfinance pandas numpy exchange_calendars
+        run: pip install yfinance pandas numpy exchange_calendars lightgbm
       - name: Latest published data
         if: steps.gate.outputs.go == 'true'
         run: bash scripts/store.sh pull site-data docs/data

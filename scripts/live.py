@@ -189,6 +189,18 @@ def _daylike(data_dir, today, now):
         return None
 
 
+def _next(data_dir, today, now):
+    """The model's lean for the next 10-minute candle (nextcandle.py), information only, or None."""
+    if (today or {}).get("status") != "open":
+        return None
+    try:
+        import nextcandle
+        return nextcandle.lean(data_dir, now)
+    except Exception as e:
+        print(f"live: next candle failed: {e!r}", flush=True)
+        return None
+
+
 def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
     now = now or datetime.now(IST)
     day = now.date().isoformat()
@@ -288,7 +300,8 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
                     if side and i.get("open") else None,
            "candles": st.get("candles", []), "preds": st.get("preds", []), "moves": st.get("moves", []),
            "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card"),
-           "money": st.get("money"), "daylike": _daylike(data_dir, today, now)}
+           "money": st.get("money"), "daylike": _daylike(data_dir, today, now),
+           "next": _next(data_dir, today, now) if mode == "run" else None}
     json.dump(out, open(os.path.join(data_dir, "live-nifty.json"), "w"), separators=(",", ":"))
     print(f"live {mode}: {len(out['candles'])} candles, {len(out['preds'])} predictions, {len(out['moves'])} moves, "
           f"grok calls today {st.get('grok_calls', 0)}", flush=True)
