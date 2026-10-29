@@ -31,7 +31,7 @@ jobs:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance lightgbm exchange_calendars
       - name: 5-minute candle history (modes "intradata", "intrarules" and "history"; intraday_data.py, intraday-data branch)
-        if: (github.event.inputs.mode == 'intradata' || github.event.inputs.mode == 'intrarules' || github.event.inputs.mode == 'history' || github.event.inputs.mode == 'longsignal') && matrix.key == 'nifty'
+        if: (github.event.inputs.mode == 'intradata' || github.event.inputs.mode == 'intrarules' || github.event.inputs.mode == 'history' || github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'gift') && matrix.key == 'nifty'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
@@ -40,17 +40,28 @@ jobs:
           python -u scripts/intraday_data.py update intra
           bash scripts/store.sh push intraday-data intra
       - name: Overnight history for mode "longsignal" (the four overnight-* branches)
-        if: github.event.inputs.mode == 'longsignal' && matrix.key == 'nifty'
+        if: (github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'gift') && matrix.key == 'nifty'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: for k in es nq nikkei hangseng; do bash scripts/store.sh pull "overnight-$k" od; done
+        run: for k in es nq nikkei hangseng india india-p0 india-p1 india-p2 india-p3; do bash scripts/store.sh pull "overnight-$k" od; done
+      - name: India 50 hourly history, shared by the four matrix jobs (mode "dukaindia"; each its own branch)
+        if: github.event.inputs.mode == 'dukaindia'
+        env:
+          PYTHONPATH: scripts
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          p=$(python -c "print({'nifty':0,'gold':1,'silver':2,'crude':3}['${{ matrix.key }}'])")
+          bash scripts/store.sh pull overnight-india od
+          bash scripts/store.sh pull "overnight-india-p$p" od
+          python -u scripts/overnight_data.py india od 48 "$p" 4
+          bash scripts/store.sh push "overnight-india-p$p" od
       - name: Hourly overnight history from Dukascopy (mode "dukafetch"; one market per matrix job, resumable)
         if: github.event.inputs.mode == 'dukafetch'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
         run: |
-          k=$(python -c "print({'nifty':'es','gold':'nq','silver':'nikkei','crude':'hangseng'}['${{ matrix.key }}'])")
+          k=$(python -c "print({'nifty':'india','gold':'nq','silver':'nikkei','crude':'hangseng'}['${{ matrix.key }}'])")
           bash scripts/store.sh pull "overnight-$k" od
           python -u scripts/overnight_data.py "$k" od 48
           bash scripts/store.sh push "overnight-$k" od
@@ -58,7 +69,7 @@ jobs:
           PYTHONPATH: scripts
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           INTRADAY_DIR: intra
-        if: github.event.inputs.mode != 'replay' && github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'money' && github.event.inputs.mode != 'dukafetch'
+        if: github.event.inputs.mode != 'replay' && github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'money' && github.event.inputs.mode != 'dukafetch' && github.event.inputs.mode != 'dukaindia'
         run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2 ${{ github.event.inputs.mode || 'variants' }}
       - name: Replay a day (mode "replay"; test_days = the date, YYYY-MM-DD, or 0 for today)
         if: github.event.inputs.mode == 'replay' && matrix.key == 'nifty'
