@@ -187,7 +187,7 @@ jobs:
         run: |
           pip install pandas yfinance exchange_calendars
           python -u scripts/todaycall.py store docs/data
-          python -u scripts/gift_record.py store || true      # GIFT Nifty snapshot, history for a later test
+          python -u scripts/gift_record.py store docs/data || true      # GIFT Nifty snapshot, history for a later test
       - name: 5-minute candle history (NIFTY 50, Bank NIFTY, India VIX; for intraday backtests, not shown on the site)
         continue-on-error: true
         timeout-minutes: 8

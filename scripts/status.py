@@ -295,6 +295,18 @@ def grok_morning(live, day):
             + "; ".join(m.get("reasons") or []) + (f". Big event: {m['event']}" if m.get("big_event") and m.get("event") else ""))
 
 
+def gift_morning(g, day):
+    """GIFT Nifty for the 08:57 alert (gift_record.py), or ''. Its own change includes its premium over NIFTY, so only
+    the premium-adjusted gap is called NIFTY's expected gap (29 Oct 2026: -0.27% own change, NIFTY opened -0.04%)."""
+    if not g or not str(g.get("fetched", "")).startswith(day) or not g.get("price"):
+        return ""
+    if g.get("gap_pct") is not None:
+        return (f"\nGIFT Nifty {g['price']:,.1f} at {str(g.get('quote_time', ''))[-5:]}: points to a NIFTY open "
+                f"{g['gap_pct']:+.2f}% from yesterday's close (after its {g['premium']:+.0f}-point premium). Info only.")
+    return (f"\nGIFT Nifty {g['price']:,.1f} at {str(g.get('quote_time', ''))[-5:]} ({g.get('change_pct')}% on its own close, "
+            "which includes its premium over NIFTY: not NIFTY's gap). Info only.")
+
+
 def grok_close(live, day):
     """The day's scorecard and Grok's why (live.py close) for the summary, or ''."""
     c = (live or {}).get("card") if (live or {}).get("date") == day else None
@@ -355,7 +367,8 @@ def main(data_dir, now=None, store_dir=None):
         new["since"] = new["updated"]
         quiet = new.get("kind") in ("pending", "closed")          # the close gets the summary below instead
         if channels() and not quiet:
-            line = grok_morning(load("live-nifty.json"), new["date"]) if new.get("kind") in ("call", "put", "no_trade") else ""
+            line = (grok_morning(load("live-nifty.json"), new["date"]) + gift_morning(load("gift-nifty.json"), new["date"])
+                    if new.get("kind") in ("call", "put", "no_trade") else "")
             alert = notify({**new, "reason": new["reason"] + line})   # never raises: the page update always goes on
             print("alert:", new["state"], alert)
     else:

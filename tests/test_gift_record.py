@@ -36,5 +36,31 @@ class Gift(unittest.TestCase):
         self.assertEqual(gr.record(d, now, get=lambda: {"data": {}}), [])
 
 
+class Gap(unittest.TestCase):
+    def test_gap_after_the_premium_at_yesterdays_close(self):
+        # 28 Oct: NIFTY closed 22,698.85 and GIFT was 22,752 at 15:24, a +53.15 premium (the 15:04 row is too early)
+        d, dd = tempfile.mkdtemp(), tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "gift"))
+        with open(os.path.join(d, "gift", "2026-10.csv"), "w") as f:
+            f.write(",".join(gr.COLS[:8]) + "\n")                                     # an old file without the gap columns
+            f.write("2026-10-28T15:05+05:30,gift_nifty,28-Oct-2026 15:04,22700.0,0,0,1,23-Nov-2026\n")
+            f.write("2026-10-28T15:25+05:30,gift_nifty,28-Oct-2026 15:24,22752.0,0,0,1,23-Nov-2026\n")
+        import json
+        json.dump({"date": "2026-10-29", "preopen": {"prev_close": 22698.85}}, open(os.path.join(dd, "today-nifty.json"), "w"))
+        r = gr.record(d, datetime(2026, 10, 29, 8, 57, tzinfo=IST), get=lambda: ANSWER, data_dir=dd)[0]
+        self.assertEqual(r["premium"], 53.15)
+        self.assertAlmostEqual(r["gap_pct"], round(((22745 - 53.15) / 22698.85 - 1) * 100, 3))
+        rows = list(csv.DictReader(open(os.path.join(d, "gift", "2026-10.csv"))))
+        self.assertEqual(list(rows[0].keys()), gr.COLS)                                # the old file was upgraded
+        self.assertEqual(json.load(open(os.path.join(dd, "gift-nifty.json")))["price"], 22745.0)
+
+    def test_no_recorded_premium_no_gap(self):
+        d, dd = tempfile.mkdtemp(), tempfile.mkdtemp()
+        import json
+        json.dump({"date": "2026-10-29", "preopen": {"prev_close": 22698.85}}, open(os.path.join(dd, "today-nifty.json"), "w"))
+        r = gr.record(d, datetime(2026, 10, 29, 8, 57, tzinfo=IST), get=lambda: ANSWER, data_dir=dd)[0]
+        self.assertEqual((r["nifty_prev_close"], r["premium"], r["gap_pct"]), (22698.85, None, None))
+
+
 if __name__ == "__main__":
     unittest.main()

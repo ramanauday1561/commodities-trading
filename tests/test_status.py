@@ -334,3 +334,14 @@ class Channels(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class GiftLine(unittest.TestCase):
+    def test_gap_only_after_the_premium(self):
+        g = {"fetched": "2026-10-29T08:57+05:30", "price": 22690.0, "quote_time": "29-Oct-2026 08:55",
+             "change_pct": -0.27, "premium": 8.0, "gap_pct": -0.04}
+        self.assertIn("NIFTY open -0.04%", status.gift_morning(g, "2026-10-29"))
+        raw = {**g, "premium": None, "gap_pct": None}
+        line = status.gift_morning(raw, "2026-10-29")
+        self.assertIn("not NIFTY's gap", line)
+        self.assertEqual(status.gift_morning(g, "2026-10-30"), "")
