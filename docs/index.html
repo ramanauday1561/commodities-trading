@@ -578,7 +578,9 @@ async function select(key) {
   $('app').innerHTML = '<div class="skeleton">Loading forecast…</div>';
   showErr('');
   try {
-    const res = await fetch(`data/${key}.json?t=` + Date.now(), { cache: 'no-store' });
+    const res = await getData(`data/${key}.json`);
+    if (my !== token) return;
+    if (!res) throw new Error('offline');
     if (!res.ok) throw new Error(`data/${key}.json not found`);
     const d = await res.json();
     if (my !== token) return;          // user switched again while loading
@@ -595,9 +597,22 @@ async function select(key) {
     if (my !== token) return;
     $('app').innerHTML = '';
     $('sub').textContent = '';
-    showErr(e instanceof TypeError ? 'No connection, and this market has not been opened on this device yet.' : 'Could not render: ' + e.message);
+    currentData = null;
+    showErr(e.message === 'offline' ? 'Could not reach the server. It will load by itself when the connection is back, or tap the market to try again.'
+                                    : 'Could not render: ' + e.message);
   }
 }
+
+// A phone app's first requests after waking can fail for a moment (iOS: "Load failed"), so try three times
+// before calling it offline; null = no answer from the network or the offline copy.
+async function getData(path) {
+  for (let i = 0; i < 3; i++) {
+    try { return await fetch(path + '?t=' + Date.now(), { cache: 'no-store' }); }
+    catch (e) { await new Promise(r => setTimeout(r, 800 * (i + 1))); }
+  }
+  return null;
+}
+addEventListener('online', () => { if (current && !currentData) select(current); });
 
 /* ---------------- model selection ---------------- */
 let modelKey = 'default', currentData = null;
@@ -1048,7 +1063,8 @@ let loadedAt = 0;
 async function loadAll() {
   try {
     if (typeof LightweightCharts === 'undefined') throw new Error('chart library failed to load (hard-refresh the page)');
-    const res = await fetch('data/index.json?t=' + Date.now(), { cache: 'no-store' });
+    const res = await getData('data/index.json');
+    if (!res) throw new Error('could not reach the server, try again in a moment');
     if (!res.ok) throw new Error('data not found, run the "Predict next candles" workflow');
     manifest = await res.json();
     let saved = null; try { saved = localStorage.getItem('inst'); } catch (e) {}
