@@ -68,6 +68,7 @@ jobs:
         run: |
           bash scripts/store.sh pull scoreboard store
           python -u scripts/todaycall.py store docs/data
+          python -u scripts/gift_record.py store || true      # GIFT Nifty snapshot, history for a later test
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then bash scripts/store.sh push scoreboard store; fi
       - name: Refresh news headlines (history is only recorded by the daily run)
         if: steps.gate.outputs.go == 'true'
