@@ -137,6 +137,20 @@ def close_prompt(card, today_str, moves, morning, news=None):
             "move the way it did today? Use today's news and X posts; say 'no clear news' where unsure." + headlines_text(news))
 
 
+AI_RUNS = 40                         # AI close predictions a day (one per 10-minute run, 09:25-15:25)
+
+
+def ai_prompt(day, now, pc, opn, price, hi, lo, closes, call, news=None):
+    """The AI's prediction of today's close at this run (same question as replay.py), with our latest headlines."""
+    path = ", ".join(f"{c:,.0f}" for c in closes[-8:])
+    return (f"It is {now:%H:%M} IST on {day}, during the Indian market session (09:15-15:30). NIFTY 50: yesterday's "
+            f"close {pc:,.2f}; opened {opn:,.2f}; now {price:,.2f} ({(price / pc - 1) * 100:+.2f}%); day's high {hi:,.2f}, "
+            f"low {lo:,.2f}; last 10-minute closes: {path}. Our models' call at 08:57: {call or 'none'}."
+            + headlines_text(news) + "\n\nPredict where NIFTY 50 closes today at 15:30. Answer with only a JSON object: "
+            "{\"close\": number, \"direction\": \"up\" or \"down\" (vs yesterday's close), \"confidence\": 0-100, "
+            "\"why\": \"one short sentence\"}")
+
+
 def bars5():
     """Today's 5-minute NIFTY candles [(aware start, o, h, l, c)], or []."""
     import pandas as pd
@@ -212,6 +226,19 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
             b = []
         if b:
             st["candles"] = candles10(b)
+            last = (st.get("preds") or [None])[-1]
+            asked = sum(1 for p in st.get("preds", []) if p.get("ai_asked"))
+            if last and last["at"][:16] == now.isoformat(timespec="minutes")[:16] and asked < AI_RUNS and prev_close:
+                last["ai_asked"] = True                     # the AI's own prediction of the close, beside our model's
+                rc = (pre.get("recorded") or {}).get("close") or {}
+                call = f"close {rc.get('direction')} ({rc.get('pred_pct')}%)" if rc else None
+                r = grok.json_from(budget.ask(ai_prompt(day, now, prev_close, b[0][1], b[-1][4], max(x[2] for x in b),
+                                                        min(x[3] for x in b), [c["close"] for c in st["candles"]], call,
+                                                        _load(os.path.join(data_dir, "news-nifty.json"))),
+                                              search=False, max_tokens=220))
+                if r and isinstance(r.get("close"), (int, float)) and abs(r["close"] / b[-1][4] - 1) < 0.015:
+                    last.update({"ai_close": round(float(r["close"]), 2), "ai_conf": r.get("confidence"),
+                                 "ai_why": str(r.get("why") or "")[:200]})
             old = {m["at"] for m in st.get("moves", [])}
             moves = find_moves(b, st.get("moves", []))
             for m in moves:
@@ -230,6 +257,12 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
         rec = next((r for r in (today.get("record") or {}).get("recent", []) if r.get("d") == day), None)
         call_pct = ((pre.get("recorded") or {}).get("close") or {}).get("pred_pct")
         card = scorecard(st.get("preds", []), (rec or {}).get("prev_close") or prev_close, (rec or {}).get("close"), call_pct)
+        ai = [p for p in st.get("preds", []) if p.get("ai_close")]
+        if card and ai:                                     # the AI's predictions scored the same way as our model's
+            pc0 = (rec or {}).get("prev_close") or prev_close
+            card["ai_runs"] = len(ai)
+            card["ai_avg_miss_pct"] = round(sum(abs(p["ai_close"] / card["close"] - 1) for p in ai) / len(ai) * 100, 2)
+            card["ai_side_right"] = round(sum((p["ai_close"] > pc0) == (card["close"] > pc0) for p in ai) / len(ai), 2)
         if not st.get("money"):                              # the "₹2 lakh today" box (daymoney.py)
             try:
                 rec_fo = {"from_open": (pre.get("recorded") or {}).get("from_open")}
