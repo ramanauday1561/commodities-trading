@@ -123,7 +123,6 @@ def run_gbm(full, future, last_close, indices, exo=None, big_move_pct=None):
 
     # ---- forecast: train on everything known now ----
     last = X[[n - 1]]
-    ys = target(1)
     rng_t = np.full(n, np.nan)          # next-day (high-low)/close
     rng_t[:n - 1] = ((full["high"] - full["low"]) / full["close"]).values[1:]
     tr = np.where(valid & ~np.isnan(rng_t))[0]

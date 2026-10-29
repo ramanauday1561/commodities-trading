@@ -9,12 +9,12 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk (big-move probability and ranges), accuracy (NIFTY direction study), improve (NIFTY: extra pre-open inputs, intraday patterns), commodity (futures: move so far vs settlement), extreme (NIFTY: extreme overnight days), strategy (NIFTY: trading rules after costs), open (NIFTY: from-open and 10:15 calls, expiry days), preopen (NIFTY: missing pre-open inputs), rolls (futures roll adjustment), hourly (NIFTY: forecasts from 1-hour candles), events (US CPI/jobs/Fed calendar) dailyfill (candles rebuilt from 15m bars vs official), intradata (update the 5-minute candle history) or intrarules (intraday rules on that history) history (exits, VIX at the open, event days), midday (the 28 Oct midday recovery rule) or money (add the ₹2 lakh box to a replay; test_days = its date), trendday (NIFTY: ride a strong morning to 15:15)"
+        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle (see STUDIES.md); intradata (update the 5-minute history) or dukafetch (update the hourly overnight history)"
         required: false
         default: "variants"
 
 permissions:
-  contents: write              # mode "replay" adds the day's replay to site-data; "intradata" / "intrarules" save candles
+  contents: write              # "intradata" and "dukafetch" save candle history to their branches
 
 jobs:
   run:
@@ -30,8 +30,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance lightgbm exchange_calendars
-      - name: 5-minute candle history (modes "intradata", "intrarules", "history", "midday" and the other studies; intraday_data.py, intraday-data branch)
-        if: (github.event.inputs.mode == 'intradata' || github.event.inputs.mode == 'intrarules' || github.event.inputs.mode == 'history' || github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'gift' || github.event.inputs.mode == 'nextcandle' || github.event.inputs.mode == 'trendday' || github.event.inputs.mode == 'midday') && matrix.key == 'nifty'
+      - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle"; intraday-data branch)
+        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle"]'), github.event.inputs.mode) && matrix.key == 'nifty'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
@@ -40,28 +40,17 @@ jobs:
           python -u scripts/intraday_data.py update intra
           bash scripts/store.sh push intraday-data intra
       - name: Overnight history for mode "longsignal" (the four overnight-* branches)
-        if: (github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'gift') && matrix.key == 'nifty'
+        if: github.event.inputs.mode == 'longsignal' && matrix.key == 'nifty'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: for k in es nq nikkei hangseng india india-p0 india-p1 india-p2 india-p3; do bash scripts/store.sh pull "overnight-$k" od; done
-      - name: India 50 hourly history, shared by the four matrix jobs (mode "dukaindia"; each its own branch)
-        if: github.event.inputs.mode == 'dukaindia'
-        env:
-          PYTHONPATH: scripts
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          p=$(python -c "print({'nifty':0,'gold':1,'silver':2,'crude':3}['${{ matrix.key }}'])")
-          bash scripts/store.sh pull overnight-india od
-          bash scripts/store.sh pull "overnight-india-p$p" od
-          python -u scripts/overnight_data.py india od 48 "$p" 4
-          bash scripts/store.sh push "overnight-india-p$p" od
+        run: for k in es nq nikkei hangseng; do bash scripts/store.sh pull "overnight-$k" od; done
       - name: Hourly overnight history from Dukascopy (mode "dukafetch"; one market per matrix job, resumable)
         if: github.event.inputs.mode == 'dukafetch'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
         run: |
-          k=$(python -c "print({'nifty':'india','gold':'nq','silver':'nikkei','crude':'hangseng'}['${{ matrix.key }}'])")
+          k=$(python -c "print({'nifty':'es','gold':'nq','silver':'nikkei','crude':'hangseng'}['${{ matrix.key }}'])")
           bash scripts/store.sh pull "overnight-$k" od
           python -u scripts/overnight_data.py "$k" od 48
           bash scripts/store.sh push "overnight-$k" od
@@ -69,28 +58,5 @@ jobs:
           PYTHONPATH: scripts
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           INTRADAY_DIR: intra
-        if: github.event.inputs.mode != 'replay' && github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'money' && github.event.inputs.mode != 'dukafetch' && github.event.inputs.mode != 'dukaindia'
+        if: github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'dukafetch'
         run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2 ${{ github.event.inputs.mode || 'variants' }}
-      - name: Replay a day (mode "replay"; test_days = the date, YYYY-MM-DD, or 0 for today)
-        if: github.event.inputs.mode == 'replay' && matrix.key == 'nifty'
-        env:
-          PYTHONPATH: scripts
-          GH_TOKEN: ${{ github.token }}
-          XAI_API_KEY: ${{ secrets.XAI_API_KEY }}
-        run: |
-          d="${{ github.event.inputs.test_days }}"; [ "$d" = "0" ] && d=""
-          bash scripts/store.sh pull scoreboard store
-          mkdir -p out && python -u scripts/replay.py out store "$d"
-          snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
-          cp out/replay-nifty-*.json "$snap"/ && bash scripts/store.sh push site-data "$snap"
-      - name: Add the "₹2 lakh today" box to a day's replay (mode "money"; test_days = the date, YYYY-MM-DD)
-        if: github.event.inputs.mode == 'money' && matrix.key == 'nifty'
-        env:
-          PYTHONPATH: scripts
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          bash scripts/store.sh pull scoreboard store
-          bash scripts/store.sh pull intraday-data intra
-          snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
-          python -u scripts/daymoney.py replay "$snap" intra store "${{ github.event.inputs.test_days }}"
-          bash scripts/store.sh push site-data "$snap"

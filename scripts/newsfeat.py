@@ -4,8 +4,8 @@ For each trading session D the feature is the tone of the related headlines publ
 *previous* session's close (cutoff). Anything written after that cutoff could already describe session D (live blogs
 get retitled with the day's result), so it is never used. Live forecasts and the history use the same rule.
 
-History: one row per session in <store>/news-daily/<key>.json, filled by `backfill` (Google News date search) and
-then kept up to date by every forecast run.
+History: one row per session in <store>/news-daily/<key>.json (about a year was fetched from Google News' date search
+in Oct 2026), kept up to date by every forecast run.
 
 Use: a walk-forward test regresses each session's return on the tone known before it (standardised with past data
 only). The tone's effect is scaled by how much it actually helped in that test (0 = no help = no effect), and the
@@ -13,7 +13,6 @@ result shifts the best estimate. It has no effect at all below MIN_EVAL tested s
 walk-forward squared error by less than MIN_GAIN.
 
 CLI:
-  python scripts/newsfeat.py backfill <key> <store_dir> [days] [budget_seconds]
   python scripts/newsfeat.py merge <data_dir> <store_dir>      (deploy job: save the rows the forecast jobs fetched)
 """
 import glob
@@ -27,7 +26,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import news  # noqa: E402
-from calendars import is_session, previous_session  # noqa: E402
+from calendars import previous_session  # noqa: E402
 
 WINDOW_H = 36
 MIN_TRAIN = 40            # sessions before the first walk-forward prediction
@@ -161,35 +160,6 @@ def apply(forecast, adj, last_close, prob_fn):
     return forecast
 
 
-def backfill(key, store_dir, days=365, budget=1500):
-    inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
-    news.reset_budget(budget)
-    path = history_path(store_dir, key)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    rows = load_rows(path)
-    today = datetime.now(timezone.utc).date()
-    sessions = [today - timedelta(days=i) for i in range(days, -1, -1)]
-    sessions = [s for s in sessions if is_session(s, inst.get("calendar"))]
-    have = {r["d"] for r in rows}
-    todo = [s for s in sessions if s.isoformat() not in have]
-    print(f"{key}: {len(have)} sessions stored, {len(todo)} to fetch", flush=True)
-    done = 0
-    for s in todo:
-        r = session_row(inst, s) if cutoff(s, inst) <= datetime.now(timezone.utc) else None
-        if r is None:
-            if cutoff(s, inst) <= datetime.now(timezone.utc):
-                print(f"{key}: stopped at {s} (source unavailable or time budget used)", flush=True)
-                break
-            continue
-        rows = merge_rows(rows, [r])
-        done += 1
-        if done % 20 == 0:
-            json.dump(rows, open(path, "w"), separators=(",", ":"))
-            print(f"{key}: {done}/{len(todo)} fetched", flush=True)
-    json.dump(rows, open(path, "w"), separators=(",", ":"))
-    print(f"{key}: {len(rows)} sessions stored ({done} new)", flush=True)
-
-
 def merge(data_dir, store_dir):
     for path in glob.glob(os.path.join(data_dir, "*.json")):
         name = os.path.basename(path)[:-5]
@@ -206,9 +176,7 @@ def merge(data_dir, store_dir):
 
 if __name__ == "__main__":
     cmd = sys.argv[1]
-    if cmd == "backfill":
-        backfill(sys.argv[2], sys.argv[3], *(int(a) for a in sys.argv[4:6]))
-    elif cmd == "merge":
+    if cmd == "merge":
         merge(sys.argv[2], sys.argv[3])
     else:
         raise SystemExit(__doc__)

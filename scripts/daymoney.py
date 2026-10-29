@@ -155,36 +155,9 @@ def money(bars, prev_close, morning_side=0, app_side=0, steps=None):
             "basis": "per NIFTY futures lot (65); an at-the-money option moves about half as much"}
 
 
-def add_to_replay(data_dir, intra_dir, store_dir, day):
-    """Add the box to a replay already made (replay-nifty-<day>.json), from the stored 5-minute candles."""
-    import json
-    import os
-    from zoneinfo import ZoneInfo
-    import intraday_data
-    path = os.path.join(data_dir, f"replay-nifty-{day}.json")
-    rp = json.load(open(path))
-    g = intraday_data.load(intra_dir, "nifty").get(pd.Timestamp(day).date())
-    if g is None:
-        print(f"money: no stored candles for {day}", flush=True)
-        return None
-    ist = ZoneInfo("Asia/Kolkata")
-    bars = [(t.tz_localize(ist), *r) for t, r in zip(g.index, g[["Open", "High", "Low", "Close"]].itertuples(index=False))]
-    calls = os.path.join(store_dir, "calls", "nifty.json")
-    rec = next((r for r in json.load(open(calls)) if r["d"] == day), {}) if os.path.exists(calls) else {}
-    rp["money"] = money(bars, rp["prev_close"], *sides(rec), steps=rp.get("steps"))
-    json.dump(rp, open(path, "w"), separators=(",", ":"))
-    print("money", day, [(r["name"], r["rs"]) for r in (rp["money"] or {}).get("rows", [])], flush=True)
-    return rp["money"]
-
-
 def sides(rec):
     """(morning side, app side) from a day's recorded call: the from-open direction, and it again if it traded."""
     fo = (rec or {}).get("from_open") or {}
     s = {"up": 1, "down": -1}.get(fo.get("direction"), 0)
     return s, (s if fo.get("trade") else 0)
 
-
-if __name__ == "__main__":
-    import sys
-    if sys.argv[1:2] == ["replay"]:
-        add_to_replay(*sys.argv[2:6])
