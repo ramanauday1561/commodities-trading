@@ -32,8 +32,9 @@ status.json). With store_dir, every run is also appended to <store>/journal/<dat
 page said, why, the pre-open calls and the price at that moment, and whether an alert went out, so each day can be
 checked and the rules improved from it.
 A change of state is sent to the phone through every channel whose GitHub secrets are set (never in the repo):
-  Telegram  TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (a bot made with @BotFather; workflow "Telegram setup" finds the
-            chat ID). Added 22 Oct 2026: ntfy messages reached the app but iOS never showed them as notifications.
+  Telegram  TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (a bot made with @BotFather; after messaging the bot, the chat ID
+            is in https://api.telegram.org/bot<token>/getUpdates). Added 22 Oct 2026: ntfy messages reached the app
+            but iOS never showed them as notifications.
   ntfy.sh   NTFY_TOPIC
 """
 import json

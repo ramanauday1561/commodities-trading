@@ -1,34 +1,15 @@
-"""Backtest LightGBM variants side by side before changing the live model.
+"""Backtest LightGBM variants side by side before changing the live model, and run the kept studies.
 
 Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "variants" (default): LightGBM variants for the expected close
   mode "risk": big-move probability and likely-range methods (see risk_and_range)
-  mode "accuracy": NIFTY only, see accuracy_study.py
-  mode "improve": NIFTY only, extra pre-open inputs and intraday patterns (see accuracy_study.improve)
-  mode "events": big-move risk and ranges with and without US CPI / jobs / Fed calendar inputs
-  mode "strategy": NIFTY only, trading rules scored on what an open or 10:15 entry earns to the close, after costs
-  mode "preopen": NIFTY only, missing pre-open inputs after 19 Oct 2026 (preopen_study.py); "results": calls on days
-    after heavyweight results; "earnings": can Yahoo serve results dates; "resultsrisk": results days as an input to
-    big-move risk and ranges (19 Oct 2026: slightly worse, not used)
-  mode "open": NIFTY only, calls traded from the open or 10:15, selective calls and expiry days (open_study.py)
-  mode "rolls": futures history with and without the contract-roll adjustment; NIFTY calls without crude (roll_study.py)
-  mode "intrarules": NIFTY only, chase / fade / flip intraday rules with target and stop (intraday_rules_study.py), on the
-    stored 5-minute history (intraday_data.py, from 2015); mode "intradata" only updates that history
-  mode "midday": NIFTY only, the "midday recovery" CALL traded on 28 Oct (fell 0.6%+, back near yesterday's close by
-    13:00) as a fixed rule, with variants and the mirror PUT (midday_study.py, on the stored history)
-  mode "history": NIFTY only, the from-open trade's exits on 5-minute candles, India VIX at the open and event days
-    (history_study.py, on the same stored history)
-  mode "streak": NIFTY only, the 3- and 5-day move and the run of down / up closes as inputs (streak_study.py)
-  mode "fii": NIFTY only, FII and client index-futures positions (NSE participant-wise OI) as inputs (fii_study.py)
-  mode "exits": NIFTY only, stop-loss and take-profit rules for the from-open trade (exit_study.py)
-  mode "pcr": NIFTY only, the previous session's put-call ratio as an input or a filter for the from-open signal
-  mode "pcrprobe": NIFTY only, NIFTY's put-call ratio from NSE's daily F&O bhavcopy, a download check (pcr_probe.py)
-  mode "vix": NIFTY only, India VIX as an input or a stand-aside filter for the from-open signal (vix_study.py)
-  mode "resultsize": NIFTY only, how many of the heaviest stocks count as results days (results_size_study.py)
-  mode "hourly": NIFTY only, next-hour and rest-of-day forecasts from 1-hour candles (hourly_study.py)
-  mode "extreme": NIFTY only, India inputs, the chip index and a confidence cap for extreme overnight moves
-  mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
+  mode "events": big-move risk and ranges with and without US CPI / jobs / Fed calendar inputs; "calendar" prints it
+  mode "resultsrisk": NIFTY heavyweight results days as an input to big-move risk and ranges (19 Oct 2026: not used)
   mode "dailyfill": daily candles rebuilt from 15-minute bars vs Yahoo's own daily rows (last ~55 sessions)
+  mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
+  NIFTY studies (STUDIES below; what each found is in STUDIES.md): accuracy, improve, extreme, strategy, preopen,
+    results, earnings, open, vix, history, longsignal, intrarules, nextcandle. "history", "longsignal", "intrarules"
+    and "nextcandle" run on the stored 5-minute history (intraday_data.py, from 2015); mode "intradata" only updates it.
 
 Every variant is retrained walk-forward (only data known before each test day) and scored on the same test days:
 the last `test_days` trading days, every `step`-th day. Reported per variant: average miss (%) of the next close,
@@ -206,157 +187,42 @@ def dailyfill_check(inst):
     print("DAILYFILL " + json.dumps({"key": inst["key"], **out}), flush=True)
 
 
+# Studies kept for re-testing the calls (finished one-off studies are summarised in STUDIES.md): mode -> (module,
+# function). All are NIFTY-only except "commodity", which runs for gold, silver and crude.
+STUDIES = {
+    "accuracy": ("accuracy_study", "main"), "improve": ("accuracy_study", "improve"),
+    "extreme": ("accuracy_study", "extreme"), "strategy": ("accuracy_study", "strategy_main"),
+    "preopen": ("preopen_study", "main"), "earnings": ("preopen_study", "earnings_probe"),
+    "results": ("preopen_study", "results_study"), "open": ("open_study", "main"), "vix": ("vix_study", "main"),
+    "history": ("history_study", "main"), "longsignal": ("long_signal_study", "main"),
+    "intrarules": ("intraday_rules_study", "main"), "nextcandle": ("nextcandle_study", "main"),
+}
+
+
+def calendar():
+    """Print the parsed US event calendar, to check it by eye."""
+    import us_events
+    from collections import Counter
+    ev = us_events.fetch_all()
+    for k, v in ev.items():
+        print(f"CAL {k} per year " + json.dumps(dict(sorted(Counter(d.year for d in v).items()))), flush=True)
+        for y in sorted({d.year for d in v})[-3:]:
+            print(f"CAL {k} {y}: " + ", ".join(d.isoformat() for d in v if d.year == y), flush=True)
+
+
 def main(key, test_days=750, step=2, mode="variants"):
     if mode == "commodity":
         if key != "nifty":
             import accuracy_study
             accuracy_study.commodity(key)
         return
-    if mode == "calendar":                               # just print the parsed US event calendar
+    if mode in STUDIES or mode == "calendar":
         if key == "nifty":
-            import us_events
-            from collections import Counter
-            ev = us_events.fetch_all()
-            for k, v in ev.items():
-                print(f"CAL {k} per year " + json.dumps(dict(sorted(Counter(d.year for d in v).items()))), flush=True)
-                for y in sorted({d.year for d in v})[-3:]:
-                    print(f"CAL {k} {y}: " + ", ".join(d.isoformat() for d in v if d.year == y), flush=True)
-            html = us_events._get(us_events.FOMC_CURRENT)
-            t = us_events._text(html)
-            i = t.find("2027 FOMC Meetings")
-            print("CAL 2027 text: " + t[i:i + 900], flush=True)
-        return
-    if mode == "strategy":
-        if key == "nifty":
-            import accuracy_study
-            accuracy_study.strategy_main()
-        return
-    if mode in ("preopen", "earnings", "results"):
-        if key == "nifty":
-            import preopen_study
-            {"preopen": preopen_study.main, "earnings": preopen_study.earnings_probe,
-             "results": preopen_study.results_study}[mode]()
-        return
-    if mode == "rolls":                                   # futures roll adjustment; NIFTY with / without crude
-        import roll_study
-        roll_study.main(key)
-        return
-    if mode == "hourly":                                  # NIFTY: next-hour / rest-of-day forecasts from 1-hour candles
-        import hourly, os, tempfile
-        with tempfile.TemporaryDirectory() as out:          # also check the chart's hourly file for every market
-            hourly.main(out, [key])
-            p = os.path.join(out, f"hourly-{key}.json")
-            if os.path.exists(p):
-                b = json.load(open(p))["bars"]
-                print(f"hourly {key}: {len(b)} bars, first {b[0]}, last {b[-1]}, {os.path.getsize(p) // 1024} KB", flush=True)
-        if key == "nifty":
-            import hourly_study
-            hourly_study.main()
-        return
-    if mode == "oct23":                                   # NIFTY: ADRs on results days, earlier cutoff, high oil
-        if key == "nifty":
-            import oct23_study
-            oct23_study.main()
-        return
-    if mode == "midday":                                  # NIFTY: the 28 Oct "midday recovery" CALL as a rule
-        if key == "nifty":
-            import midday_study
-            midday_study.main()
-        return
-    if mode == "longsignal":                              # NIFTY: the 09:15 signal on ~11 years of overnight history
-        if key == "nifty":
-            import long_signal_study
-            long_signal_study.main()
-        return
-    if mode == "kagglesearch":                            # NIFTY: Kaggle datasets with years of intraday overnight inputs
-        if key == "nifty":
-            import kaggle_search
-            kaggle_search.main()
-        return
-    if mode == "dukaprobe":                               # NIFTY: years of hourly overnight inputs from Dukascopy?
-        if key == "nifty":
-            import dukascopy_probe
-            dukascopy_probe.main()
-        return
-    if mode == "history":                                 # NIFTY: exits, India VIX at the open, event days (5-min history)
-        if key == "nifty":
-            import history_study
-            history_study.main()
-        return
-    if mode == "gift":                                    # NIFTY: GIFT Nifty (India 50 CFD) for the trade from the open
-        if key == "nifty":
-            import gift_study
-            gift_study.main()
-        return
-    if mode == "giftprobe":                               # NIFTY: where years of GIFT / SGX Nifty prices can come from
-        if key == "nifty":
-            import gift_probe
-            gift_probe.main()
-        return
-    if mode == "nextcandle":                              # NIFTY: predicting the next 10-minute candle for CALL / PUT
-        if key == "nifty":
-            import nextcandle_study
-            nextcandle_study.main()
-        return
-    if mode == "trendday":                                # NIFTY: ride a strong morning to 15:15 (29 Oct 2026)
-        if key == "nifty":
-            import trendday_study
-            trendday_study.main()
-        return
-    if mode == "intrarules":                              # NIFTY: simple intraday rules on 60 days of 5-min candles
-        if key == "nifty":
-            import intraday_rules_study
-            intraday_rules_study.main()
-        return
-    if mode in ("streak", "fii"):                         # NIFTY: multi-day run / FII positions for the from-open signal
-        if key == "nifty":
-            import fii_study, streak_study
-            {"streak": streak_study, "fii": fii_study}[mode].main()
-        return
-    if mode == "exits":                                   # NIFTY: stop-loss / take-profit for the from-open trade
-        if key == "nifty":
-            import exit_study
-            exit_study.main()
-        return
-    if mode == "pcr":                                     # NIFTY: put-call ratio as an input or a filter (from-open)
-        if key == "nifty":
-            import pcr_study
-            pcr_study.main()
-        return
-    if mode == "pcrprobe":                                # NIFTY: can NSE's F&O bhavcopy give a daily put-call ratio
-        if key == "nifty":
-            import pcr_probe
-            pcr_probe.main()
-        return
-    if mode == "vix":                                     # NIFTY: India VIX as an input or a filter for the from-open signal
-        if key == "nifty":
-            import vix_study
-            vix_study.main()
-        return
-    if mode == "resultsize":                              # NIFTY: 5, 11, 20 or 50 stocks as "heavyweight results"
-        if key == "nifty":
-            import results_size_study
-            results_size_study.main()
-        return
-    if mode == "review":                                  # NIFTY: gap surprise, failed gaps, banks after results
-        if key == "nifty":
-            import review_study
-            review_study.main()
-        return
-    if mode == "open":
-        if key == "nifty":
-            import open_study
-            open_study.main()
-        return
-    if mode == "extreme":
-        if key == "nifty":
-            import accuracy_study
-            accuracy_study.extreme()
-        return
-    if mode in ("accuracy", "improve"):        # NIFTY-only studies of where direction calls are most reliable
-        if key == "nifty":
-            import accuracy_study
-            accuracy_study.main() if mode == "accuracy" else accuracy_study.improve()
+            if mode == "calendar":
+                return calendar()
+            import importlib
+            module, fn = STUDIES[mode]
+            getattr(importlib.import_module(module), fn)()
         return
     inst = next(i for i in json.load(open("scripts/instruments.json")) if i["key"] == key)
     if mode == "dailyfill":

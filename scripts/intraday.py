@@ -22,7 +22,6 @@ from evalutil import summarize
 
 ALPHA = 30.0              # ridge strength: small, noisy sample, so keep the model tame
 FIRST_BAR = 2             # earliest snapshot (bar index) used for training and prediction
-FEATURES = ["z_sofar", "z_gap", "z_intra", "pos", "z_mom", "elapsed", "z_range"]
 
 
 def _flat(df):

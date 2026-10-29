@@ -6,12 +6,10 @@ honestly once a few months of them exist; until then they never change CALL / PU
 
 The key comes only from the XAI_API_KEY secret (never in the repo or the logs). Every call is counted per day and
 stops at DAILY_CAP. Any failure returns None and the caller carries on without the note.
-Usage: python scripts/grok.py test   (one short call, to check the key; workflow "Grok test")
 """
 import json
 import os
 import re
-import sys
 import time
 import urllib.error
 import urllib.request
@@ -152,20 +150,3 @@ class Budget:
         self.state["grok_calls"] = self.state.get("grok_calls", 0) + 1
         return ask(prompt, **kw)
 
-
-if __name__ == "__main__":
-    if sys.argv[1:] == ["test"]:
-        key = os.environ.get("XAI_API_KEY", "").strip()
-        print(f"key set: {bool(key)}, looks like a key for: {key_kind(key) if key else '-'}")
-        if key:
-            try:
-                req = urllib.request.Request(provider(key)["base"] + "/models", headers=_headers(key))
-                ids = [m.get("id") for m in json.loads(urllib.request.urlopen(req, timeout=30).read()).get("data", [])]
-                print("models this key can use:", ", ".join(ids) or "none")
-            except urllib.error.HTTPError as e:
-                print(f"model list: HTTP {e.code} {_reason(e)}")
-            except Exception as e:
-                print(f"model list: {type(e).__name__}")
-        r = ask("In one short sentence: what is NIFTY 50?", search=False, max_tokens=60)
-        print("grok test:", "OK, " + r[:120] if r else "FAILED (is the XAI_API_KEY secret set?)")
-        sys.exit(0 if r else 1)
