@@ -14,6 +14,8 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "rolls": futures history with and without the contract-roll adjustment; NIFTY calls without crude (roll_study.py)
   mode "intrarules": NIFTY only, chase / fade / flip intraday rules with target and stop (intraday_rules_study.py), on the
     stored 5-minute history (intraday_data.py, from 2015); mode "intradata" only updates that history
+  mode "midday": NIFTY only, the "midday recovery" CALL traded on 28 Oct (fell 0.6%+, back near yesterday's close by
+    13:00) as a fixed rule, with variants and the mirror PUT (midday_study.py, on the stored history)
   mode "history": NIFTY only, the from-open trade's exits on 5-minute candles, India VIX at the open and event days
     (history_study.py, on the same stored history)
   mode "streak": NIFTY only, the 3- and 5-day move and the run of down / up closes as inputs (streak_study.py)
@@ -255,6 +257,11 @@ def main(key, test_days=750, step=2, mode="variants"):
         if key == "nifty":
             import oct23_study
             oct23_study.main()
+        return
+    if mode == "midday":                                  # NIFTY: the 28 Oct "midday recovery" CALL as a rule
+        if key == "nifty":
+            import midday_study
+            midday_study.main()
         return
     if mode == "longsignal":                              # NIFTY: the 09:15 signal on ~11 years of overnight history
         if key == "nifty":
