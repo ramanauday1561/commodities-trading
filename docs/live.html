@@ -38,8 +38,8 @@
     <a href="status.html">Close</a>
   </div>
   <div class="legend" id="legend">
-    <span><i style="border-color:var(--pred)"></i>our nowcast of the close (it follows the price; it cannot see turns coming)</span>
-    <span><i style="border-color:var(--pred);border-top-style:dotted;opacity:.6"></i>likely range</span>
+    <span><i style="border-color:var(--pred);border-top-style:dashed"></i>08:57 call: the close we forecast before the open</span>
+    <span><i style="border-color:var(--pred);border-top-style:dotted;opacity:.6"></i>likely close range</span>
     <span><i style="border-color:#8a96a8;border-top-style:dashed"></i>yesterday's close</span>
     <span>● alerts · ⚡ big moves (tap)</span>
   </div>
@@ -65,7 +65,6 @@ const chart = LightweightCharts.createChart($('chart'), {
 });
 const candles = chart.addCandlestickSeries({ upColor: '#34d1bf', downColor: '#ff6b6b', borderVisible: false,
   wickUpColor: '#34d1bf', wickDownColor: '#ff6b6b' });
-const pred = chart.addLineSeries({ color: '#f5a623', lineWidth: 2, priceLineVisible: false, lastValueVisible: true, title: 'prediction' });
 // the range is wide early in the day; it must not stretch the price scale away from the candles
 const band = { color: 'rgba(245,166,35,.45)', lineWidth: 1, lineStyle: 1, priceLineVisible: false, lastValueVisible: false,
                crosshairMarkerVisible: false, autoscaleInfoProvider: () => null };
@@ -88,7 +87,9 @@ function draw(d) {
   $('msg').hidden = c.length > 0;
   $('msg').textContent = d.status === 'pre_open' || !c.length ? "Today's 10-minute chart starts after the 09:15 open." : '';
   candles.setData(c);
-  pred.setData(series(d.preds || [], 'pred', c)); lo.setData(series(d.preds || [], 'lo', c)); hi.setData(series(d.preds || [], 'hi', c));
+  // no "prediction" line: the nowcast followed the price, so it looked right without forecasting anything (29 Oct 2026);
+  // the chart keeps the one forecast made in advance (the 08:57 call) and the likely close range
+  lo.setData(series(d.preds || [], 'lo', c)); hi.setData(series(d.preds || [], 'hi', c));
   lines.forEach(l => candles.removePriceLine(l)); lines = [];
   const add = (price, color, title, style = 2) => price && lines.push(candles.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
   add(d.prev_close, '#8a96a8', "yesterday");
@@ -131,7 +132,6 @@ function summary() {
   if (card) {
     p.innerHTML = `Closed ${f(card.close)} <span class="${card.move_pct >= 0 ? 'up' : 'down'}">${pc(card.move_pct)}</span>`
       + (card.call_close ? ` · 08:57 call ${f(card.call_close)} (${card.call_right ? 'right' : 'wrong'} side)` : '')
-      + (card.runs ? ` · predictions ${card.avg_miss_pct.toFixed(2)}% off on average${card.right_side_since ? `, right side from ${card.right_side_since.slice(11, 16)}` : ''}` : '')
       + (card.note ? `<div class="m">Why (Grok): ${card.note}</div>` : '');
   } else if (m) {
     p.innerHTML = `<span class="m">Grok's morning read (info only):</span> ${m.score > 0 ? '+' : ''}${m.score} · ${(m.reasons || []).join(' · ')}`;
@@ -154,7 +154,7 @@ chart.subscribeClick(param => {
   const mk = (data.marks || []).filter(m => snap(m.time, c) === t);
   let h = `<b>${hhmm(t)}</b>`;
   if (k) h += ` · O ${f(k.open)} H ${f(k.high)} L ${f(k.low)} C ${f(k.close)}`;
-  if (pr) h += `<div>We expected the close near <b>${f(pr.pred)}</b>${pr.lo ? ` (likely ${f(pr.lo)} – ${f(pr.hi)})` : ''}${pr.check ? `; hourly check: ${pr.check}` : ''}</div>`;
+  if (pr && pr.lo) h += `<div>Likely close range then: ${f(pr.lo)} – ${f(pr.hi)}${pr.check ? `; hourly check: closes ${pr.check === 'up' ? 'above' : 'below'} yesterday` : ''}</div>`;
   mk.forEach(m => h += `<div>● ${m.at.slice(11, 16)} ${m.state}: ${m.headline || ''}</div>`);
   if (mv) h += `<div>⚡ ${pc(mv.pct)} (${f(mv.from)} → ${f(mv.to)})${mv.note ? `: ${mv.note}` : ''}</div>`;
   $('panel').innerHTML = h; $('panel').dataset.pinned = '1';
@@ -185,7 +185,7 @@ function drawReplay(d) {
   $('msg').hidden = c.length > 0;
   candles.setData(c);
   ai.setData(series(steps, 'ai_close', c));
-  [pred, lo, hi].forEach(x => x.setData([]));
+  [lo, hi].forEach(x => x.setData([]));
   lines.forEach(l => candles.removePriceLine(l)); lines = [];
   lines.push(candles.createPriceLine({ price: d.prev_close, color: '#8a96a8', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'yesterday' }));
   lines.push(candles.createPriceLine({ price: d.close, color: '#34d1bf', lineWidth: 1, lineStyle: 0, axisLabelVisible: true, title: 'actual close' }));
