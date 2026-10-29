@@ -286,6 +286,11 @@ def main(key, test_days=750, step=2, mode="variants"):
             import gift_probe
             gift_probe.main()
         return
+    if mode == "giftquote":                               # NIFTY: a free live GIFT Nifty quote to record each morning
+        if key == "nifty":
+            import gift_quote_probe
+            gift_quote_probe.main()
+        return
     if mode == "intrarules":                              # NIFTY: simple intraday rules on 60 days of 5-min candles
         if key == "nifty":
             import intraday_rules_study
