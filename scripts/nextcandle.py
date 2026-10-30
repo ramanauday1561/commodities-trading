@@ -21,6 +21,12 @@ PARAMS = {"objective": "regression", "learning_rate": 0.03, "num_leaves": 15, "m
 RECORD = {"right_pct": 53.1, "rs_per_lot": -73, "years_up": "0 of 10",
           "text": "tested 2017-2026: its most confident calls were right 53% of the time but lost about Rs73 a lot per "
                   "trade after option costs, in every year"}
+# Trading every lean, day by day (nextcandle_study.day_record(), run 30 Oct 2026 on 2,371 days, 2017 - 29 Oct 2026):
+# the page places each day's score among these, so a bad day reads as the usual result, and a good day as the exception.
+DAY_RECORD = {"days": 2371, "from": "2017-01-02", "to": "2026-10-29", "profit_share": 0.105, "avg_rs": -3621,
+              "quantiles": {"1": -11923, "5": -8690, "10": -7275, "25": -5333, "50": -3801, "75": -1913, "90": 91,
+                            "95": 1705, "99": 6233}}
+LAST_FULL = "15:15"                     # the 15:25 candle is only 5 minutes; it was never in the test, so no lean for it
 
 
 def train(intra_dir, out_dir):
@@ -32,7 +38,8 @@ def train(intra_dir, out_dir):
     cut = float(np.quantile(np.abs(m.predict(df[ns.FEATS].values)), 0.8))
     os.makedirs(out_dir, exist_ok=True)
     m.save_model(os.path.join(out_dir, "nextcandle-model.txt"))
-    meta = {"trained_until": str(df["d"].max()), "candles": len(df), "confident_cut": cut, "record": RECORD}
+    meta = {"trained_until": str(df["d"].max()), "candles": len(df), "confident_cut": cut, "record": RECORD,
+            "day_record": DAY_RECORD}
     json.dump(meta, open(os.path.join(out_dir, "nextcandle-meta.json"), "w"))
     print(f"nextcandle: trained on {len(df)} candles to {meta['trained_until']}", flush=True)
     return meta
@@ -68,6 +75,8 @@ def lean(model_dir, now, get=yahoo_days):
     meta = json.load(open(meta_p))
     p = float(lgb.Booster(model_file=mp).predict(df[ns.FEATS].values[-1:])[0])
     start = pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=15) + pd.Timedelta(minutes=10 * (int(last["k"]) + 1))
+    if start.strftime("%H:%M") > LAST_FULL:
+        return None
     return {"at": start.strftime("%H:%M"), "lean": "up" if p > 0 else "down", "pts": round(p * float(last["price"]), 1),
             "confident": abs(p) >= meta["confident_cut"], "record": meta["record"]}
 

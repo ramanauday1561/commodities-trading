@@ -344,7 +344,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
     meta = _load(os.path.join(data_dir, "nextcandle-meta.json"), {}) or {}
     json.dump({"date": day, "updated": now.isoformat(timespec="minutes"), "status": today.get("status"),
                "prev_close": prev_close, "candles": st.get("candles", []), "leans": st.get("leans", []),
-               "record": meta.get("record"), "trained_until": meta.get("trained_until")},
+               "record": meta.get("record"), "day_record": meta.get("day_record"), "trained_until": meta.get("trained_until")},
               open(os.path.join(data_dir, "next-nifty.json"), "w"), separators=(",", ":"))
     rc = (pre.get("recorded") or {})
     fo, cl = rc.get("from_open") or {}, rc.get("close") or {}

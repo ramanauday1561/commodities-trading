@@ -9,7 +9,7 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle (see STUDIES.md); intradata (update the 5-minute history) or dukafetch (update the hourly overnight history)"
+        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute (see STUDIES.md); intradata (update the 5-minute history) or dukafetch (update the hourly overnight history)"
         required: false
         default: "variants"
 
@@ -30,8 +30,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance lightgbm exchange_calendars
-      - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle"; intraday-data branch)
-        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle"]'), github.event.inputs.mode) && matrix.key == 'nifty'
+      - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle", "minute"; intraday-data branch)
+        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle", "minute"]'), github.event.inputs.mode) && matrix.key == 'nifty'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
