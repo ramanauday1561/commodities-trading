@@ -20,7 +20,15 @@ round trip; time decay over 30-60 minutes is not included, so results are a litt
 Rule, fixed before the run: the 1-minute inputs pass at a horizon only if its top-20% most confident calls are right
 55% of the time or more, earn after costs over all test years and in both halves of them, earn in at least 6 of the
 test years, and earn more per trade than the model without them in both halves.
-Result: not run yet.
+Result (run 41060842884, 30 Oct 2026; 2,799 days with 1-minute data, 9 Jan 2015 - 15 May 2026): fails at both.
+  top-20% calls                 right   option pts / trade   Rs a lot   halves          years up
+  30 min, without 1-minute      53.1%   -0.24                -16        -0.42 / +0.03   3 of 10
+  30 min, with 1-minute         53.5%   -0.20                -13        -0.29 / -0.06   3 of 10
+  60 min, without 1-minute      53.3%   -0.06                -4         -0.64 / +0.77   3 of 10
+  60 min, with 1-minute         53.6%   -0.11                -7         -0.42 / +0.34   3 of 10
+  The 1-minute inputs add about 0.3-0.4 points of hit rate and nothing to the money: still short of the 55% asked for,
+  still losing in 7 of 10 years, and at 60 minutes slightly worse overall. The faint signal in where NIFTY has just
+  been is already in the 10-minute candles; finer data adds noise, not information.
 """
 import io
 import json
