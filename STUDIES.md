@@ -17,6 +17,7 @@ To get a removed script back, run `git show cf6df74:scripts/<name>.py > scripts/
 | `intraday_rules_study.py` | `intrarules` | Chase / fade / flip intraday rules on 11 years of 5-minute candles |
 | `nextcandle_study.py` | `nextcandle` | The next 10-minute candle (also used by the Next 10 min page) |
 | `minute_study.py` | `minute` | 1-minute details as inputs for the next 30 / 60 minutes (30 Oct 2026: fails; 53.5% right, still losing after costs in 7 of 10 years) |
+| `option_study.py` | `options` (data: `optdata`) | The 09:15 signal and ATM straddles on real NIFTY option prices; India VIX vs real moves |
 
 ## Finished studies (scripts removed)
 
