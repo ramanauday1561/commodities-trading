@@ -24,7 +24,26 @@ which the bhavcopy does not have, so every trade here is open to close with no s
    test years, in both halves, in at least 6 of the test years, and more than straddles on every day.
 Costs: 1.85 option points a leg for a round trip (Rs120 a lot of 65: brokerage, STT, fees, the bid-ask spread).
 Points are per unit; Rs are for one lot of 65 (the lot size has changed over the years; the points have not).
-Result: not run yet.
+Result (run 41119100372, 30 Oct 2026; option prices for 2,912 sessions, 1 Jan 2015 - 30 Oct 2026):
+1. The 09:15 signal on real premiums (points per trade after costs; Rs a lot of 65):
+                                   11-year walk-forward (190 trades)            live version, last 2 years (52 trades)
+   ATM, nearest expiry             -3.39 (-Rs220), 40% won, since 2022 -10.94    +26.68 (+Rs1,734), 44% won
+   ATM, skip expiry day            -2.29 (-Rs149), 43% won, since 2022 -6.83     +32.20 (+Rs2,093), 48% won (2026: -0.72)
+   ATM, next expiry                +0.22 (+Rs14),  44% won, since 2022 -14.38    +27.99 (+Rs1,819), 46% won
+   1 OTM, skip expiry day          -0.48 (-Rs31),  45% won, since 2022 -8.18     +22.84 (+Rs1,484), 44% won
+   half-delta estimate, same days  -3.32                                         +36.41
+   The 11-year version FAILS the rule (by half +5.62 / -10.21; 6 of 12 years up; losing since 2022). The live version
+   passes it on paper (+54.59 / +9.82 by half), but its inputs and stand-aside rules were chosen on these same two
+   years, so it is not an independent test, and 2026 so far is flat. Nothing changes in the app: the signal stays
+   information plus the existing rule, and its live record keeps counting. Two things hold in both sets: the old
+   half-delta figures were in the right range (within about 1-4 points a trade), and on expiry days the expiring
+   option did worse than the next expiry's (by 1.1 and 5.5 points a trade).
+2. (a) NIFTY's daily move averaged 0.84 of what India VIX implied (0.70-0.91 by year; 0.99 in 2026); it moved more
+   than implied on only 31% of days. (b) An ATM straddle bought at the open and sold at the close lost on 70% of
+   2,839 days: -10.37 points (-Rs674 a lot) a day, in every one of the 12 years, more since 2022 (-13.41) and most
+   on the day before expiry (-16.28). (c) Picking fails: the model's top 20% lost less (-5.21 points, 2 of 11 years
+   up), and results / US-news days (-7.10), gaps of 0.5%+ (-9.89) and recent volatility above VIX (-11.79) all lost.
+   Buying options from the open starts behind on most days: the premium prices a bigger move than usually comes.
 """
 import json
 import os
