@@ -8,8 +8,8 @@ Usage: python scripts/experiment.py <key> [test_days] [step] [mode]
   mode "dailyfill": daily candles rebuilt from 15-minute bars vs Yahoo's own daily rows (last ~55 sessions)
   mode "commodity": gold/silver/crude, the move so far during the Indian day vs the settlement (accuracy_study)
   NIFTY studies (STUDIES below; what each found is in STUDIES.md): accuracy, improve, extreme, strategy, preopen,
-    results, earnings, open, vix, history, longsignal, intrarules, nextcandle. "history", "longsignal", "intrarules"
-    and "nextcandle" run on the stored 5-minute history (intraday_data.py, from 2015); mode "intradata" only updates it.
+    results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute. "history", "longsignal",
+    "intrarules", "nextcandle" and "minute" run on the stored 5-minute history (intraday_data.py, from 2015); mode "intradata" only updates it.
 
 Every variant is retrained walk-forward (only data known before each test day) and scored on the same test days:
 the last `test_days` trading days, every `step`-th day. Reported per variant: average miss (%) of the next close,
@@ -196,6 +196,7 @@ STUDIES = {
     "results": ("preopen_study", "results_study"), "open": ("open_study", "main"), "vix": ("vix_study", "main"),
     "history": ("history_study", "main"), "longsignal": ("long_signal_study", "main"),
     "intrarules": ("intraday_rules_study", "main"), "nextcandle": ("nextcandle_study", "main"),
+    "minute": ("minute_study", "main"),
 }
 
 

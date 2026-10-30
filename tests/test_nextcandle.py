@@ -54,6 +54,12 @@ class NextCandle(unittest.TestCase):
         self.assertIn(out["lean"], ("up", "down"))
         self.assertIn("lost about Rs73", out["record"]["text"])
         self.assertIsNone(nc.lean(tempfile.mkdtemp(), datetime(2026, 10, 29, 11, tzinfo=IST), get=lambda s: live))
+        self.assertEqual(meta["day_record"]["quantiles"]["50"], -3801)
+        at = lambda h, m: datetime.combine(today, datetime.min.time(), IST).replace(hour=h, minute=m)
+        live[today] = days(3, seed=2, start="2026-10-27")[today].iloc[:72]            # to the 15:10 bar: 15:05 finished
+        self.assertEqual(nc.lean(tmp, at(15, 16), get=lambda s: live)["at"], "15:15")
+        live[today] = days(3, seed=2, start="2026-10-27")[today].iloc[:74]            # 15:15 finished: next is the stub
+        self.assertIsNone(nc.lean(tmp, at(15, 26), get=lambda s: live))
 
 
 if __name__ == "__main__":

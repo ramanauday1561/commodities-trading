@@ -16,6 +16,7 @@ To get a removed script back, run `git show cf6df74:scripts/<name>.py > scripts/
 | `vix_study.py` | `vix` | India VIX as an input or filter |
 | `intraday_rules_study.py` | `intrarules` | Chase / fade / flip intraday rules on 11 years of 5-minute candles |
 | `nextcandle_study.py` | `nextcandle` | The next 10-minute candle (also used by the Next 10 min page) |
+| `minute_study.py` | `minute` | 1-minute details as inputs for the next 30 / 60 minutes |
 
 ## Finished studies (scripts removed)
 

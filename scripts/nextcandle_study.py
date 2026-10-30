@@ -103,6 +103,30 @@ def evaluate(df, pred, conf_cut):
     return r
 
 
+def day_record(nifty, bank, vix, params=None):
+    """Trading every lean with 1 lot of an at-the-money option, day by day (walk-forward by year from 2017): the
+    record the Next 10 min page shows beside each day's score (30 Oct 2026: that day lost Rs8,868 on 36 leans and
+    looked like a failure, but most days lose)."""
+    import lightgbm as lgb
+    df = rows(nifty, bank, vix, h=1)
+    params = params or {"objective": "regression", "learning_rate": 0.03, "num_leaves": 15, "min_data_in_leaf": 400,
+                        "feature_fraction": 0.8, "bagging_fraction": 0.8, "bagging_freq": 1, "lambda_l2": 5.0,
+                        "verbose": -1}
+    days = []
+    for y in sorted(df["year"].unique()):
+        if y < 2017:
+            continue
+        tr, te = df[df["year"] < y], df[df["year"] == y]
+        m = lgb.train(params, lgb.Dataset(tr[FEATS].values, tr["y"].clip(tr["y"].quantile(0.01), tr["y"].quantile(0.99)).values),
+                      num_boost_round=300)
+        t = te[["d", "y", "price"]].assign(rs=money(np.sign(m.predict(te[FEATS].values)), te["y"].values, te["price"].values) * 65)
+        days.append(t.groupby("d")["rs"].sum())
+    rs = pd.concat(days)
+    return {"days": int(len(rs)), "from": str(rs.index.min()), "to": str(rs.index.max()),
+            "profit_share": round(float((rs > 0).mean()), 3), "avg_rs": int(round(rs.mean())),
+            "quantiles": {str(q): int(round(rs.quantile(q / 100))) for q in (1, 5, 10, 25, 50, 75, 90, 95, 99)}}
+
+
 def main(h=None):
     import lightgbm as lgb
     h = h or int(os.environ.get("HORIZON", "1"))           # candles ahead: 1 = the next 10 minutes, 3 = 30, 6 = 60

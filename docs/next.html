@@ -71,7 +71,7 @@ function epoch(date, hm) { return Date.parse(`${date}T${hm}:00Z`) / 1000; }   //
 function score(d) {
   const c = d.candles || [], byT = new Map(c.map((x, i) => [x.time, i]));
   const asOf = d.updated ? epoch(d.date, d.updated.slice(11, 16)) : 0;
-  return (d.leans || []).map(l => {
+  return (d.leans || []).filter(l => l.at <= '15:15').map(l => {   // 15:25 is a 5-minute stub, never tested
     const t = epoch(d.date, l.at), i = byT.get(t);
     const finished = i != null && (i < c.length - 1 || asOf >= t + 600 || d.status === 'closed');
     if (i == null || i === 0 || !finished) return { ...l, t, pending: true };
@@ -106,6 +106,7 @@ function draw(d) {
       ? `<div><b>Today: ${right} of ${done.length} right (${Math.round(right / done.length * 100)}%)</b>`
         + (conf.length ? ` · ★ more confident: ${cRight} of ${conf.length}` : '')
         + `. Trading every lean with 1 lot of an at-the-money option: <b class="${money >= 0 ? 'up' : 'down'}">${rs(money)}</b> after costs.</div>`
+        + dayLine(money, d)
       : '<div class="m">No lean scored yet today.</div>')
     + (s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
         + s.slice().reverse().map(x => `<tr><td>${x.at}${x.confident ? ' ★' : ''}</td><td class="${x.lean === 'up' ? 'up' : 'down'}">${x.lean} ${x.pts >= 0 ? '+' : ''}${x.pts}</td>`
@@ -113,6 +114,24 @@ function draw(d) {
           + '</tr>').join('') + '</table>' : '')
     + `<div class="m" style="margin-top:6px">Arrows: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).
        ₹ per lot assumes the option moves half as much as NIFTY and a round trip costs about ₹120.${d.trained_until ? ` Model trained on candles to ${d.trained_until}.` : ''}</div>`;
+}
+
+// The 9-year record of trading every lean, day by day (nextcandle_study.day_record): most days lose, so a day's score
+// is shown with it, and after the close with where the day ranks among those days.
+function dayLine(money, d) {
+  const r = d.day_record;
+  if (!r) return '';
+  const y0 = r.from.slice(0, 4), y1 = r.to.slice(0, 4);
+  let txt = `In ${y0}-${y1} trading every lean lost money on <b>${Math.round((1 - r.profit_share) * 10)} of 10 days</b>
+    (${rs(r.avg_rs)} a day on average, ${r.days.toLocaleString('en-IN')} days).`;
+  if (d.status === 'closed') {
+    const q = Object.entries(r.quantiles).map(([k, v]) => [Number(k), v]).sort((a, b) => a[0] - b[0]);
+    let pct = money <= q[0][1] ? q[0][0] : money >= q[q.length - 1][1] ? q[q.length - 1][0] : null;
+    for (let i = 1; pct == null && i < q.length; i++)
+      if (money <= q[i][1]) pct = q[i - 1][0] + (q[i][0] - q[i - 1][0]) * (money - q[i - 1][1]) / (q[i][1] - q[i - 1][1]);
+    txt += pct < 50 ? ` Today was worse than ${Math.round(100 - pct)}% of those days.` : ` Today was better than ${Math.round(pct)}% of them.`;
+  }
+  return `<div class="m" style="margin-top:4px">${txt}</div>`;
 }
 
 function addMin(hm, m) { const [h, mm] = hm.split(':').map(Number), t = h * 60 + mm + m; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
