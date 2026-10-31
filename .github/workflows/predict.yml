@@ -209,6 +209,27 @@ jobs:
         run: |                       # after the close: the live chart's scorecard and Grok's why, then the summary
           python -u scripts/live.py docs/data store close || true
           python -u scripts/status.py docs/data store         # journal saved with the scoreboard below
+      - name: NIFTY option prices (NSE bhavcopy of the latest sessions, option_data.py) and each day on real premiums
+        continue-on-error: true
+        timeout-minutes: 8
+        env:
+          PYTHONPATH: scripts
+        run: |                       # NSE publishes the day's file in the evening: the 04:00 IST run adds it
+          pip install -q requests exchange_calendars
+          for p in 0 1 2 3; do bash scripts/store.sh pull "options-data-p$p" "opt/p$p"; done
+          for p in $(python scripts/option_data.py parts); do
+            python -u scripts/option_data.py update "opt/p$p" 3 "$p" 4 && bash scripts/store.sh push "options-data-p$p" "opt/p$p"
+          done
+          python -u scripts/option_record.py store docs/data opt/p0,opt/p1,opt/p2,opt/p3
+      - name: The week's summary to the phone (Saturday or Sunday, once a week; weekly.py)
+        continue-on-error: true
+        timeout-minutes: 4
+        env:
+          NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
+          TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
+          TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
+          PYTHONPATH: scripts
+        run: python -u scripts/weekly.py docs/data store
       - name: News (GDELT headlines; history kept for later evaluation, not a model input)
         continue-on-error: true
         timeout-minutes: 4

@@ -599,7 +599,7 @@ async function select(key) {
     }
     if (!d.models || !Object.keys(d.models).length) throw new Error('data format not recognised, hard-refresh the page');
     const side = async name => { try { const r = await fetch(`data/${name}-${key}.json?t=` + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
-    [d._score, d._intraday, d._news, d._today, d._hourly, d._live] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly'), key === 'nifty' ? side('live') : null]);
+    [d._score, d._intraday, d._news, d._today, d._hourly, d._live, d._gift] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly'), key === 'nifty' ? side('live') : null, key === 'nifty' ? side('gift') : null]);
     if (my !== token) return;
     render(d);
   } catch (e) {
@@ -760,6 +760,19 @@ function upcomingEvents(d) {
 // What the top of the page leads with. A confident call when there is one; otherwise, when the forecast is close to a
 // coin flip, say so plainly instead of showing a price that reads like a prediction (lesson from 14 Oct 2026).
 const NO_EDGE = 5;                // percentage points around 50% that count as "no edge"
+// GIFT Nifty's expected open beside the model's forecast before a session (31 Oct 2026: GIFT pointed to +0.67% for
+// Monday while the model said -0.41%). Only its premium-adjusted gap is NIFTY's gap (gift_record.py); it prices the
+// overnight news into the open (it explained 78% of opening gaps in 2017-2023, gift_study in STUDIES.md).
+function giftLine(d, chg) {
+  const g = d._gift, t = d._today;
+  if (!g || g.gap_pct == null || !g.fetched || (t && t.status === 'open')) return '';
+  if (Date.now() - Date.parse(g.fetched) > 20 * 3600 * 1000) return '';
+  const same = (g.gap_pct >= 0) === (chg >= 0);
+  return ` GIFT Nifty (${esc(String(g.quote_time || '').slice(-5))} IST) points to an open ${pc(g.gap_pct)} from the last close
+    (${f(g.nifty_prev_close)}), ${same ? 'the same way as' : '<b>against</b>'} this forecast. For the open, GIFT is the better guide: it
+    trades on the overnight news; this forecast is for the close.`;
+}
+
 function headline(d, first, last, upPct) {
   const t = d._today, todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
   const pct = x => `${Math.round(x * 100)}%`, likely = dir => ({ word: dir === 'up' ? 'Likely higher' : 'Likely lower', cls: dir === 'up' ? 'up' : 'down' });
@@ -780,10 +793,10 @@ function headline(d, first, last, upPct) {
   const size = tm ? ` A normal day moves about ${tm.toFixed(1)}% either way, so read this as a direction, not the size of the move.` : '';
   if (Math.abs(upPct - 50) < NO_EDGE)
     return { word: 'No clear direction', cls: '', pill: `${upPct}% up`, from: 'noedge',
-             text: `Middle estimate ${f(first.close)} (${pc(chg)}), within normal day-to-day noise. No edge: stand aside unless a mid-day update gives a call.${size}` };
+             text: `Middle estimate ${f(first.close)} (${pc(chg)}), within normal day-to-day noise. No edge: stand aside unless a mid-day update gives a call.${size}${giftLine(d, chg)}` };
   const down = upPct < 50;
   return { word: down ? 'Leaning lower' : 'Leaning higher', cls: down ? 'down' : 'up', pill: `${down ? 100 - upPct : upPct}% chance`,
-           from: 'lean', text: `Middle estimate ${f(first.close)} (${pc(chg)}).${size}` };
+           from: 'lean', text: `Middle estimate ${f(first.close)} (${pc(chg)}).${size}${giftLine(d, chg)}` };
 }
 
 /* ---------------- render ---------------- */

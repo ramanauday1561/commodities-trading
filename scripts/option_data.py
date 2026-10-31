@@ -150,6 +150,13 @@ def _valid(y, m, k):
         return False
 
 
+def parts_for(today, parts=4, back=7):
+    """The part branches holding the months of the last `back` days (the nightly update fetches only those)."""
+    idx = {(y, m): n for n, (y, m) in enumerate(months(FIRST, today))}
+    days = [today - timedelta(days=k) for k in range(back + 1)]
+    return sorted({idx[(x.year, x.month)] % parts for x in days if (x.year, x.month) in idx})
+
+
 def load(dirs):
     """Every stored row from these copies (the four part branches), with dates parsed."""
     files = [f for d in dirs for f in glob.glob(os.path.join(d, "nifty", "*.csv"))]
@@ -161,6 +168,8 @@ def load(dirs):
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["parts"]:                       # for the nightly update: which part branches to refresh
+        print(" ".join(str(p) for p in parts_for((datetime.utcnow() + timedelta(hours=5, minutes=30)).date())))
     if sys.argv[1:2] == ["update"]:
         a = sys.argv[2:]
         update(a[0], float(a[1]) if len(a) > 1 else 50, int(a[2]) if len(a) > 2 else 0, int(a[3]) if len(a) > 3 else 1)
