@@ -23,6 +23,7 @@
   #word.NOTHING { color:var(--muted); font-size:clamp(56px, 20vw, 120px); }
   #headline { font-size:20px; font-weight:600; margin:0 0 8px; }
   #reason { color:var(--muted); max-width:34ch; margin:0 auto; }
+  #optnote { color:var(--muted); font-size:13px; max-width:36ch; margin:12px auto 0; padding-top:10px; border-top:1px solid #1f2735; }
   #meta { color:var(--muted); font-size:13px; margin-top:24px; }
   .box { margin:20px auto 0; max-width:360px; width:100%; border:1px solid #1f2735; border-radius:12px; padding:12px 16px; text-align:left; }
   .box div { display:flex; justify-content:space-between; gap:12px; padding:3px 0; }
@@ -42,6 +43,7 @@
   <div id="word" class="NOTHING">…</div>
   <p id="headline"></p>
   <p id="reason"></p>
+  <p id="optnote" hidden></p>
   <div id="warn"></div>
   <div id="trade" class="box" hidden></div>
   <p id="meta"></p>
@@ -62,6 +64,8 @@ async function load() {
     $('word').textContent = WORD[state];
     $('headline').textContent = stale ? 'Waiting for today’s update' : s.headline;
     $('reason').textContent = stale ? 'The signal is made at about 08:57 IST on market days.' : s.reason;
+    $('optnote').hidden = stale || !s.option_note;                 // which option, or what buying without a reason costs
+    $('optnote').textContent = stale ? '' : (s.option_note || '');
     const t = x => new Date(x).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     $('meta').textContent = `Updated ${t(s.updated)}${s.since && !stale ? ' · this signal since ' + t(s.since) : ''}`;
     document.title = stale ? 'Status' : `Status: ${WORD[state]}`;

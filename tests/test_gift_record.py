@@ -54,6 +54,27 @@ class Gap(unittest.TestCase):
         self.assertEqual(list(rows[0].keys()), gr.COLS)                                # the old file was upgraded
         self.assertEqual(json.load(open(os.path.join(dd, "gift-nifty.json")))["price"], 22745.0)
 
+    def test_weekend_uses_the_last_close_and_skips_non_session_rows(self):
+        # 31 Oct 2026 (Saturday): today's file has no previous close; NIFTY's last close comes from nifty.json, and the
+        # Saturday 07:28 row is not a session, so the premium is Friday's (GIFT 23,087 at 15:25 vs NIFTY 23,053.10)
+        import json
+        d, dd = tempfile.mkdtemp(), tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "gift"))
+        with open(os.path.join(d, "gift", "2026-10.csv"), "w") as f:
+            f.write(",".join(gr.COLS) + "\n")
+            f.write("2026-10-30T15:25+05:30,gift_nifty,30-Oct-2026 15:24,23087.0,0,0,1,23-Nov-2026,,,\n")
+            f.write("2026-10-31T07:28+05:30,gift_nifty,31-Oct-2026 02:29,23242.5,0,0,1,23-Nov-2026,,,\n")
+        json.dump({"date": "2026-10-31", "status": "holiday"}, open(os.path.join(dd, "today-nifty.json"), "w"))
+        json.dump({"last_date": "2026-10-30", "last_close": 23053.1}, open(os.path.join(dd, "nifty.json"), "w"))
+        self.assertEqual(gr.last_close_day(d, "2026-11-02"), "2026-10-30")
+        answer = {"data": {"giftNifty": {**ANSWER["data"]["giftNifty"], "lastprice": 23242.5}}}
+        r = gr.record(d, datetime(2026, 11, 1, 10, 0, tzinfo=IST), get=lambda: answer, data_dir=dd)[0]
+        self.assertEqual((r["nifty_prev_close"], r["premium"]), (23053.1, 33.9))
+        self.assertAlmostEqual(r["gap_pct"], round(((23242.5 - 33.9) / 23053.1 - 1) * 100, 3))
+        json.dump({"last_date": "2026-10-29", "last_close": 22936.75}, open(os.path.join(dd, "nifty.json"), "w"))
+        r = gr.record(d, datetime(2026, 11, 1, 10, 5, tzinfo=IST), get=lambda: answer, data_dir=dd)[0]
+        self.assertIsNone(r["gap_pct"])                                                # a close of another day: no gap
+
     def test_no_recorded_premium_no_gap(self):
         d, dd = tempfile.mkdtemp(), tempfile.mkdtemp()
         import json

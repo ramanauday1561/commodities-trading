@@ -365,3 +365,27 @@ class GiftLine(unittest.TestCase):
         line = status.gift_morning(raw, "2026-10-29")
         self.assertIn("not NIFTY's gap", line)
         self.assertEqual(status.gift_morning(g, "2026-10-30"), "")
+
+
+class OptionNote(unittest.TestCase):
+    """Which option on a trade day, and what buying with no reason cost on others (31 Oct 2026, real NSE prices)."""
+
+    def test_expiry_day_is_tuesday_or_the_session_before_a_holiday_tuesday(self):
+        from datetime import date as d
+        open_days = lambda x, name: x.weekday() < 5
+        with mock.patch("calendars.is_session", side_effect=open_days):
+            self.assertTrue(status.expiry_day(d(2026, 11, 3)))
+            self.assertFalse(status.expiry_day(d(2026, 11, 2)))
+        holiday = lambda x, name: x.weekday() < 5 and x != d(2026, 11, 24)
+        with mock.patch("calendars.is_session", side_effect=holiday):
+            self.assertTrue(status.expiry_day(d(2026, 11, 23)))
+            self.assertFalse(status.expiry_day(d(2026, 11, 24)))
+
+    def test_notes(self):
+        now = datetime(2026, 11, 3, 9, 0, tzinfo=status.IST)
+        with mock.patch.object(status, "expiry_day", return_value=True):
+            self.assertIn("next week's at-the-money CALL", status.option_note({"kind": "call", "side": "CALL"}, now))
+        with mock.patch.object(status, "expiry_day", return_value=False):
+            self.assertIn("this week's at-the-money PUT", status.option_note({"kind": "hold", "side": "PUT"}, now))
+        self.assertIn("lost Rs449 a lot", status.option_note({"kind": "no_trade"}, now))
+        self.assertEqual(status.option_note({"kind": "closed"}, now), "")

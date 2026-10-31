@@ -90,16 +90,26 @@ def premium_at_close(store_dir, day, nifty_close):
     return round(best - nifty_close, 2) if best is not None and nifty_close else None
 
 
-def with_gap(row, store_dir, today):
-    """Adds NIFTY's previous close, the premium at that close and the gap GIFT points to (or leaves them empty)."""
+def last_close_day(store_dir, before):
+    """The latest day before `before` (YYYY-MM-DD) with a GIFT row in NSE's closing window: the session the premium is
+    measured at. (Rows fetched on weekends or holidays are not sessions; 31 Oct 2026, a Saturday, was taken as one.)"""
+    days = {r["fetched"][:10] for f in glob.glob(os.path.join(store_dir, "gift", "*.csv")) for r in csv.DictReader(open(f))
+            if r["kind"] == "gift_nifty" and r["fetched"][:10] < before and CLOSE_FROM <= r["fetched"][11:16] <= CLOSE_TO}
+    return max(days) if days else None
+
+
+def with_gap(row, store_dir, today, last=None):
+    """Adds NIFTY's previous close, the premium at that close and the gap GIFT points to (or leaves them empty).
+    last: (date, close) of NIFTY's last session from nifty.json, used when today's file has no previous close (weekends,
+    holidays and before the pre-open run; on 31 Oct 2026 the gap was left empty for that reason)."""
     pre = (today or {}).get("preopen") or {}
     pc = pre.get("prev_close")
+    prev_day = last_close_day(store_dir, row["fetched"][:10])
+    if not pc and last and prev_day and last[0] == prev_day:
+        pc = last[1]
     row.update({"nifty_prev_close": pc, "premium": None, "gap_pct": None})
     if not pc:
         return row
-    days = sorted({r["fetched"][:10] for f in glob.glob(os.path.join(store_dir, "gift", "*.csv"))   # the last
-                   for r in csv.DictReader(open(f)) if r["fetched"][:10] < row["fetched"][:10]})   # recorded session
-    prev_day = days[-1] if days else None
     prem = premium_at_close(store_dir, prev_day, pc) if prev_day else None
     if prem is not None:
         row["premium"] = prem
@@ -132,9 +142,13 @@ def record(store_dir, now=None, get=fetch, data_dir=None):
         today = json.load(open(os.path.join(data_dir, "today-nifty.json")))
         if today.get("date") != now.date().isoformat():
             today = None
+    last = None
+    if data_dir and os.path.exists(os.path.join(data_dir, "nifty.json")):
+        n = json.load(open(os.path.join(data_dir, "nifty.json")))
+        last = (n.get("last_date"), n.get("last_close")) if n.get("last_close") else None
     for r in new:
         if r["kind"] == "gift_nifty":
-            with_gap(r, store_dir, today)
+            with_gap(r, store_dir, today, last)
     path = os.path.join(store_dir, "gift", f"{now:%Y-%m}.csv")
     os.makedirs(os.path.dirname(path), exist_ok=True)
     if os.path.exists(path):

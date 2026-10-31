@@ -66,6 +66,38 @@ def _stop_text(side, opn):
             f"({STOP_PCT}% against the open {opn:,.2f}).")
 
 
+# Real NIFTY option prices (option_study.py, NSE bhavcopy 2015 - 30 Oct 2026; 31 Oct 2026): an at-the-money option bought
+# at the 09:15 open and sold at the close, with no tested reason, lost on most days; on expiry days the expiring
+# option did worse than the next expiry's for the signal's own trades (by 1.1 and 5.5 points a trade).
+OPTION_RECORD = {"CE": {"rs": -449, "won": 0.40}, "PE": {"rs": -228, "won": 0.38}, "days": 2852}
+
+
+def expiry_day(d):
+    """Is d NIFTY's weekly expiry? Tuesday since Sep 2025, or the session before it when that Tuesday is a holiday."""
+    from calendars import is_session
+    tue = d + timedelta(days=(1 - d.weekday()) % 7)
+    e = tue
+    while not is_session(e, "XBOM") and e > d:
+        e -= timedelta(days=1)
+    return e == d and is_session(d, "XBOM")
+
+
+def option_note(new, now):
+    """Which option to use on a trade day, and what buying without a reason has cost on others (information)."""
+    side, kind = new.get("side"), new.get("kind")
+    if kind in ("call", "put", "hold") and side:
+        if expiry_day(now.date()):
+            return (f"Which option: today is NIFTY's weekly expiry, so use next week's at-the-money {side}, not the "
+                    "expiring one (on expiry days the expiring option did worse in tests on real NSE prices).")
+        return f"Which option: this week's at-the-money {side}, the strike nearest the 09:15 open."
+    if kind == "no_trade":
+        ce, pe = OPTION_RECORD["CE"], OPTION_RECORD["PE"]
+        return (f"No tested reason to buy today. On real NSE prices since 2015, an at-the-money CALL bought at the open "
+                f"and sold at the close lost Rs{-ce['rs']} a lot on average (won {round(ce['won'] * 100)}% of days), "
+                f"a PUT Rs{-pe['rs']} (won {round(pe['won'] * 100)}%).")
+    return ""
+
+
 def _hm(t):
     return (t.hour, t.minute)
 
@@ -148,10 +180,11 @@ TITLES = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": "NIFTY: ST
           "sell": "NIFTY: SELL the {side} now", "no_trade": "NIFTY: NOTHING today", "closed": "NIFTY: market closed",
           "test": "NIFTY: test alert", "info": "NIFTY update (info, not a trade signal)",
           "summary": "NIFTY: today's summary", "warning": "NIFTY: NO SIGNAL TODAY",
-          "stop": "NIFTY: STOP HIT, SELL the {side} now", "move": "NIFTY: big move (info, not a trade signal)"}
+          "stop": "NIFTY: STOP HIT, SELL the {side} now", "move": "NIFTY: big move (info, not a trade signal)",
+          "weekly": "Markets: the week (info, not a trade signal)"}
 ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514",
          "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8", "stop": "\U0001F6A8",
-         "move": "\u26A1"}
+         "move": "\u26A1", "weekly": "\U0001F5D3\uFE0F"}
 
 
 def _title(status):
@@ -366,6 +399,9 @@ def main(data_dir, now=None, store_dir=None):
     load = lambda name: json.load(open(os.path.join(data_dir, name))) if os.path.exists(os.path.join(data_dir, name)) else None
     prev, today = load("status.json"), load("today-nifty.json")
     new = decide(today, now)
+    note = option_note(new, now)
+    if note:
+        new["option_note"] = note
     same_day = prev if prev and prev.get("date") == new["date"] else {}
     for k in ("info_at", "summary_sent"):
         if same_day.get(k):
@@ -377,7 +413,8 @@ def main(data_dir, now=None, store_dir=None):
         if channels() and not quiet:
             line = (grok_morning(load("live-nifty.json"), new["date"]) + gift_morning(load("gift-nifty.json"), new["date"])
                     if new.get("kind") in ("call", "put", "no_trade") else "")
-            alert = notify({**new, "reason": new["reason"] + line})   # never raises: the page update always goes on
+            opt = f"\n{new['option_note']}" if new.get("option_note") else ""
+            alert = notify({**new, "reason": new["reason"] + opt + line})   # never raises: the page update always goes on
             print("alert:", new["state"], alert)
     else:
         new["since"] = prev.get("since", new["updated"])

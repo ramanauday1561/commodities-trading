@@ -86,6 +86,22 @@ class TrackRecord(unittest.TestCase):
         self.assertEqual(r["morning"], {"right": 1, "calls": 2, "neutral": 0})
 
 
+class Retire(unittest.TestCase):
+    """After a fair trial, a line below half is retired: hidden, and the AI is not asked any more (31 Oct 2026)."""
+
+    def rec(self, days, closer, n, right=0, calls=0):
+        return {"model": {"closer": closer, "n": n, "days": days}, "ai": {"closer": closer, "n": n, "days": days},
+                "morning": {"right": right, "calls": calls}}
+
+    def test_trial_then_below_half(self):
+        self.assertEqual(live.retired(self.rec(14, 1, 10)), {"model": False, "ai": False, "morning": False})
+        self.assertEqual(live.retired(self.rec(15, 4, 10))["ai"], True)
+        self.assertEqual(live.retired(self.rec(15, 5, 10))["ai"], False)                # half is not below half
+        self.assertTrue(live.retired(self.rec(15, 5, 10, right=9, calls=20))["morning"])
+        self.assertFalse(live.retired(self.rec(15, 5, 10, right=10, calls=20))["morning"])
+        self.assertFalse(live.retired(None)["model"])
+
+
 class Budget(unittest.TestCase):
     def test_stops_at_the_daily_cap_and_needs_the_key(self):
         st = {"grok_calls": grok.DAILY_CAP}
@@ -153,6 +169,15 @@ class Main(unittest.TestCase):
         self.assertEqual((p["pred"], p["ai_close"], p["ai_conf"]), (22690.0, 22735.0, 60))
         out, a, _ = self.run_at("run", 9, 55, closes, grok_answer='{"close": 30000}')     # not a forecast: dropped
         self.assertNotIn("ai_close", out["preds"][-1])
+
+    def test_a_retired_ai_is_not_asked(self):
+        closes = [22760.0] * 6 + [22740.0, 22720.0]
+        with mock.patch.object(live, "track_record", return_value={"retired": {"ai": True, "morning": True}}):
+            out, a, _ = self.run_at("run", 9, 55, closes, grok_answer='{"close": 22735}')
+            self.assertNotIn("ai_close", out["preds"][-1])
+            self.assertFalse(any("predict" in str(c.args[0]).lower() and "close" in str(c.args[0]).lower() for c in a.call_args_list))
+            out, a, _ = self.run_at("morning", 8, 50, grok_answer='{"score": 1, "reasons": []}')
+            self.assertIsNone(out["morning"])
 
     def test_next_candle_page_file_keeps_the_days_leans(self):
         lean = {"at": "10:15", "lean": "up", "pts": 2.0, "confident": False, "record": {"text": "x"}}
