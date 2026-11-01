@@ -9,12 +9,12 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute (see STUDIES.md); intradata (update the 5-minute history) or dukafetch (update the hourly overnight history)"
+        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute, options (see STUDIES.md); intradata (update the 5-minute history), dukafetch (the hourly overnight history) or optdata (NIFTY option prices)"
         required: false
         default: "variants"
 
 permissions:
-  contents: write              # "intradata" and "dukafetch" save candle history to their branches
+  contents: write              # "intradata", "dukafetch" and "optdata" save history to their branches
 
 jobs:
   run:
@@ -30,8 +30,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance lightgbm exchange_calendars
-      - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle", "minute"; intraday-data branch)
-        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle", "minute"]'), github.event.inputs.mode) && matrix.key == 'nifty'
+      - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options"; intraday-data branch)
+        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options"]'), github.event.inputs.mode) && matrix.key == 'nifty'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
@@ -39,8 +39,8 @@ jobs:
           bash scripts/store.sh pull intraday-data intra
           python -u scripts/intraday_data.py update intra
           bash scripts/store.sh push intraday-data intra
-      - name: Overnight history for mode "longsignal" (the four overnight-* branches)
-        if: github.event.inputs.mode == 'longsignal' && matrix.key == 'nifty'
+      - name: Overnight history for modes "longsignal" and "options" (the four overnight-* branches)
+        if: (github.event.inputs.mode == 'longsignal' || github.event.inputs.mode == 'options') && matrix.key == 'nifty'
         env:
           GH_TOKEN: ${{ github.token }}
         run: for k in es nq nikkei hangseng; do bash scripts/store.sh pull "overnight-$k" od; done
@@ -54,9 +54,25 @@ jobs:
           bash scripts/store.sh pull "overnight-$k" od
           python -u scripts/overnight_data.py "$k" od 48
           bash scripts/store.sh push "overnight-$k" od
+      - name: NIFTY option prices from NSE's bhavcopy (mode "optdata"; a quarter of the months per matrix job, resumable)
+        if: github.event.inputs.mode == 'optdata'
+        env:
+          PYTHONPATH: scripts
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          p=$(python -c "print({'nifty':0,'gold':1,'silver':2,'crude':3}['${{ matrix.key }}'])")
+          bash scripts/store.sh pull "options-data-p$p" opt
+          python -u scripts/option_data.py update opt 45 "$p" 4
+          bash scripts/store.sh push "options-data-p$p" opt
+      - name: Option prices for mode "options" (the four options-data-p* branches)
+        if: github.event.inputs.mode == 'options' && matrix.key == 'nifty'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: for p in 0 1 2 3; do bash scripts/store.sh pull "options-data-p$p" "opt/p$p"; done
       - env:
           PYTHONPATH: scripts
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           INTRADAY_DIR: intra
-        if: github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'dukafetch'
+          OPTIONS_DIRS: opt/p0,opt/p1,opt/p2,opt/p3
+        if: github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'dukafetch' && github.event.inputs.mode != 'optdata'
         run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2 ${{ github.event.inputs.mode || 'variants' }}
