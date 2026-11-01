@@ -44,6 +44,9 @@ Result (run 41119100372, 30 Oct 2026; option prices for 2,912 sessions, 1 Jan 20
    on the day before expiry (-16.28). (c) Picking fails: the model's top 20% lost less (-5.21 points, 2 of 11 years
    up), and results / US-news days (-7.10), gaps of 0.5%+ (-9.89) and recent volatility above VIX (-11.79) all lost.
    Buying options from the open starts behind on most days: the premium prices a bigger move than usually comes.
+   (d) One ATM option bought at the open and sold at the close every day (skip expiry day; run in the session on 31 Oct
+   2026 with NIFTY's opens from the stored 5-minute candles, 2,852 days): CALL -6.91 points (-Rs449 a lot), 40% won;
+   PUT -3.51 (-Rs228), 38% won; since 2022 -Rs604 and -Rs264. The Status page shows this on no-trade days.
 """
 import json
 import os
@@ -159,6 +162,22 @@ def straddles(opt, nd, vix_close, events):
     return pd.DataFrame(rows)
 
 
+def single_options(opt, nd):
+    """2(d): one ATM CALL, or one ATM PUT, bought at the open and sold at the close every day (skip expiry day): what
+    buying with no tested reason costs. The Status page shows it on no-trade days (status.OPTION_RECORD)."""
+    by_day = {d: g for d, g in opt.groupby("d")}
+    out = {}
+    for typ in ("CE", "PE"):
+        rows = []
+        for ts in nd.index:
+            ch = by_day.get(ts.date())
+            o = pick(ch, ts.date(), float(nd.loc[ts, "open"]), typ, "no_expiry_day") if ch is not None else None
+            if o is not None:
+                rows.append((ts.date(), float(o["close"]) - float(o["open"]) - COST, (float(o["close"]) / float(o["open"]) - 1) * 100))
+        out[typ] = summarise(rows)
+    return out
+
+
 FEATS = ["vix", "vix_chg", "vix_vs20", "rv5_vs_vix", "prev_range", "gap_abs", "dte", "dow", "event"]
 
 
@@ -242,6 +261,7 @@ def main():
         out["2b. straddle points by days to expiry (8 = 8 or more)"] = {str(k): round(float(g["pts"].mean()), 2)
                                                                for k, g in st.groupby(st["dte"].clip(upper=8))}
         out["2c. picking straddle days"] = picking(st)
+        out["2d. one ATM option from the open every day"] = single_options(opt, nd)
         print("STUDY options " + json.dumps(out), flush=True)
         return out
     except Exception as e:

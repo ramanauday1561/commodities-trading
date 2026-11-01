@@ -33,6 +33,7 @@
   .chip.ok { background:rgba(52,209,191,.14); color:var(--up); } .chip.no { background:rgba(255,107,107,.13); color:var(--down); }
   a.chip { text-decoration:none; color:var(--accent); }
   .chip.trade { background:rgba(124,180,255,.15); color:var(--accent); }
+  .opt { grid-column:1 / -1; font-size:12px; color:var(--muted); margin-top:6px; }
   .up { color:var(--up); } .down { color:var(--down); }
   .note { color:var(--mute); font-size:12px; margin-top:16px; }
 </style>
@@ -55,6 +56,16 @@ const chip = (label, dir, hit) => `<span class="chip ${hit ? 'ok' : 'no'}">${lab
   try {
     const r = await fetch('data/today-nifty.json?t=' + Date.now(), { cache: 'no-store' });
     const rows = ((await r.json()).record || {}).recent || [];
+    let real = {};                                    // each day on real option prices (option_record.py), when published
+    try { const o = await fetch('data/options-nifty.json?t=' + Date.now(), { cache: 'no-store' });
+          if (o.ok) real = Object.fromEntries(((await o.json()).days || []).map(x => [x.d, x])); } catch (e) {}
+    const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
+    const optLine = x => {
+      const o = real[x.d];
+      if (!o) return '';
+      const leg = (n, l) => l ? `${n} <span class="${l.rs >= 0 ? 'up' : 'down'}">${rs(l.rs)}</span>` : '';
+      return `<div class="opt">Real options, open → close, a lot: ${o.app ? `our ${leg(o.app.side, o.app)} · ` : ''}ATM ${[leg('CALL', o.call), leg('PUT', o.put)].filter(Boolean).join(' · ')}</div>`;
+    };
     if (!rows.length) throw new Error('none');
     const n = rows.length, gap = rows.filter(x => x.gap_hit).length, close = rows.filter(x => x.close_hit).length;
     const trades = rows.filter(x => x.from_open_trade && x.with_stop_pct != null);
@@ -76,7 +87,7 @@ const chip = (label, dir, hit) => `<span class="chip ${hit ? 'ok' : 'no'}">${lab
         <div class="date">${fmt(x.d)}<small>${wd}</small></div>
         <div class="px">${x.close.toLocaleString('en-IN')} <span class="${move >= 0 ? 'up' : 'down'}">${pct(move)}</span></div>
         <div class="chips">${chip('Gap', x.gap, x.gap_hit)}${chip('Close', x.close_call, x.close_hit)}${trade}
-          <a class="chip" href="live.html?replay=${x.d}">Replay ▸</a></div></div>`;
+          <a class="chip" href="live.html?replay=${x.d}">Replay ▸</a></div>${optLine(x)}</div>`;
     }).join('');
   } catch (e) { $('since').textContent = 'NIFTY 50 · no scored days yet'; }
 })();

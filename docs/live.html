@@ -92,7 +92,8 @@ function draw(d) {
   candles.setData(c);
   // predictions vs the real price: each 10-minute run's predicted close from our model (orange) and from the AI
   // (purple), the 08:57 forecast made before the open (dashed) and the likely close range (dotted)
-  pred.setData(series(d.preds || [], 'pred', c)); ai.setData(series(d.preds || [], 'ai_close', c));
+  const gone = ((d.record || {}).retired) || {};          // lines retired by the track-record rule are not drawn
+  pred.setData(gone.model ? [] : series(d.preds || [], 'pred', c)); ai.setData(gone.ai ? [] : series(d.preds || [], 'ai_close', c));
   lo.setData(series(d.preds || [], 'lo', c)); hi.setData(series(d.preds || [], 'hi', c));
   lines.forEach(l => candles.removePriceLine(l)); lines = [];
   const add = (price, color, title, style = 2) => price && lines.push(candles.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
@@ -124,7 +125,24 @@ document.addEventListener('toggle', e => {
   if (e.target.classList.contains('record')) recordOpen = e.target.open;
   else if (e.target.classList.contains('money')) moneyOpen = e.target.open;
 }, true);
-function moneyBox(mo) {
+// Real option prices for the day (option_record.py, from NSE's bhavcopy: published the evening after, added at 04:00 IST)
+let realOpt = null;
+async function loadRealOpt() {
+  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/options-nifty.json', 'data/options-nifty.json']) {
+    try { const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) { realOpt = await r.json(); return; } } catch (e) {}
+  }
+}
+function realLine(day, status) {
+  const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
+  const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+  const r = realOpt && (realOpt.days || []).find(x => x.d === day);
+  if (!r) return status === 'open' ? '' : `<div class="m" style="margin-top:4px">With real option prices: NSE publishes the day's prices in the evening; they appear here from about 04:00 IST.</div>`;
+  const leg = (name, x) => x ? `${name} ${x.strike.toLocaleString('en-IN')} (${x.open} → ${x.close}) <b class="${cls(x.rs)}">${rs(x.rs)}</b>` : '';
+  return `<div style="margin-top:6px"><b>With real option prices</b> (NSE, open to close, no stop, per lot after costs):
+    ${r.app ? `our app's ${leg(r.app.side, r.app)} · ` : ''}an at-the-money ${[leg('CALL', r.call), leg('PUT', r.put)].filter(Boolean).join(' · ')}.
+    <span class="m">Since 2015 an at-the-money CALL bought at the open lost ₹449 a lot on average, a PUT ₹228.</span></div>`;
+}
+function moneyBox(mo, day, status) {
   if (!mo || !mo.rows || !mo.rows.length) return '';
   const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
   const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
@@ -133,7 +151,8 @@ function moneyBox(mo) {
     <td class="n ${cls(r.rs)}">${rs(r.rs)}</td><td class="n m">${r.trades ? `${r.won} of ${r.trades} won` : 'no trade'}</td></tr>`).join('');
   return `<details class="money"${moneyOpen ? ' open' : ''}><summary><b>₹2 lakh today</b>: our app <b class="${cls(app.rs)}">${rs(app.rs)}</b>`
     + (other ? ` · ${other.name} <b class="${cls(other.rs)}">${rs(other.rs)}</b>` : '') + ` <span class="m">(tap)</span></summary>
-    <table>${rows}</table><div class="m">${mo.basis}. Over 11 years of 5-minute candles only the 09:15 signal has made money; no intraday rule passed.</div></details>`;
+    <table>${rows}</table><div class="m">${mo.basis}. Over 11 years of 5-minute candles only the 09:15 signal has made money; no intraday rule passed.</div>
+    ${day ? realLine(day, status) : ''}</details>`;
 }
 // The 30-minute check (29 Oct 2026): a prediction drawn at the time it was made can look right just by following the
 // price, so each run's prediction is compared with where NIFTY actually was 30 minutes later, beside "the price stays
@@ -163,6 +182,14 @@ function checkLine(k) {
 const beat = (k, n) => `<b class="${k / n > 0.5 ? 'up' : 'down'}">${k} of ${n}</b>`;
 // The track record over every stored day (live.py track_record): is each line nearer the close than just taking the
 // price at that moment, and was Grok's morning read on the right side of the day's move?
+// The rule (31 Oct 2026): after a fair trial, a line that beats "the price then" less than half the time is retired
+function trialLine(r) {
+  const t = r.trial || {}, g = r.retired || {};
+  if (!t.days) return '';
+  const st = (name, x, done) => done ? `<b class="down">${name} retired</b>` : `${name} ${Math.min(x.days, t.days)} of ${t.days} days`;
+  return `<div class="m">Trial: ${st('model', r.model, g.model)} · ${st('AI', r.ai, g.ai)} · ${g.morning ? '<b class="down">morning read retired</b>'
+    : `morning read ${Math.min(r.morning.calls, t.morning_calls)} of ${t.morning_calls} calls`}. A line below half after its trial is hidden, and the AI is no longer asked.</div>`;
+}
 function recordLine(r) {
   if (!r) return '';
   const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
@@ -172,6 +199,7 @@ function recordLine(r) {
     (${r.model.days} day${r.model.days === 1 ? '' : 's'})${r.ai.n ? `, AI ${beat(r.ai.closer, r.ai.n)} (${r.ai.days} day${r.ai.days === 1 ? '' : 's'})` : ''}. Below half means the line
     adds nothing to the price itself.</div>
     <div>Grok's morning read on the right side of the day: ${ms.calls ? beat(ms.right, ms.calls) + ' days' : 'no calls yet'}${ms.neutral ? ` (${ms.neutral} neutral)` : ''}.</div>
+    ${trialLine(r)}
     <table>${r.days.slice().reverse().map(x => `<tr><td>${day(x.d)}</td><td class="n ${x.move_pct >= 0 ? 'up' : 'down'}">${pc(x.move_pct)}</td>
       <td class="n">model ${x.model_n ? `${x.model_closer}/${x.model_n}` : '—'}</td><td class="n">AI ${x.ai_n ? `${x.ai_closer}/${x.ai_n}` : '—'}</td>
       <td class="n">morning ${x.morning == null ? '—' : (x.morning > 0 ? '+' : '') + x.morning + (x.morning_right == null ? '' : x.morning_right ? ' ✓' : ' ✗')}</td></tr>`).join('')}</table></details>`;
@@ -199,7 +227,7 @@ function summary() {
     ${pc(dl.range_pct[0])} and ${pc(dl.range_pct[1])} (${dl.read}). A CALL or PUT bought now needs the second number.
     <span class="m">Not a trade signal: no intraday rule has passed on 11 years.</span></div>`;
   p.innerHTML += recordLine(d.record);
-  p.innerHTML += moneyBox(d.money);
+  p.innerHTML += moneyBox(d.money, d.date, d.status);
 }
 chart.subscribeClick(param => {
   if (REPLAY || rp) return;                    // the replay view has its own (below)
@@ -229,7 +257,7 @@ async function load() {
       const d = await r.json();
       const istToday = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
       if (d.date !== istToday && src !== SOURCES[SOURCES.length - 1]) continue;
-      if (d.updated !== last) { last = d.updated; draw(d); }
+      if (d.updated !== last) { if (d.status !== 'open') await loadRealOpt(); last = d.updated; draw(d); }
       // no 10-minute candles (after the close, or a day before the live runs existed): show the day's replay if one exists
       if (!(d.candles || []).length && d.status !== 'open' && !(rp && rp.date === d.date)) await replayOf(d.date);
       return;
@@ -270,7 +298,7 @@ function replaySummary() {
     average miss ${m.ai_avg_miss_pct.toFixed(2)}% vs ${m.now_avg_miss_pct.toFixed(2)}%; AI closer in ${m.ai_closer} of ${m.steps}.
     <div class="m">Tap a dot for what the AI said then. ${rp.call ? '08:57 call: ' + rp.call + '.' : ''}</div>`
     : '<span class="m">No AI predictions in this replay.</span>';
-  $('panel').innerHTML += moneyBox(rp && rp.money);
+  $('panel').innerHTML += moneyBox(rp && rp.money, rp && rp.date, 'closed');
 }
 async function replayOf(day) {
   const name = `replay-nifty-${day}.json`;

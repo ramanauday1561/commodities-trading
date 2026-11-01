@@ -31,7 +31,7 @@ A sidebar (`nav.js`) links them; a service worker (`sw.js`) lets the home-screen
 Helpers: `calendars.py` (exchange holidays), `rolls.py` (futures roll adjustment), `results_calendar.py` and
 `us_events.py` (days the 09:15 signal stands aside), `intraday_data.py` and `overnight_data.py` (stored history),
 `daymoney.py` (the ₹2 lakh box), `grok.py` (AI notes), `dailyfill.py`, `evalutil.py`, `build_manifest.py`,
-`prune_data.py`, `store.sh`. Markets are listed in `scripts/instruments.json`.
+`prune_data.py`, `store.sh`, `option_data.py` and `option_record.py` (real NIFTY option prices, nightly), `weekly.py` (the Saturday summary). Markets are listed in `scripts/instruments.json`.
 
 ## Where data lives
 

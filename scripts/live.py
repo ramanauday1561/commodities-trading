@@ -128,6 +128,22 @@ def day_record(st):
             "morning_right": None if not score or not move else (score > 0) == (move > 0)}
 
 
+# A line that has had a fair trial and still beats "the price then" less than half the time is retired (31 Oct 2026,
+# the user's rule): hidden on the Live page, and for the AI and the morning read, no more calls are paid for.
+RETIRE_DAYS, RETIRE_MORNING_CALLS = 15, 20
+
+
+def retired(rec):
+    """{"model", "ai", "morning"}: True once that line is past its trial and below half."""
+    if not rec:
+        return {"model": False, "ai": False, "morning": False}
+    low = lambda x: x["n"] > 0 and x["closer"] / x["n"] < 0.5
+    m = rec["morning"]
+    return {"model": rec["model"]["days"] >= RETIRE_DAYS and low(rec["model"]),
+            "ai": rec["ai"]["days"] >= RETIRE_DAYS and low(rec["ai"]),
+            "morning": m["calls"] >= RETIRE_MORNING_CALLS and m["right"] / m["calls"] < 0.5}
+
+
 def track_record(store_dir, keep=20):
     """Every finished day in <store>/live: the last `keep` days and the totals since the first."""
     days = []
@@ -139,11 +155,14 @@ def track_record(store_dir, keep=20):
         return None
     tot = lambda k: sum(x[k] for x in days)
     calls = [x for x in days if x["morning_right"] is not None]
-    return {"days": days[-keep:], "since": days[0]["d"],
-            "model": {"closer": tot("model_closer"), "n": tot("model_n"), "days": sum(1 for x in days if x["model_n"])},
-            "ai": {"closer": tot("ai_closer"), "n": tot("ai_n"), "days": sum(1 for x in days if x["ai_n"])},
-            "morning": {"right": sum(x["morning_right"] for x in calls), "calls": len(calls),
-                        "neutral": sum(1 for x in days if x["morning"] == 0)}}
+    rec = {"days": days[-keep:], "since": days[0]["d"],
+           "model": {"closer": tot("model_closer"), "n": tot("model_n"), "days": sum(1 for x in days if x["model_n"])},
+           "ai": {"closer": tot("ai_closer"), "n": tot("ai_n"), "days": sum(1 for x in days if x["ai_n"])},
+           "morning": {"right": sum(x["morning_right"] for x in calls), "calls": len(calls),
+                       "neutral": sum(1 for x in days if x["morning"] == 0)},
+           "trial": {"days": RETIRE_DAYS, "morning_calls": RETIRE_MORNING_CALLS}}
+    rec["retired"] = retired(rec)
+    return rec
 
 
 def morning_prompt(today, news, record):
@@ -261,7 +280,8 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
     prev_close = pre.get("prev_close")
     hm = (now.hour, now.minute)
 
-    if mode == "morning" and (8, 40) <= hm < OPEN and not st.get("morning"):
+    gone = (track_record(store_dir) or {}).get("retired") or {}
+    if mode == "morning" and (8, 40) <= hm < OPEN and not st.get("morning") and not gone.get("morning"):
         r = grok.json_from(budget.ask(morning_prompt(today, _load(os.path.join(data_dir, "news-nifty.json")),
                                                      (today.get("record") or {}).get("recent"))))
         if r and isinstance(r.get("score"), (int, float)):
@@ -285,7 +305,8 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
             st["candles"] = candles10(b)
             last = (st.get("preds") or [None])[-1]
             asked = sum(1 for p in st.get("preds", []) if p.get("ai_asked"))
-            if last and last["at"][:16] == now.isoformat(timespec="minutes")[:16] and asked < AI_RUNS and prev_close:
+            if (last and last["at"][:16] == now.isoformat(timespec="minutes")[:16] and asked < AI_RUNS and prev_close
+                    and not gone.get("ai")):
                 last["ai_asked"] = True                     # the AI's own prediction of the close, beside our model's
                 rc = (pre.get("recorded") or {}).get("close") or {}
                 call = f"close {rc.get('direction')} ({rc.get('pred_pct')}%)" if rc else None
