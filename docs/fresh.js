@@ -47,6 +47,31 @@
     return null;
   }
 
+  // How fresh the data is, ticking on its own (2 Nov 2026): a dot and "2 min ago" next to a page's update time.
+  // live = during the session and at most 12 minutes old (runs come every 10); late = older during the session.
+  function ago(ms) {
+    const m = Math.max(0, Math.round(ms / 60000));
+    return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : `${Math.floor(m / 60)} h ${m % 60} min ago`;
+  }
+  function paint(el) {
+    const t = Date.parse(el.dataset.ts), open = el.dataset.open === '1', age = Date.now() - t;
+    if (!isFinite(t)) return;
+    const state = !open ? 'off' : age <= 12 * 60000 ? 'live' : 'late';
+    el.className = 'fresh ' + state;
+    el.innerHTML = `<i></i>${state === 'live' ? 'live · ' : state === 'late' ? 'late · ' : ''}${ago(age)}`;
+  }
+  // freshTag(isoTime, sessionOpen) -> HTML; the tag repaints itself every 20 seconds
+  window.freshTag = (iso, open) => iso ? `<span class="fresh" data-ts="${iso}" data-open="${open ? 1 : 0}"></span>` : '';
+  const css = document.createElement('style');
+  css.textContent = `.fresh { white-space:nowrap; } .fresh i { display:inline-block; width:7px; height:7px; border-radius:50%;
+    margin:0 5px 1px 5px; vertical-align:middle; background:#6b7688; } .fresh.live i { background:#34d1bf;
+    box-shadow:0 0 0 3px rgba(52,209,191,.18); } .fresh.late i { background:#f2c14e; }`;
+  document.head.appendChild(css);
+  // new tags are painted as they appear (only unpainted ones, so painting does not retrigger), all of them every 20 s
+  new MutationObserver(() => document.querySelectorAll('.fresh[data-ts]:empty').forEach(paint))
+    .observe(document.documentElement, { childList: true, subtree: true });
+  setInterval(() => document.querySelectorAll('.fresh[data-ts]').forEach(paint), 20000);
+
   window.siteFile = siteFile;
   window.siteJSON = async (name, opts) => { const r = await siteFile(name, opts); return r ? r.json() : null; };
 })();

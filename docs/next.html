@@ -107,7 +107,7 @@ function draw(d) {
     shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending ? '#9aa6b8' : x.right ? '#34d1bf' : '#ff6b6b',
     text: x.confident ? '★' : '' })).sort((a, b) => a.time - b.time));
   if (first && c.length) { chart.timeScale().fitContent(); first = false; }
-  $('when').textContent = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? 'every 10 min' : d.status === 'closed' ? 'market closed' : 'before the open'}`;
+  $('when').innerHTML = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? freshTag(d.updated, true) : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   const rec = (d.record && d.record.text) || 'not tested';
   const nowIST = Date.now() / 1000 + 19800, late = cur && d.status === 'open' && nowIST >= cur.t + 600 + 120;
   const over = cur && cur.at >= '15:15';                 // no lean after the 15:15 candle (15:25 is a 5-minute stub)

@@ -23,6 +23,9 @@
   #word.NOTHING { color:var(--muted); font-size:clamp(56px, 20vw, 120px); }
   #headline { font-size:20px; font-weight:600; margin:0 0 8px; }
   #reason { color:var(--muted); max-width:34ch; margin:0 auto; }
+  #next { color:var(--text); font-size:14px; max-width:34ch; margin:12px auto 0; padding:8px 12px; border-radius:12px;
+          background:rgba(255,255,255,.05); border:1px solid #1f2735; }
+  #next b { color:var(--muted); font-weight:500; margin-right:4px; }
   #optnote { color:var(--muted); font-size:13px; max-width:36ch; margin:12px auto 0; padding-top:10px; border-top:1px solid #1f2735; }
   #meta { color:var(--muted); font-size:13px; margin-top:24px; }
   .box { margin:20px auto 0; max-width:360px; width:100%; border:1px solid #1f2735; border-radius:12px; padding:12px 16px; text-align:left; }
@@ -44,6 +47,7 @@
   <div id="word" class="NOTHING">…</div>
   <p id="headline"></p>
   <p id="reason"></p>
+  <p id="next" hidden></p>
   <p id="optnote" hidden></p>
   <div id="warn"></div>
   <div id="trade" class="box" hidden></div>
@@ -53,6 +57,19 @@
 <script>
 const WORD = { CALL: 'CALL', PUT: 'PUT', STAY: 'STAY', SELL: 'SELL', NOTHING: 'NOTHING' };   // the only five states
 const $ = id => document.getElementById(id);
+// What happens next, in one line (2 Nov 2026)
+function nextStep(s) {
+  const day = d => d ? new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) : '';
+  const ist = new Date(Date.now() + 19800000), hm = ist.getUTCHours() * 100 + ist.getUTCMinutes();
+  switch (s.kind) {
+    case 'pending': return "Today's signal comes at about 08:57 IST, with an alert either way.";
+    case 'call': case 'put': return `Buy the ${s.side} at the 09:15 open; a SELL alert follows at about 14:50, or at the stop.`;
+    case 'hold': return 'Hold. A SELL alert comes at about 14:50, or at once if NIFTY reaches the stop.';
+    case 'sell': case 'stop': return 'Square off now. No new trade today.';
+    case 'no_trade': return hm < 1530 ? `Nothing to do today. Next signal: ${day(s.next_session) || 'the next session'}, about 08:57.` : '';
+    default: return s.next_session ? `Next session ${day(s.next_session)}; the signal comes at about 08:57.` : '';
+  }
+}
 async function load() {
   try {
     const r = await fresh('status.json');
@@ -65,10 +82,14 @@ async function load() {
     $('word').textContent = WORD[state];
     $('headline').textContent = stale ? 'Waiting for today’s update' : s.headline;
     $('reason').textContent = stale ? 'The signal is made at about 08:57 IST on market days.' : s.reason;
+    const nx = stale ? '' : nextStep(s);
+    $('next').hidden = !nx; $('next').innerHTML = nx ? `<b>Next:</b>${nx}` : '';
     $('optnote').hidden = stale || !s.option_note;                 // which option, or what buying without a reason costs
     $('optnote').textContent = stale ? '' : (s.option_note || '');
     const t = x => new Date(x).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    $('meta').textContent = `Updated ${t(s.updated)}${s.since && !stale ? ' · this signal since ' + t(s.since) : ''}`;
+    const istNow = new Date(Date.now() + 19800000), hmNow = istNow.getUTCHours() * 100 + istNow.getUTCMinutes();
+    const open = !stale && hmNow >= 845 && hmNow < 1535 && s.kind !== 'closed';
+    $('meta').innerHTML = `Updated ${t(s.updated)} ${freshTag(s.updated, open)}${s.since && !stale ? ' · this signal since ' + t(s.since) : ''}`;
     document.title = stale ? 'Status' : `Status: ${WORD[state]}`;
     // 09:15-15:30 IST on a trading day (next_session, from the last update) with no call for today: something failed
     const ist = new Date(Date.now() + 19800000), hm = ist.getUTCHours() * 100 + ist.getUTCMinutes();
