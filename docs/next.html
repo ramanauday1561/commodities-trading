@@ -29,6 +29,8 @@
   td, th { padding:4px; border-top:1px solid var(--edge); text-align:left; } th { color:var(--mute); font-weight:500; }
   .n { text-align:right; white-space:nowrap; } .m { color:var(--mute); }
   .up { color:var(--up); } .down { color:var(--down); }
+  button.show { margin-left:4px; border:1px solid var(--edge); border-radius:999px; padding:3px 10px; font-size:12px;
+                color:var(--text); background:rgba(255,255,255,.06); cursor:pointer; }
 </style>
 </head>
 <body>
@@ -42,12 +44,11 @@
   <div id="panel"></div>
 </div>
 <script src="lightweight-charts.js"></script>
+<script src="fresh.js"></script>
 <script>
 // The model's lean for each next 10-minute candle (scripts/nextcandle.py, written by live.py every 10-minute run), and
 // how each lean turned out. Information only: on 11 years it was right 53% of the time and lost money after option
 // costs in every year (nextcandle_study.py), so it is never a CALL / PUT signal.
-const SOURCES = ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/next-nifty.json',
-                 'data/next-nifty.json'];
 const DELTA = 0.5, COST = 1.85, LOT = 65;      // an at-the-money option moves about half; a round trip ~1.85 option points
 const $ = id => document.getElementById(id);
 const f = x => x == null ? '' : x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -61,7 +62,11 @@ const chart = LightweightCharts.createChart($('chart'), {
 });
 const candles = chart.addCandlestickSeries({ upColor: '#34d1bf', downColor: '#ff6b6b', borderVisible: false,
   wickUpColor: '#34d1bf', wickDownColor: '#ff6b6b' });
-let last = '', first = true;
+let last = '', first = true, data = null;
+// The leans are hidden by default (2 Nov 2026): every test says trading them loses after option costs, and an arrow on
+// screen invites a trade. The page leads with their live record; "Show today's leans anyway" reveals them for the visit.
+let showLeans = false;
+try { showLeans = sessionStorage.getItem('showLeans') === '1'; } catch (e) {}
 
 function epoch(date, hm) { return Date.parse(`${date}T${hm}:00Z`) / 1000; }   // chart times: IST clock as UTC
 
@@ -80,26 +85,42 @@ function score(d) {
   });
 }
 
+function recordHTML(d) {
+  const r = d.live_record, t = d.day_record;
+  const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const live = r
+    ? `<div class="m">Trading every lean, 1 lot, since ${day(r.since)}</div><div class="big ${r.rs >= 0 ? 'up' : 'down'}">${rs(r.rs)}</div>
+       <div>Lost money on ${r.losing_days} of ${r.days} day${r.days > 1 ? 's' : ''}; ${r.right} of ${r.leans} leans right (${Math.round(r.right / r.leans * 100)}%).</div>`
+    : '<div class="big m" style="font-size:16px">No finished day yet</div>';
+  const test = t ? `<div class="m">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
+  return live + test + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
+    <button class="show" data-show="1">Show today's leans anyway</button></div>`;
+}
+
 function draw(d) {
+  data = d;
   const c = d.candles || [], s = score(d), done = s.filter(x => !x.pending), cur = s[s.length - 1];
   $('msg').hidden = c.length > 0;
   $('msg').textContent = c.length ? '' : "Today's candles start after the 09:15 open.";
   candles.setData(c);
-  candles.setMarkers(s.map(x => ({ time: x.t, position: x.lean === 'up' ? 'belowBar' : 'aboveBar',
+  candles.setMarkers(!showLeans ? [] : s.map(x => ({ time: x.t, position: x.lean === 'up' ? 'belowBar' : 'aboveBar',
     shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending ? '#9aa6b8' : x.right ? '#34d1bf' : '#ff6b6b',
     text: x.confident ? '★' : '' })).sort((a, b) => a.time - b.time));
   if (first && c.length) { chart.timeScale().fitContent(); first = false; }
   $('when').textContent = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? 'every 10 min' : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   const rec = (d.record && d.record.text) || 'not tested';
   const nowIST = Date.now() / 1000 + 19800, late = cur && d.status === 'open' && nowIST >= cur.t + 600 + 120;
-  $('now').innerHTML = (late
+  const over = cur && cur.at >= '15:15';                 // no lean after the 15:15 candle (15:25 is a 5-minute stub)
+  $('now').innerHTML = !showLeans ? recordHTML(d) : (late && over
+      ? `<div class="big m" style="font-size:16px">No more leans today</div><div class="m">The last 10-minute candle is 15:15 to 15:25.</div>`
+      : late
       ? `<div class="big m" style="font-size:16px">Waiting for the ${addMin(cur.at, 10)} update</div>
          <div class="m">It runs every 10 minutes, but GitHub sometimes starts it a few minutes late. The page refreshes by itself.</div>`
       : cur && cur.pending && d.status === 'open'
       ? `<div class="m">${cur.at} to ${addMin(cur.at, 10)}</div><div class="big ${cur.lean === 'up' ? 'up' : 'down'}">${cur.lean === 'up' ? '▲ leans up' : '▼ leans down'}
          <span style="font-size:14px;font-weight:500">${cur.pts >= 0 ? '+' : ''}${cur.pts} pts${cur.confident ? ' · ★ more confident' : ''}</span></div>`
       : `<div class="big m" style="font-size:16px">${d.status === 'open' ? 'Waiting for the next 10-minute candle' : 'No live lean (market closed)'}</div>`)
-    + `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}.</div>`;
+    + (showLeans ? `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}. <button class="show" data-show="0">Hide the leans</button></div>` : '');
   const right = done.filter(x => x.right).length, money = done.reduce((a, x) => a + x.rs, 0);
   const conf = done.filter(x => x.confident), cRight = conf.filter(x => x.right).length;
   $('panel').innerHTML = (done.length
@@ -108,13 +129,21 @@ function draw(d) {
         + `. Trading every lean with 1 lot of an at-the-money option: <b class="${money >= 0 ? 'up' : 'down'}">${rs(money)}</b> after costs.</div>`
         + dayLine(money, d)
       : '<div class="m">No lean scored yet today.</div>')
-    + (s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
+    + (showLeans && s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
         + s.slice().reverse().map(x => `<tr><td>${x.at}${x.confident ? ' ★' : ''}</td><td class="${x.lean === 'up' ? 'up' : 'down'}">${x.lean} ${x.pts >= 0 ? '+' : ''}${x.pts}</td>`
           + (x.pending ? '<td class="n m">pending</td><td></td>' : `<td class="n ${x.right ? 'up' : 'down'}">${x.move >= 0 ? '+' : ''}${x.move.toFixed(1)} ${x.right ? '✓' : '✗'}</td><td class="n ${x.rs >= 0 ? 'up' : 'down'}">${rs(x.rs)}</td>`)
           + '</tr>').join('') + '</table>' : '')
-    + `<div class="m" style="margin-top:6px">Arrows: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).
-       ₹ per lot assumes the option moves half as much as NIFTY and a round trip costs about ₹120.${d.trained_until ? ` Model trained on candles to ${d.trained_until}.` : ''}</div>`;
+    + (!showLeans ? '' : `<div class="m" style="margin-top:6px">Arrows: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).
+       ₹ per lot assumes the option moves half as much as NIFTY and a round trip costs about ₹120.${d.trained_until ? ` Model trained on candles to ${d.trained_until}.` : ''}</div>`);
 }
+
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('button.show');
+  if (!b) return;
+  showLeans = b.dataset.show === '1';
+  try { sessionStorage.setItem('showLeans', showLeans ? '1' : '0'); } catch (err) {}
+  if (data) draw(data);
+});
 
 // The 9-year record of trading every lean, day by day (nextcandle_study.day_record): most days lose, so a day's score
 // is shown with it, and after the close with where the day ranks among those days.
@@ -137,19 +166,13 @@ function dayLine(money, d) {
 function addMin(hm, m) { const [h, mm] = hm.split(':').map(Number), t = h * 60 + mm + m; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
 
 async function load() {
-  for (const src of SOURCES) {
-    try {
-      const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' });
-      if (!r.ok) continue;
-      const d = await r.json();
-      if (d.updated !== last) { last = d.updated; draw(d); }
-      return;
-    } catch (e) { /* next source */ }
-  }
-  $('msg').hidden = false; $('msg').textContent = 'No data yet today.';
+  let d = null;
+  try { d = await siteJSON('next-nifty.json'); } catch (e) { /* below */ }     // fresh.js: site-data's newest commit
+  if (!d) { $('msg').hidden = false; $('msg').textContent = 'No data yet today.'; return; }
+  if (d.updated !== last) { last = d.updated; draw(d); }
 }
 load();
-setInterval(load, 60000);
+setInterval(load, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 </script>
 <script src="nav.js"></script>

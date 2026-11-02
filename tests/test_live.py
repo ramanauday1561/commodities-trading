@@ -102,6 +102,23 @@ class Retire(unittest.TestCase):
         self.assertFalse(live.retired(None)["model"])
 
 
+class NextRecord(unittest.TestCase):
+    """The Next 10 min page's live record over finished days (2 Nov 2026: -Rs19,095 over 3 days)."""
+
+    def test_days_scored_like_the_page(self):
+        store = tempfile.mkdtemp()
+        os.makedirs(os.path.join(store, "live"))
+        t0 = int(datetime(2026, 10, 30, 15, 5).replace(tzinfo=None).timestamp()) // 86400 * 86400 + (15 * 60 + 5) * 60
+        c = [{"time": t0 + 600 * k, "close": v} for k, v in enumerate([100.0, 110.0, 105.0, 104.0])]   # 15:05 ... 15:35
+        leans = [{"at": "15:15", "lean": "up"}, {"at": "15:25", "lean": "down"}, {"at": "15:05", "lean": "up"}]
+        json.dump({"candles": c, "leans": leans}, open(os.path.join(store, "live", "2026-10-30.json"), "w"))
+        json.dump({"candles": c, "leans": leans}, open(os.path.join(store, "live", "2026-11-02.json"), "w"))   # today
+        r = live.next_record(store, "2026-11-02")
+        self.assertEqual((r["days"], r["leans"], r["right"]), (1, 1, 1))              # 15:25 stub and first candle skipped
+        self.assertEqual(r["rs"], round((0.5 * 10 - 1.85) * 65))
+        self.assertEqual(r["losing_days"], 0)
+
+
 class Budget(unittest.TestCase):
     def test_stops_at_the_daily_cap_and_needs_the_key(self):
         st = {"grok_calls": grok.DAILY_CAP}

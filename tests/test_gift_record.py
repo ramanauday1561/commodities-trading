@@ -75,6 +75,22 @@ class Gap(unittest.TestCase):
         r = gr.record(d, datetime(2026, 11, 1, 10, 5, tzinfo=IST), get=lambda: answer, data_dir=dd)[0]
         self.assertIsNone(r["gap_pct"])                                                # a close of another day: no gap
 
+    def test_scores_against_the_real_open(self):
+        # 30 Oct 2026: GIFT pointed to -0.14% at 08:57; NIFTY opened 22,964.50 on a 22,936.75 close (+0.12%)
+        d = tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "gift"))
+        with open(os.path.join(d, "gift", "2026-10.csv"), "w") as f:
+            f.write(",".join(gr.COLS) + "\n")
+            f.write("2026-10-30T08:37+05:30,gift_nifty,x,22900.0,0,0,1,e,22936.75,30.0,-0.3\n")
+            f.write("2026-10-30T08:57+05:30,gift_nifty,x,22935.0,0,0,1,e,22936.75,30.0,-0.137\n")
+            f.write("2026-10-30T09:16+05:30,gift_nifty,x,22990.0,0,0,1,e,22936.75,30.0,0.1\n")     # after the open: not used
+        calls = [{"d": "2026-10-30", "result": {"open": 22964.5, "prev_close": 22936.75}}, {"d": "2026-10-29", "result": {}}]
+        r = gr.scores(d, calls)
+        self.assertEqual((r["days"], r["side_right"]), (1, 0))
+        self.assertEqual(r["by_day"][0]["at"], "08:57")
+        self.assertAlmostEqual(r["avg_miss"], round(abs(-0.137 - (22964.5 / 22936.75 - 1) * 100), 3))
+        self.assertIsNone(gr.scores(d, []))
+
     def test_no_recorded_premium_no_gap(self):
         d, dd = tempfile.mkdtemp(), tempfile.mkdtemp()
         import json

@@ -37,6 +37,7 @@
   .up { color:var(--up); } .down { color:var(--down); }
   a { color:var(--muted); }
 </style>
+<script src="fresh.js"></script>
 </head>
 <body>
   <h1 data-nav>NIFTY · Status</h1>
@@ -90,14 +91,9 @@ async function load() {
     $('headline').textContent = 'No status yet'; $('reason').textContent = String(e.message || e);
   }
 }
-// site-data is updated by every 10-minute run; the copy published with the site (about every 30 min) is the fallback
-const RAW = 'https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/';
+// site-data's newest commit (fresh.js: updated by every 10-minute run, no 5-minute cache); the site copy as a fallback
 async function fresh(name) {
-  try {
-    const r = await fetch(RAW + name + '?t=' + Date.now(), { cache: 'no-store' });
-    if (r.ok) return r;
-  } catch (e) { /* fall back */ }
-  return fetch('data/' + name + '?t=' + Date.now(), { cache: 'no-store' });
+  return (await siteFile(name)) || fetch('data/' + name + '?t=' + Date.now(), { cache: 'no-store' });
 }
 async function loadToday(date) {
   try {
@@ -119,7 +115,7 @@ async function loadToday(date) {
   } catch (e) { $('today').hidden = true; }
 }
 load();
-setInterval(load, 60000);
+setInterval(load, 30000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 </script>
 <script src="nav.js"></script>

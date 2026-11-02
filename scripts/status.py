@@ -342,8 +342,11 @@ def gift_morning(g, day):
     if not g or not str(g.get("fetched", "")).startswith(day) or not g.get("price"):
         return ""
     if g.get("gap_pct") is not None:
+        r = g.get("record") or {}
+        rec = (f" Its record: off by {r['avg_miss']:.2f}% on average, right side {r['side_right']} of {r['days']} days."
+               if r.get("days") else "")
         return (f"\nGIFT Nifty {g['price']:,.1f} at {str(g.get('quote_time', ''))[-5:]}: points to a NIFTY open "
-                f"{g['gap_pct']:+.2f}% from yesterday's close (after its {g['premium']:+.0f}-point premium). Info only.")
+                f"{g['gap_pct']:+.2f}% from yesterday's close (after its {g['premium']:+.0f}-point premium).{rec} Info only.")
     return (f"\nGIFT Nifty {g['price']:,.1f} at {str(g.get('quote_time', ''))[-5:]} ({g.get('change_pct')}% on its own close, "
             "which includes its premium over NIFTY: not NIFTY's gap). Info only.")
 

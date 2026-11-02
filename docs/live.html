@@ -49,10 +49,9 @@
   <div id="panel"></div>
 </div>
 <script src="lightweight-charts.js"></script>
+<script src="fresh.js"></script>
 <script>
-// Data: site-data (updated by every 10-minute run) first, the copy published with the site as a fallback.
-const SOURCES = ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/live-nifty.json',
-                 'data/live-nifty.json'];
+// Data: site-data's newest commit (fresh.js: no 5-minute cache), the copy published with the site as a fallback.
 const $ = id => document.getElementById(id);
 const f = x => x == null ? '' : x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pc = x => `${x >= 0 ? '+' : ''}${x.toFixed(2)}%`;
@@ -128,9 +127,7 @@ document.addEventListener('toggle', e => {
 // Real option prices for the day (option_record.py, from NSE's bhavcopy: published the evening after, added at 04:00 IST)
 let realOpt = null;
 async function loadRealOpt() {
-  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/options-nifty.json', 'data/options-nifty.json']) {
-    try { const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) { realOpt = await r.json(); return; } } catch (e) {}
-  }
+  try { realOpt = await siteJSON('options-nifty.json') || realOpt; } catch (e) {}
 }
 function realLine(day, status) {
   const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
@@ -250,20 +247,12 @@ chart.subscribeClick(param => {
   $('panel').innerHTML = h; $('panel').dataset.pinned = '1';
 });
 async function load() {
-  for (const src of SOURCES) {
-    try {
-      const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' });
-      if (!r.ok) continue;
-      const d = await r.json();
-      const istToday = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
-      if (d.date !== istToday && src !== SOURCES[SOURCES.length - 1]) continue;
-      if (d.updated !== last) { if (d.status !== 'open') await loadRealOpt(); last = d.updated; draw(d); }
-      // no 10-minute candles (after the close, or a day before the live runs existed): show the day's replay if one exists
-      if (!(d.candles || []).length && d.status !== 'open' && !(rp && rp.date === d.date)) await replayOf(d.date);
-      return;
-    } catch (e) { /* next source */ }
-  }
-  $('msg').hidden = false; $('msg').textContent = 'No live data yet today.';
+  let d = null;
+  try { d = await siteJSON('live-nifty.json'); } catch (e) { /* below */ }
+  if (!d) { $('msg').hidden = false; $('msg').textContent = 'No live data yet today.'; return; }
+  if (d.updated !== last) { if (d.status !== 'open') await loadRealOpt(); last = d.updated; draw(d); }
+  // no 10-minute candles (after the close, or a day before the live runs existed): show the day's replay if one exists
+  if (!(d.candles || []).length && d.status !== 'open' && !(rp && rp.date === d.date)) await replayOf(d.date);
 }
 // ---- replay of a finished day (replay.py): live.html?replay=YYYY-MM-DD
 const REPLAY = new URLSearchParams(location.search).get('replay');
@@ -301,20 +290,11 @@ function replaySummary() {
   $('panel').innerHTML += moneyBox(rp && rp.money, rp && rp.date, 'closed');
 }
 async function replayOf(day) {
-  const name = `replay-nifty-${day}.json`;
-  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/' + name, 'data/' + name]) {
-    try {
-      const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' });
-      if (r.ok) { drawReplay(await r.json()); replayClicks(); return true; }
-    } catch (e) {}
-  }
+  try { const d = await siteJSON(`replay-nifty-${day}.json`); if (d) { drawReplay(d); replayClicks(); return true; } } catch (e) {}
   return false;
 }
 async function loadReplay() {
-  const name = `replay-nifty-${REPLAY}.json`;
-  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/' + name, 'data/' + name]) {
-    try { const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) return drawReplay(await r.json()); } catch (e) {}
-  }
+  try { const d = await siteJSON(`replay-nifty-${REPLAY}.json`); if (d) return drawReplay(d); } catch (e) {}
   $('msg').hidden = false; $('msg').textContent = `No replay for ${REPLAY} yet.`;
 }
 let clicks = false;
@@ -334,7 +314,7 @@ if (REPLAY) {
   loadReplay();
 } else {
   load();
-  setInterval(load, 60000);                    // the data changes every 10 minutes; checking each minute keeps it close
+  setInterval(load, 30000);                    // a check is one small request; new data shows within ~30 s of the run
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 }
 </script>
