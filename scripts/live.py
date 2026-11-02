@@ -46,9 +46,25 @@ def ist_epoch(t):
     return int(datetime(t.year, t.month, t.day, t.hour, t.minute, tzinfo=timezone.utc).timestamp())
 
 
-def candles10(bars):
-    """bars: [(aware start time, open, high, low, close)] in 5 minutes, one day -> 10-minute candles from 09:15."""
+def drop_frozen(bars):
+    """(bars kept, start times of the paused-feed bars left out): intraday_data.frozen's rule on today's bars."""
+    import pandas as pd
+    from intraday_data import frozen
+    if len(bars) < 2:
+        return list(bars), []
+    bars = sorted(bars)
+    g = pd.DataFrame([b[1:] for b in bars], columns=["Open", "High", "Low", "Close"],
+                     index=pd.DatetimeIndex([b[0].astimezone(IST).replace(tzinfo=None) for b in bars]))
+    m = frozen(g).values
+    return [b for b, x in zip(bars, m) if not x], [b[0] for b, x in zip(bars, m) if x]
+
+
+def candles10(bars, paused=()):
+    """bars: [(aware start time, open, high, low, close)] in 5 minutes, one day -> 10-minute candles from 09:15.
+    paused: start times of left-out paused-feed bars; their 10-minute candles are marked "paused" (not scored)."""
     out = {}
+    tens = lambda t: ist_epoch(t.astimezone(IST).replace(second=0, microsecond=0)
+                               - timedelta(minutes=((t.astimezone(IST).hour * 60 + t.astimezone(IST).minute) - (OPEN[0] * 60 + OPEN[1])) % 10))
     for t, o, h, l, c in sorted(bars):
         t = t.astimezone(IST)
         mins = (t.hour * 60 + t.minute) - (OPEN[0] * 60 + OPEN[1])
@@ -61,7 +77,9 @@ def candles10(bars):
         else:
             b = out[k]
             b["high"], b["low"], b["close"] = max(b["high"], h), min(b["low"], l), c
-    return [{**b, **{x: round(b[x], 2) for x in ("open", "high", "low", "close")}} for _, b in sorted(out.items())]
+    stop = {tens(t) for t in paused}
+    return [{**b, **{x: round(b[x], 2) for x in ("open", "high", "low", "close")}, **({"paused": True} if k in stop else {})}
+            for k, b in sorted(out.items())]
 
 
 def find_moves(bars, known=()):
@@ -174,8 +192,8 @@ def next_day(st):
     rs = 0.0
     for l in st.get("leans") or []:
         i = idx.get(l["at"])
-        if l["at"] > "15:15" or not i:                  # the 15:25 stub was never tested; the first candle has no "before"
-            continue
+        if l["at"] > "15:15" or not i or c[i].get("paused"):   # the 15:25 stub was never tested; the first candle has
+            continue                                                    # no "before"; a paused feed is not a price
         move, side = c[i]["close"] - c[i - 1]["close"], 1 if l["lean"] == "up" else -1
         n += 1
         right += move * side > 0
@@ -335,7 +353,10 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
             print(f"live: 5-minute candles failed: {e!r}", flush=True)
             b = []
         if b:
-            st["candles"] = candles10(b)
+            b, paused = drop_frozen(b)                      # the feed pauses before the close (intraday_data.FREEZE_FROM)
+            st["candles"] = candles10(b, paused)
+            if paused:
+                st["paused_from"] = min(paused).astimezone(IST).strftime("%H:%M")
             last = (st.get("preds") or [None])[-1]
             asked = sum(1 for p in st.get("preds", []) if p.get("ai_asked"))
             if (last and last["at"][:16] == now.isoformat(timespec="minutes")[:16] and asked < AI_RUNS and prev_close
@@ -380,7 +401,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
         if not st.get("money"):                              # the "₹2 lakh today" box (daymoney.py)
             try:
                 rec_fo = {"from_open": (pre.get("recorded") or {}).get("from_open")}
-                st["money"] = daymoney.money(get_bars(), (rec or {}).get("prev_close") or prev_close,
+                st["money"] = daymoney.money(drop_frozen(get_bars())[0], (rec or {}).get("prev_close") or prev_close,
                                              *daymoney.sides(rec_fo))
             except Exception as e:
                 print(f"live: money box failed: {e!r}", flush=True)
@@ -397,7 +418,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
     json.dump(st, open(path, "w"), separators=(",", ":"))
     meta = _load(os.path.join(data_dir, "nextcandle-meta.json"), {}) or {}
     json.dump({"date": day, "updated": now.isoformat(timespec="minutes"), "status": today.get("status"),
-               "prev_close": prev_close, "candles": st.get("candles", []), "leans": st.get("leans", []),
+               "prev_close": prev_close, "candles": st.get("candles", []), "leans": st.get("leans", []), "paused_from": st.get("paused_from"),
                "record": meta.get("record"), "day_record": meta.get("day_record"), "trained_until": meta.get("trained_until"),
                "live_record": next_record(store_dir, day)},
               open(os.path.join(data_dir, "next-nifty.json"), "w"), separators=(",", ":"))
@@ -412,6 +433,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
            "trade": {"side": side, "entry": i.get("open"), "stop": round(status.stop_level(side, i["open"]), 2)}
                     if side and i.get("open") else None,
            "candles": st.get("candles", []), "preds": st.get("preds", []), "moves": st.get("moves", []),
+           "paused_from": st.get("paused_from"),
            "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card"),
            "money": st.get("money"), "daylike": _daylike(data_dir, today, now), "record": track_record(store_dir)}
     json.dump(out, open(os.path.join(data_dir, "live-nifty.json"), "w"), separators=(",", ":"))

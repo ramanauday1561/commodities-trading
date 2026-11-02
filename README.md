@@ -57,6 +57,7 @@ in its own PR. **Actions → Model experiments → Run workflow** with a `mode`:
 - `longsignal`, `history`, `preopen`, `open`, `vix`, `accuracy`, `improve`, `extreme`, `strategy`, `intrarules`,
   `nextcandle`: the NIFTY studies kept for re-testing.
 - `intradata` / `dukafetch`: update the stored 5-minute / hourly overnight history.
+- `nextreplay` (test_days = a date): replay that day's Next 10 min leans with the model as it was that morning, beside what the live page showed.
 
 [STUDIES.md](STUDIES.md) lists what each study found, including the finished one-off studies whose scripts were
 removed. In short: the 09:15 signal made money in 2015-2021 and is about break-even since 2022 (GIFT Nifty now prices

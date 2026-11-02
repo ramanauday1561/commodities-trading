@@ -9,7 +9,7 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute, options (see STUDIES.md); intradata (update the 5-minute history), dukafetch (the hourly overnight history) or optdata (NIFTY option prices)"
+        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute, options (see STUDIES.md); nextreplay (one day's next-candle leans replayed, test_days = the date); intradata (update the 5-minute history), dukafetch (the hourly overnight history) or optdata (NIFTY option prices)"
         required: false
         default: "variants"
 
@@ -30,8 +30,8 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install numpy pandas yfinance lightgbm exchange_calendars
-      - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options"; intraday-data branch)
-        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options"]'), github.event.inputs.mode) && matrix.key == 'nifty'
+      - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options", "nextreplay"; intraday-data branch)
+        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options", "nextreplay"]'), github.event.inputs.mode) && matrix.key == 'nifty'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
@@ -69,10 +69,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: for p in 0 1 2 3; do bash scripts/store.sh pull "options-data-p$p" "opt/p$p"; done
+      - name: Replay a day's next-candle leans (mode "nextreplay"; test_days = the date YYYY-MM-DD, or leave 750 for the last session)
+        if: github.event.inputs.mode == 'nextreplay' && matrix.key == 'nifty'
+        env:
+          PYTHONPATH: scripts
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          bash scripts/store.sh pull scoreboard store
+          d="${{ github.event.inputs.test_days }}"; case "$d" in ????-??-??) ;; *) d=last ;; esac
+          python -u scripts/nextcandle.py replay intra store "$d"
       - env:
           PYTHONPATH: scripts
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           INTRADAY_DIR: intra
           OPTIONS_DIRS: opt/p0,opt/p1,opt/p2,opt/p3
-        if: github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'dukafetch' && github.event.inputs.mode != 'optdata'
+        if: github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'dukafetch' && github.event.inputs.mode != 'optdata' && github.event.inputs.mode != 'nextreplay'
         run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2 ${{ github.event.inputs.mode || 'variants' }}

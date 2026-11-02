@@ -55,5 +55,24 @@ class History(unittest.TestCase):
         self.assertIn("3 (2015-01-09 to 2026-10-27)", out["nifty_days"])
 
 
+class Frozen(unittest.TestCase):
+    """2 Nov 2026: Yahoo's bars stop moving before the close (15:15 and 15:20 at the previous close), then 15:25 jumps."""
+
+    def test_paused_bars_after_15_00_are_left_out_when_read(self):
+        t = pd.date_range("2026-11-02 14:55", periods=7, freq="5min")
+        c = [23300.0, 23313.25, 23330.25, 23331.1, 23331.1, 23331.1, 23440.8]
+        g = pd.DataFrame({"Open": [23290.0] + c[:-1], "High": [x + 5 for x in c[:3]] + [23331.1, 23331.1, 23331.1, 23440.8],
+                          "Low": [x - 5 for x in c[:3]] + [23330.35, 23331.1, 23331.1, 23331.1], "Close": c}, index=t)
+        m = idata.frozen(g)
+        self.assertEqual(list(g.index[m].strftime("%H:%M")), ["15:10", "15:15", "15:20"])   # 15:10 here: 0.85 pt
+        self.assertEqual(list(idata.drop_frozen(g).index.strftime("%H:%M")), ["14:55", "15:00", "15:05", "15:25"])
+
+    def test_a_quiet_bar_before_15_00_and_a_real_one_are_kept(self):
+        t = pd.date_range("2026-11-02 14:50", periods=3, freq="5min")
+        g = pd.DataFrame({"Open": [100.0, 100.0, 100.0], "High": [100.0, 100.0, 100.5], "Low": [100.0, 100.0, 99.5],
+                          "Close": [100.0, 100.0, 100.2]}, index=t)
+        self.assertFalse(idata.frozen(g).any())
+
+
 if __name__ == "__main__":
     unittest.main()

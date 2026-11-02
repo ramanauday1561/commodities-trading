@@ -60,6 +60,24 @@ class NextCandle(unittest.TestCase):
         self.assertEqual(nc.lean(tmp, at(15, 16), get=lambda s: live)["at"], "15:15")
         live[today] = days(3, seed=2, start="2026-10-27")[today].iloc[:74]            # 15:15 finished: next is the stub
         self.assertIsNone(nc.lean(tmp, at(15, 26), get=lambda s: live))
+        live[today] = days(3, seed=2, start="2026-10-27")[today].iloc[:20]            # the last full candle is 10:45
+        self.assertIsNone(nc.lean(tmp, at(11, 2), get=lambda s: live))               # 7 min into 10:55: stale
+
+    def test_replay_a_day(self):
+        import json as js
+        hist = days(45, seed=3)
+        d = sorted(hist)[-1]
+        frames = {"nifty": hist, "banknifty": hist, "vix": hist}
+        store = tempfile.mkdtemp()
+        os.makedirs(os.path.join(store, "live"))
+        js.dump({"candles": [], "leans": [{"at": "10:05", "lean": "up"}]}, open(os.path.join(store, "live", f"{d}.json"), "w"))
+        with unittest.mock.patch("intraday_data.load", side_effect=lambda dd, k: frames[k]):
+            out = nc.replay(str(d), "unused", store)
+        self.assertEqual(out["trained_until"], str(sorted(hist)[-2]))                  # only the days before
+        self.assertEqual(out["replay"]["leans"], 35)                                     # 09:35 ... 15:15
+        self.assertEqual(out["leans"][0]["at"], "09:35")                                 # as live: 09:25 has no candle before
+        self.assertEqual(out["same_lean"].split(" of ")[1], "1")
+        self.assertEqual(out["replay"]["rs"], sum(x["rs"] for x in out["leans"]))
 
 
 if __name__ == "__main__":
