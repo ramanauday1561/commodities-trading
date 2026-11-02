@@ -117,6 +117,29 @@ def with_gap(row, store_dir, today, last=None):
     return row
 
 
+def scores(store_dir, calls, before="09:00", keep=20):
+    """GIFT's expected gap against the real one, day by day (2 Nov 2026, its first live test: +0.71% at 08:57, NIFTY
+    opened +0.81%): the last premium-adjusted reading before `before` IST each day, against the official open and
+    previous close in the day's recorded call (store/calls/nifty.json)."""
+    said = {}
+    for f in sorted(glob.glob(os.path.join(store_dir, "gift", "*.csv"))):
+        for r in csv.DictReader(open(f)):
+            if r["kind"] == "gift_nifty" and r.get("gap_pct") and r["fetched"][11:16] < before:
+                said[r["fetched"][:10]] = (r["fetched"][11:16], float(r["gap_pct"]))      # the latest before the open
+    days = []
+    for c in calls or []:
+        res = c.get("result") or {}
+        if c.get("d") in said and res.get("open") and res.get("prev_close"):
+            real = (res["open"] / res["prev_close"] - 1) * 100
+            at, g = said[c["d"]]
+            days.append({"d": c["d"], "at": at, "gift": g, "real": round(real, 3), "miss": round(abs(g - real), 3),
+                         "side": (g > 0) == (real > 0)})
+    if not days:
+        return None
+    return {"days": len(days), "avg_miss": round(sum(x["miss"] for x in days) / len(days), 3),
+            "side_right": sum(x["side"] for x in days), "by_day": days[-keep:]}
+
+
 def _upgrade(path):
     """Rewrites a month file written before the gap columns existed, so new rows line up."""
     rows = list(csv.DictReader(open(path)))
@@ -162,7 +185,10 @@ def record(store_dir, now=None, get=fetch, data_dir=None):
     if data_dir:
         g = next((r for r in new if r["kind"] == "gift_nifty"), None)
         if g:
-            json.dump(g, open(os.path.join(data_dir, "gift-nifty.json"), "w"), separators=(",", ":"))
+            calls_path = os.path.join(store_dir, "calls", "nifty.json")
+            calls = json.load(open(calls_path)) if os.path.exists(calls_path) else []
+            json.dump({**g, "record": scores(store_dir, calls)}, open(os.path.join(data_dir, "gift-nifty.json"), "w"),
+                      separators=(",", ":"))
     print("gift: " + ", ".join(f"{r['kind']} {r['price']} ({r['quote_time']})"
                                + (f", gap vs NIFTY {r['gap_pct']:+.2f}% (premium {r['premium']})" if r.get("gap_pct") is not None else "")
                                for r in new), flush=True)

@@ -17,8 +17,17 @@
   .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .px { min-width:0; } .px b { font-size:19px; letter-spacing:-.01em; white-space:nowrap; } .px b span { font-size:15px; } .px small { display:block; color:var(--mute); font-size:12px; }
   .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(255,255,255,.06); }
-  .legend { display:flex; flex-wrap:wrap; gap:4px 12px; color:var(--mute); font-size:11px; margin:6px 0 4px; }
-  .legend i { display:inline-block; width:14px; height:0; border-top:2px solid; vertical-align:middle; margin-right:4px; }
+  .legend { display:flex; gap:6px; margin:8px 0 4px; overflow-x:auto; scrollbar-width:none; }
+  .legend::-webkit-scrollbar { display:none; }
+  .legend button { flex:none; display:flex; align-items:center; gap:5px; padding:4px 9px; border-radius:999px; font:12px/1.2 inherit;
+                   color:var(--text); background:rgba(255,255,255,.06); border:1px solid var(--edge); cursor:pointer; }
+  .legend button.off { color:var(--mute); opacity:.55; } .legend button.off i { opacity:.4; }
+  .legend i { display:inline-block; width:14px; height:0; border-top:2px solid; }
+  .legend span { flex:none; align-self:center; color:var(--mute); font-size:11px; padding:0 4px; }
+  .sec { margin-top:10px; } .sec:first-child { margin-top:0; }
+  .sec .h { font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--mute); margin-bottom:2px; }
+  .stats { display:flex; gap:16px; margin:2px 0; } .stat b { font-size:20px; font-variant-numeric:tabular-nums; }
+  .stat small { display:block; color:var(--mute); font-size:11.5px; line-height:1.3; }
   #chart { flex:1; min-height:0; position:relative; }
   #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mute); text-align:center; padding:20px; }
   #msg[hidden] { display:none; }
@@ -38,21 +47,19 @@
     <a href="status.html">Close</a>
   </div>
   <div class="legend" id="legend">
-    <span><i style="border-color:var(--pred)"></i>our model's predicted close</span>
-    <span><i style="border-color:#b48cff"></i>AI's predicted close</span>
-    <span><i style="border-color:var(--pred);border-top-style:dashed"></i>08:57 forecast</span>
-    <span><i style="border-color:var(--pred);border-top-style:dotted;opacity:.6"></i>likely close range</span>
-    <span><i style="border-color:#8a96a8;border-top-style:dashed"></i>yesterday's close</span>
-    <span>● alerts · ⚡ big moves (tap)</span>
+    <button data-k="model"><i style="border-color:var(--pred)"></i>model</button>
+    <button data-k="ai"><i style="border-color:#b48cff"></i>AI</button>
+    <button data-k="call"><i style="border-color:var(--pred);border-top-style:dashed"></i>08:57</button>
+    <button data-k="range"><i style="border-color:var(--pred);border-top-style:dotted;opacity:.6"></i>range</button>
+    <button data-k="prev"><i style="border-color:#8a96a8;border-top-style:dashed"></i>prev close</button>
   </div>
   <div id="chart"><div id="msg" hidden></div></div>
   <div id="panel"></div>
 </div>
 <script src="lightweight-charts.js"></script>
+<script src="fresh.js"></script>
 <script>
-// Data: site-data (updated by every 10-minute run) first, the copy published with the site as a fallback.
-const SOURCES = ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/live-nifty.json',
-                 'data/live-nifty.json'];
+// Data: site-data's newest commit (fresh.js: no 5-minute cache), the copy published with the site as a fallback.
 const $ = id => document.getElementById(id);
 const f = x => x == null ? '' : x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pc = x => `${x >= 0 ? '+' : ''}${x.toFixed(2)}%`;
@@ -73,6 +80,19 @@ const band = { color: 'rgba(245,166,35,.45)', lineWidth: 1, lineStyle: 1, priceL
                crosshairMarkerVisible: false, autoscaleInfoProvider: () => null };
 const lo = chart.addLineSeries(band), hi = chart.addLineSeries(band);
 let lines = [], data = null, first = true, last = '';
+let hidden = new Set(['range']);
+try { const h = localStorage.getItem('liveHidden'); if (h) hidden = new Set(JSON.parse(h)); } catch (e) {}
+function paintLegend() {
+  document.querySelectorAll('#legend button[data-k]').forEach(b => b.classList.toggle('off', hidden.has(b.dataset.k)));
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('#legend button[data-k]');
+  if (!b) return;
+  hidden.has(b.dataset.k) ? hidden.delete(b.dataset.k) : hidden.add(b.dataset.k);
+  try { localStorage.setItem('liveHidden', JSON.stringify([...hidden])); } catch (err) {}
+  paintLegend();
+  if (data && !rp) draw(data);
+});
 
 function snap(t, c) {                       // a run's time -> the 10-minute candle it belongs to
   if (!c.length) return t;
@@ -93,12 +113,14 @@ function draw(d) {
   // predictions vs the real price: each 10-minute run's predicted close from our model (orange) and from the AI
   // (purple), the 08:57 forecast made before the open (dashed) and the likely close range (dotted)
   const gone = ((d.record || {}).retired) || {};          // lines retired by the track-record rule are not drawn
-  pred.setData(gone.model ? [] : series(d.preds || [], 'pred', c)); ai.setData(gone.ai ? [] : series(d.preds || [], 'ai_close', c));
-  lo.setData(series(d.preds || [], 'lo', c)); hi.setData(series(d.preds || [], 'hi', c));
+  pred.setData(gone.model || hidden.has('model') ? [] : series(d.preds || [], 'pred', c));
+  ai.setData(gone.ai || hidden.has('ai') ? [] : series(d.preds || [], 'ai_close', c));
+  lo.setData(hidden.has('range') ? [] : series(d.preds || [], 'lo', c)); hi.setData(hidden.has('range') ? [] : series(d.preds || [], 'hi', c));
+  paintLegend();
   lines.forEach(l => candles.removePriceLine(l)); lines = [];
   const add = (price, color, title, style = 2) => price && lines.push(candles.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
-  add(d.prev_close, '#8a96a8', "yesterday");
-  if (d.call && d.call.target) add(d.call.target, '#f5a623', `08:57 call`, 3);
+  if (!hidden.has('prev')) add(d.prev_close, '#8a96a8', "yesterday");
+  if (d.call && d.call.target && !hidden.has('call')) add(d.call.target, '#f5a623', `08:57 call`, 3);
   if (d.trade) { add(d.trade.entry, '#7cb4ff', `${d.trade.side} entry`, 0); add(d.trade.stop, '#ff6b6b', 'stop', 0); }
   const marks = (d.marks || []).filter(m => c.length).map(m => {
     const k = m.kind, up = k === 'call', dn = k === 'put';
@@ -115,7 +137,7 @@ function draw(d) {
   const now = d.price ?? (c.length ? c[c.length - 1].close : null);
   $('px').innerHTML = `NIFTY 50 ${now ? f(now) : ''} ${d.move_pct != null ? `<span class="${d.move_pct >= 0 ? 'up' : 'down'}">${pc(d.move_pct)}</span>` : ''}`;
   const upd = d.updated ? d.updated.slice(11, 16) : '';
-  $('when').textContent = d.status === 'open' ? `Updated ${upd} IST · updates every 10 min` : `Updated ${upd} IST · ${d.status === 'closed' ? 'market closed' : 'before the open'}`;
+  $('when').innerHTML = `Updated ${upd} IST · ${d.status === 'open' ? freshTag(d.updated, true) : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   if (!$('panel').dataset.pinned) summary();
 }
 // "₹2 lakh today" (daymoney.py): what each way of trading the day made, per NIFTY lot, beside its 11-year result
@@ -128,9 +150,7 @@ document.addEventListener('toggle', e => {
 // Real option prices for the day (option_record.py, from NSE's bhavcopy: published the evening after, added at 04:00 IST)
 let realOpt = null;
 async function loadRealOpt() {
-  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/options-nifty.json', 'data/options-nifty.json']) {
-    try { const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) { realOpt = await r.json(); return; } } catch (e) {}
-  }
+  try { realOpt = await siteJSON('options-nifty.json') || realOpt; } catch (e) {}
 }
 function realLine(day, status) {
   const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
@@ -176,9 +196,10 @@ function check30(d) {
 function checkLine(k) {
   if (!k) return '';
   const verdict = (x, base) => x < base - 2 ? 'better than "stays"' : x > base + 2 ? 'worse than "stays"' : 'no better than "stays"';
-  return `<div style="margin-top:4px">30-minute check (${k.n} runs): off from the price 30 min later by model ${k.model.toFixed(0)} pts
-    (${verdict(k.model, k.stays)})${k.ai != null ? `, AI ${k.ai.toFixed(0)} pts (${verdict(k.ai, k.aiStays)})` : ''}, "the price stays" ${k.stays.toFixed(0)} pts.</div>`;
+  return sec('30 minutes later', `Off by: model <b>${k.model.toFixed(0)}</b> pts · ${k.ai != null ? `AI <b>${k.ai.toFixed(0)}</b> · ` : ''}"price stays" <b>${k.stays.toFixed(0)}</b>
+    <span class="m">(${k.n} runs: model ${verdict(k.model, k.stays)}${k.ai != null ? `, AI ${verdict(k.ai, k.aiStays)}` : ''})</span>`);
 }
+const sec = (title, body) => `<div class="sec"><div class="h">${title}</div>${body}</div>`;
 const beat = (k, n) => `<b class="${k / n > 0.5 ? 'up' : 'down'}">${k} of ${n}</b>`;
 // The track record over every stored day (live.py track_record): is each line nearer the close than just taking the
 // price at that moment, and was Grok's morning read on the right side of the day's move?
@@ -206,28 +227,31 @@ function recordLine(r) {
 }
 function summary() {
   const d = data || {}, p = $('panel'), m = d.morning, card = d.card;
+  let h = '';
   if (card) {
-    p.innerHTML = `Closed ${f(card.close)} <span class="${card.move_pct >= 0 ? 'up' : 'down'}">${pc(card.move_pct)}</span>`
-      + (card.call_close ? ` · 08:57 forecast ${f(card.call_close)} (${card.call_right ? 'right' : 'wrong'} side)` : '')
-      + (card.runs ? `<div>Predicted closes vs the real close: model ${card.avg_miss_pct.toFixed(2)}% off on average`
-         + (card.ai_runs ? `, AI ${card.ai_avg_miss_pct.toFixed(2)}% off` : '') + '</div>' : '')
-      + (card.model_n ? `<div>Nearer the close than "the close = the price then": model ${beat(card.model_closer, card.model_n)}`
-         + (card.ai_n ? `, AI ${beat(card.ai_closer, card.ai_n)}` : '') + '</div>' : '')
-      + (card.note ? `<div class="m">Why (Grok): ${card.note}</div>` : '');
+    h += sec('The day', `Closed <b>${f(card.close)}</b> <span class="${card.move_pct >= 0 ? 'up' : 'down'}">${pc(card.move_pct)}</span>`
+      + (card.call_close ? ` · 08:57 forecast ${f(card.call_close)} <span class="${card.call_right ? 'up' : 'down'}">${card.call_right ? '✓ right side' : '✗ wrong side'}</span>` : ''));
+    if (card.model_n) h += sec('Lines vs the price itself', `Nearer the close than "the price then": model ${beat(card.model_closer, card.model_n)}`
+      + (card.ai_n ? ` · AI ${beat(card.ai_closer, card.ai_n)}` : '') + (card.runs ? ` <span class="m">(off by ${card.avg_miss_pct.toFixed(2)}%${card.ai_runs ? ` / ${card.ai_avg_miss_pct.toFixed(2)}%` : ''})</span>` : ''));
+    if (card.note) h += sec('Why (AI)', `<span class="m">${card.note}</span>`);
   } else if (m) {
-    p.innerHTML = `<span class="m">Grok's morning read (info only):</span> ${m.score > 0 ? '+' : ''}${m.score} · ${(m.reasons || []).join(' · ')}`;
-  } else p.innerHTML = '<span class="m">Tap a candle for details.</span>';
-  p.innerHTML += checkLine(check30(d));
+    const word = { '-2': 'very bearish', '-1': 'bearish', '0': 'neutral', '1': 'bullish', '2': 'very bullish' }[String(m.score)] || '';
+    const rs = m.reasons || [];
+    h += sec('AI morning read · info only', `<b class="${m.score > 0 ? 'up' : m.score < 0 ? 'down' : ''}">${m.score > 0 ? '+' : ''}${m.score} ${word}</b>`
+      + (rs.length ? ` · ${rs[0]}` : '') + (rs.length > 1 ? `<details><summary class="m">${rs.length - 1} more</summary><span class="m">${rs.slice(1).join(' · ')}</span></details>` : ''));
+  } else h += '<span class="m">Tap a candle for details.</span>';
+  h += checkLine(check30(d));
   const dl = d.daylike;                       // daylike.py: past days that looked like today so far
   // two different questions (29 Oct 2026: "94% held" was read as the odds of a CALL bought then): staying on this side
   // of yesterday's close, and going further from here, which is what an option bought now needs
-  if (dl && d.status === 'open') p.innerHTML += `<div style="margin-top:4px">Days like today (${dl.days} since 2015, at ${dl.at}):
-    closed ${d.move_pct >= 0 ? 'above' : 'below'} yesterday's close ${Math.round((d.move_pct >= 0 ? dl.close_above : 1 - dl.close_above) * 100)}% of the time,
-    but <b>rose further from here only ${Math.round(dl.up * 100)}%</b>, ${pc(dl.avg_pct)} on average, usually between
-    ${pc(dl.range_pct[0])} and ${pc(dl.range_pct[1])} (${dl.read}). A CALL or PUT bought now needs the second number.
-    <span class="m">Not a trade signal: no intraday rule has passed on 11 years.</span></div>`;
-  p.innerHTML += recordLine(d.record);
-  p.innerHTML += moneyBox(d.money, d.date, d.status);
+  if (dl && d.status === 'open') {
+    const side = d.move_pct >= 0 ? 'above' : 'below', held = Math.round((d.move_pct >= 0 ? dl.close_above : 1 - dl.close_above) * 100);
+    h += sec(`Days like today · ${dl.days} since 2015, at ${dl.at}`, `<div class="stats">
+      <div class="stat"><b>${held}%</b><small>closed ${side} yesterday's close</small></div>
+      <div class="stat"><b>${Math.round(dl.up * 100)}%</b><small>rose further from here: what a CALL / PUT bought now needs</small></div></div>
+      <span class="m">${pc(dl.avg_pct)} on average, usually ${pc(dl.range_pct[0])} to ${pc(dl.range_pct[1])} (${dl.read}). Not a trade signal.</span>`);
+  }
+  p.innerHTML = h + recordLine(d.record) + moneyBox(d.money, d.date, d.status);
 }
 chart.subscribeClick(param => {
   if (REPLAY || rp) return;                    // the replay view has its own (below)
@@ -250,20 +274,12 @@ chart.subscribeClick(param => {
   $('panel').innerHTML = h; $('panel').dataset.pinned = '1';
 });
 async function load() {
-  for (const src of SOURCES) {
-    try {
-      const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' });
-      if (!r.ok) continue;
-      const d = await r.json();
-      const istToday = new Date(Date.now() + 19800000).toISOString().slice(0, 10);
-      if (d.date !== istToday && src !== SOURCES[SOURCES.length - 1]) continue;
-      if (d.updated !== last) { if (d.status !== 'open') await loadRealOpt(); last = d.updated; draw(d); }
-      // no 10-minute candles (after the close, or a day before the live runs existed): show the day's replay if one exists
-      if (!(d.candles || []).length && d.status !== 'open' && !(rp && rp.date === d.date)) await replayOf(d.date);
-      return;
-    } catch (e) { /* next source */ }
-  }
-  $('msg').hidden = false; $('msg').textContent = 'No live data yet today.';
+  let d = null;
+  try { d = await siteJSON('live-nifty.json'); } catch (e) { /* below */ }
+  if (!d) { $('msg').hidden = false; $('msg').textContent = 'No live data yet today.'; return; }
+  if (d.updated !== last) { if (d.status !== 'open') await loadRealOpt(); last = d.updated; draw(d); }
+  // no 10-minute candles (after the close, or a day before the live runs existed): show the day's replay if one exists
+  if (!(d.candles || []).length && d.status !== 'open' && !(rp && rp.date === d.date)) await replayOf(d.date);
 }
 // ---- replay of a finished day (replay.py): live.html?replay=YYYY-MM-DD
 const REPLAY = new URLSearchParams(location.search).get('replay');
@@ -301,20 +317,11 @@ function replaySummary() {
   $('panel').innerHTML += moneyBox(rp && rp.money, rp && rp.date, 'closed');
 }
 async function replayOf(day) {
-  const name = `replay-nifty-${day}.json`;
-  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/' + name, 'data/' + name]) {
-    try {
-      const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' });
-      if (r.ok) { drawReplay(await r.json()); replayClicks(); return true; }
-    } catch (e) {}
-  }
+  try { const d = await siteJSON(`replay-nifty-${day}.json`); if (d) { drawReplay(d); replayClicks(); return true; } } catch (e) {}
   return false;
 }
 async function loadReplay() {
-  const name = `replay-nifty-${REPLAY}.json`;
-  for (const src of ['https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/' + name, 'data/' + name]) {
-    try { const r = await fetch(src + '?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) return drawReplay(await r.json()); } catch (e) {}
-  }
+  try { const d = await siteJSON(`replay-nifty-${REPLAY}.json`); if (d) return drawReplay(d); } catch (e) {}
   $('msg').hidden = false; $('msg').textContent = `No replay for ${REPLAY} yet.`;
 }
 let clicks = false;
@@ -334,7 +341,7 @@ if (REPLAY) {
   loadReplay();
 } else {
   load();
-  setInterval(load, 60000);                    // the data changes every 10 minutes; checking each minute keeps it close
+  setInterval(load, 30000);                    // a check is one small request; new data shows within ~30 s of the run
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 }
 </script>

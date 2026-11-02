@@ -66,6 +66,18 @@
   .chip.on small { color:#0b0f18; }
   @media (min-width:720px) { .chip { flex-direction:row; align-items:baseline; gap:8px; padding:10px 16px; font-size:var(--s-body); } }
 
+  /* Today's decision (Status) */
+  .strip { display:flex; align-items:center; gap:12px; padding:10px 14px; margin-bottom:10px; border-radius:16px; color:var(--text); text-decoration:none; }
+  .strip .sw { font-weight:800; font-size:20px; letter-spacing:-.01em; min-width:88px; }
+  .strip .sw.CALL { color:var(--up); } .strip .sw.PUT { color:var(--down); } .strip .sw.STAY { color:var(--warn); }
+  .strip .sw.SELL { color:var(--accent); } .strip .sw.NOTHING { color:var(--mute); }
+  .strip .st { flex:1; min-width:0; } .strip .st b { display:block; font-weight:600; font-size:var(--s-small); }
+  .strip .st small { color:var(--mute); font-size:12px; } .strip .go { color:var(--mute); font-size:24px; line-height:1; }
+  .hstats { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+  .hstats div { padding:10px 12px; border-radius:14px; background:var(--glass2); }
+  .hstats b { display:block; font-size:22px; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
+  .hstats small { color:var(--mute); font-size:12px; line-height:1.35; display:block; }
+
   /* Hero */
   .answer { padding:16px 18px 18px; margin-bottom:10px; }
   .pricerow { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:2px; }
@@ -160,6 +172,7 @@
   @media (display-mode: standalone) { .installhint { display:none; } }
   input[type=password] { background:var(--glass2); color:var(--text); border:1px solid var(--edge); border-radius:10px; padding:9px 12px; font:inherit; }
 </style>
+<script src="fresh.js"></script>
 </head>
 <body>
 <div class="glow" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -598,8 +611,8 @@ async function select(key) {
       d.backtest = {};
     }
     if (!d.models || !Object.keys(d.models).length) throw new Error('data format not recognised, hard-refresh the page');
-    const side = async name => { try { const r = await fetch(`data/${name}-${key}.json?t=` + Date.now(), { cache: 'no-store' }); return r.ok ? await r.json() : null; } catch (e) { return null; } };
-    [d._score, d._intraday, d._news, d._today, d._hourly, d._live, d._gift] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly'), key === 'nifty' ? side('live') : null, key === 'nifty' ? side('gift') : null]);
+    const side = async name => { try { return await siteJSON(`${name}-${key}.json`); } catch (e) { return null; } };
+    [d._score, d._intraday, d._news, d._today, d._hourly, d._live, d._gift, d._status] = await Promise.all([side('scoreboard'), side('intraday'), side('news'), side('today'), side('hourly'), key === 'nifty' ? side('live') : null, key === 'nifty' ? side('gift') : null, key === 'nifty' ? siteJSON('status.json').catch(() => null) : null]);
     if (my !== token) return;
     render(d);
   } catch (e) {
@@ -614,8 +627,11 @@ async function select(key) {
 
 // A phone app's first requests after waking can fail for a moment (iOS: "Load failed"), so try three times
 // before calling it offline; null = no answer from the network or the offline copy.
+// site-data's newest commit first (fresh.js: no 5-minute cache, updated by every run), then the copy published with the site
 async function getData(path) {
   for (let i = 0; i < 3; i++) {
+    const r = await siteFile(path.replace(/^data\//, ''), { site: false }).catch(() => null);
+    if (r) return r;
     try { return await fetch(path + '?t=' + Date.now(), { cache: 'no-store' }); }
     catch (e) { await new Promise(r => setTimeout(r, 800 * (i + 1))); }
   }
@@ -768,9 +784,31 @@ function giftLine(d, chg) {
   if (!g || g.gap_pct == null || !g.fetched || (t && t.status === 'open')) return '';
   if (Date.now() - Date.parse(g.fetched) > 20 * 3600 * 1000) return '';
   const same = (g.gap_pct >= 0) === (chg >= 0);
+  const r = g.record;
   return ` GIFT Nifty (${esc(String(g.quote_time || '').slice(-5))} IST) points to an open ${pc(g.gap_pct)} from the last close
     (${f(g.nifty_prev_close)}), ${same ? 'the same way as' : '<b>against</b>'} this forecast. For the open, GIFT is the better guide: it
-    trades on the overnight news; this forecast is for the close.`;
+    trades on the overnight news; this forecast is for the close.${r ? ` Its record at 08:57: off by ${r.avg_miss.toFixed(2)}% on average,
+    right side ${r.side_right} of ${r.days} day${r.days > 1 ? 's' : ''}.` : ''}`;
+}
+
+// Today's decision from the Status page, at the top of NIFTY's page (2 Nov 2026: Home is opened first, but CALL / PUT /
+// NOTHING was only on Status). Tapping it opens Status.
+function statusStrip(d) {
+  const s = d._status;
+  if (!s) return '';
+  const todayIst = new Date(Date.now() + 19800000).toISOString().slice(0, 10), stale = s.date !== todayIst;
+  const word = stale || !['CALL', 'PUT', 'STAY', 'SELL', 'NOTHING'].includes(s.state) ? 'NOTHING' : s.state;
+  const ist = new Date(Date.now() + 19800000), hm = ist.getUTCHours() * 100 + ist.getUTCMinutes();
+  const open = !stale && hm >= 845 && hm < 1535 && s.kind !== 'closed';
+  return `<a class="strip glass" href="status.html"><span class="sw ${word}">${word}</span>
+    <span class="st"><b>${esc(stale ? 'Waiting for today\'s signal (about 08:57)' : s.headline)}</b>
+    <small>Status ${stale ? '' : freshTag(s.updated, open)}</small></span><span class="go" aria-hidden="true">›</span></a>`;
+}
+
+// "Going further from here" as a number for the headline tiles, from days like today (daylike.py via live-nifty.json)
+function further(d, dir) {
+  const l = d._live, dl = l && l.date === (d._today || {}).date && l.status === 'open' ? l.daylike : null;
+  return dl ? { pct: Math.round((dir === 'up' ? dl.up : 1 - dl.up) * 100), days: dl.days } : null;
 }
 
 function headline(d, first, last, upPct) {
@@ -779,8 +817,11 @@ function headline(d, first, last, upPct) {
   if (t && t.date === todayIst && d.starts_today) {
     const p = t.preopen, i = t.intraday;
     if (i && t.status === 'open' && i.accuracy != null && i.accuracy >= 0.85)
-      return { ...likely(i.direction), pill: `${pct(i.accuracy)} held`, from: 'call',
-               text: `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day. When it was this far ${i.direction === 'up' ? 'up' : 'down'} at this time, it closed on the same side ${pct(i.accuracy)} of the time.${furtherLine(d, i.direction)}` };
+      { const fr = further(d, i.direction), side = i.direction === 'up' ? 'above' : 'below';
+        return { ...likely(i.direction), pill: `${pc(i.move_pct)} now`, from: 'call',
+               text: `At ${esc(i.asof)} NIFTY is ${pc(i.move_pct)} on the day.`,
+               stats: [[pct(i.accuracy), `of days this far ${i.direction === 'up' ? 'up' : 'down'} at ${esc(i.asof)} closed ${side} yesterday's close`],
+                       ...(fr ? [[`${fr.pct}%`, `went further ${i.direction === 'up' ? 'up' : 'down'} from here: what a CALL / PUT bought now needs (${fr.days} days)`]] : [])] }; }
     // Once the session is moving against the morning call, stop showing it as the answer (lesson from 15 Oct 2026).
     if (p && p.close.tier !== 'none' && i && t.status === 'open' && i.direction !== p.close.direction && Math.abs(i.move_pct) >= 0.25)
       return { word: 'Morning call in doubt', cls: 'warn', pill: `${pc(i.move_pct)} now`, from: 'call',
@@ -840,11 +881,12 @@ function render(d) {
   const sec = (title, hint, body, id = '') => body.trim() ? `<details class="glass"${id ? ` id="${id}"` : ''}><summary><span>${title}<small>${hint}</small></span></summary><div class="inner">${body}</div></details>` : '';
   const insight = typicalRange(d);
 
-  $('app').innerHTML = `
+  $('app').innerHTML = `${d.key === 'nifty' ? statusStrip(d) : ''}
     <section class="answer glass">
       <div class="k">${head ? `${d.symbol} ${d.starts_today ? 'today' : `on ${first.time}`}` : `Expected close ${when}`}</div>
       ${head ? `<div class="pricerow"><p class="display ${head.cls}">${head.word}</p><span class="pill">${head.pill}</span></div>
-      <p class="statement">${head.text} Likely range <b>${f(lo(first))}</b> to <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>`
+      <p class="statement">${head.text} Likely range <b>${f(lo(first))}</b> to <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>
+      ${head.stats ? `<div class="hstats">${head.stats.map(([n, t]) => `<div><b>${n}</b><small>${t}</small></div>`).join('')}</div>` : ''}`
       : `<div class="pricerow"><p class="display">${f(first.close)}</p><span class="pill ${cls(chg1)}">${pc(chg1 / last * 100)}</span></div>
       <p class="statement">From ${f(last)}. Likely between <b>${f(lo(first))}</b> and <b>${f(hi(first))}</b>.${d.inr ? ` <span class="note">${inrText(d, first.close)}</span>` : ''}</p>`}
       ${head && head.from === 'call' ? '' : callLine(d)}

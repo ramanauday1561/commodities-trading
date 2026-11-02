@@ -37,6 +37,7 @@
   .up { color:var(--up); } .down { color:var(--down); }
   .note { color:var(--mute); font-size:12px; margin-top:16px; }
 </style>
+<script src="fresh.js"></script>
 </head>
 <body>
 <main>
@@ -54,12 +55,16 @@ const pct = x => `${x >= 0 ? '+' : ''}${x.toFixed(2)}%`;
 const chip = (label, dir, hit) => `<span class="chip ${hit ? 'ok' : 'no'}">${label} ${dir === 'up' ? '↑' : '↓'} ${hit ? '✓' : '✗'}</span>`;
 (async () => {
   try {
-    const r = await fetch('data/today-nifty.json?t=' + Date.now(), { cache: 'no-store' });
-    const rows = ((await r.json()).record || {}).recent || [];
+    const rows = (((await siteJSON('today-nifty.json')) || {}).record || {}).recent || [];   // fresh.js
+    let gift = {};                                    // GIFT Nifty's expected gap at ~08:57 vs the real open (gift_record.py)
+    try { const g = await siteJSON('gift-nifty.json'); if (g && g.record) gift = Object.fromEntries(g.record.by_day.map(x => [x.d, x])); } catch (e) {}
     let real = {};                                    // each day on real option prices (option_record.py), when published
-    try { const o = await fetch('data/options-nifty.json?t=' + Date.now(), { cache: 'no-store' });
-          if (o.ok) real = Object.fromEntries(((await o.json()).days || []).map(x => [x.d, x])); } catch (e) {}
+    try { const o = await siteJSON('options-nifty.json'); if (o) real = Object.fromEntries((o.days || []).map(x => [x.d, x])); } catch (e) {}
     const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
+    const giftLine = x => {
+      const g = gift[x.d];
+      return g ? `<div class="opt">GIFT Nifty at ${g.at}: open ${pct(g.gift)} · real open ${pct(g.real)} <span class="${g.side ? 'up' : 'down'}">${g.side ? '✓' : '✗'}</span></div>` : '';
+    };
     const optLine = x => {
       const o = real[x.d];
       if (!o) return '';
@@ -87,7 +92,7 @@ const chip = (label, dir, hit) => `<span class="chip ${hit ? 'ok' : 'no'}">${lab
         <div class="date">${fmt(x.d)}<small>${wd}</small></div>
         <div class="px">${x.close.toLocaleString('en-IN')} <span class="${move >= 0 ? 'up' : 'down'}">${pct(move)}</span></div>
         <div class="chips">${chip('Gap', x.gap, x.gap_hit)}${chip('Close', x.close_call, x.close_hit)}${trade}
-          <a class="chip" href="live.html?replay=${x.d}">Replay ▸</a></div>${optLine(x)}</div>`;
+          <a class="chip" href="live.html?replay=${x.d}">Replay ▸</a></div>${giftLine(x)}${optLine(x)}</div>`;
     }).join('');
   } catch (e) { $('since').textContent = 'NIFTY 50 · no scored days yet'; }
 })();

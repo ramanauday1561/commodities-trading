@@ -165,6 +165,39 @@ def track_record(store_dir, keep=20):
     return rec
 
 
+def next_day(st):
+    """One finished day of next-candle leans, scored like next.html: a lean wins when its candle closes on its side of
+    the candle before; 1 lot of an at-the-money option (half NIFTY's move, about Rs120 a round trip)."""
+    c = st.get("candles") or []
+    idx = {datetime.fromtimestamp(x["time"], timezone.utc).strftime("%H:%M"): i for i, x in enumerate(c)}
+    right = n = 0
+    rs = 0.0
+    for l in st.get("leans") or []:
+        i = idx.get(l["at"])
+        if l["at"] > "15:15" or not i:                  # the 15:25 stub was never tested; the first candle has no "before"
+            continue
+        move, side = c[i]["close"] - c[i - 1]["close"], 1 if l["lean"] == "up" else -1
+        n += 1
+        right += move * side > 0
+        rs += (0.5 * side * move - 1.85) * 65
+    return {"leans": n, "right": right, "rs": int(round(rs))} if n else None
+
+
+def next_record(store_dir, today):
+    """The Next 10 min page's live record over the finished days in <store>/live (today is still running)."""
+    days = []
+    for f in sorted(glob.glob(os.path.join(store_dir, "live", "*.json"))):
+        d = os.path.basename(f)[:-5]
+        r = next_day(_load(f, {})) if d < today else None
+        if r:
+            days.append({"d": d, **r})
+    if not days:
+        return None
+    return {"since": days[0]["d"], "days": len(days), "leans": sum(x["leans"] for x in days),
+            "right": sum(x["right"] for x in days), "rs": sum(x["rs"] for x in days),
+            "losing_days": sum(x["rs"] < 0 for x in days), "by_day": days[-10:]}
+
+
 def morning_prompt(today, news, record):
     p = (today or {}).get("preopen") or {}
     rows = [f"{r['d']}: gap call {r['gap']} ({'right' if r.get('gap_hit') else 'wrong'}), close call {r['close_call']} "
@@ -365,7 +398,8 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
     meta = _load(os.path.join(data_dir, "nextcandle-meta.json"), {}) or {}
     json.dump({"date": day, "updated": now.isoformat(timespec="minutes"), "status": today.get("status"),
                "prev_close": prev_close, "candles": st.get("candles", []), "leans": st.get("leans", []),
-               "record": meta.get("record"), "day_record": meta.get("day_record"), "trained_until": meta.get("trained_until")},
+               "record": meta.get("record"), "day_record": meta.get("day_record"), "trained_until": meta.get("trained_until"),
+               "live_record": next_record(store_dir, day)},
               open(os.path.join(data_dir, "next-nifty.json"), "w"), separators=(",", ":"))
     rc = (pre.get("recorded") or {})
     fo, cl = rc.get("from_open") or {}, rc.get("close") or {}

@@ -51,6 +51,8 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.11"
+          cache: pip                   # downloaded packages kept between runs (2 Nov 2026: the install took ~16 s a run)
+          cache-dependency-path: scripts/requirements.txt
       - if: steps.gate.outputs.go == 'true'
         run: pip install yfinance pandas numpy exchange_calendars lightgbm
       - name: Latest published data
@@ -70,11 +72,6 @@ jobs:
           python -u scripts/todaycall.py store docs/data
           python -u scripts/gift_record.py store docs/data || true      # GIFT Nifty snapshot, history for a later test
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then bash scripts/store.sh push scoreboard store; fi
-      - name: Refresh news headlines (history is only recorded by the daily run)
-        if: steps.gate.outputs.go == 'true'
-        continue-on-error: true
-        timeout-minutes: 4
-        run: python -u scripts/news.py docs/data "$RUNNER_TEMP/news-store"
       - name: Status page, phone alerts and the live chart (Grok notes are information only)
         if: steps.gate.outputs.go == 'true'
         continue-on-error: true
@@ -105,6 +102,18 @@ jobs:
           snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
           cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/status-today.json docs/data/live-nifty.json docs/data/next-nifty.json docs/data/gift-nifty.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
           bash scripts/store.sh push site-data "$snap"
+      # 2 Nov 2026: the news refresh took ~20 s and ran before the save, so every page waited for it. It now runs after
+      # the save; the phone's hourly update and the AI see the headlines of the run before (at most 10 minutes older).
+      - name: Refresh news headlines (history is only recorded by the daily run), then save them too
+        if: steps.gate.outputs.go == 'true'
+        continue-on-error: true
+        timeout-minutes: 4
+        run: |
+          python -u scripts/news.py docs/data "$RUNNER_TEMP/news-store"
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            snap="$RUNNER_TEMP/site-news" && bash scripts/store.sh pull site-data "$snap"
+            cp docs/data/news-*.json "$snap"/ && bash scripts/store.sh push site-data "$snap"
+          fi
       - id: have                    # runs come every 10 minutes; the site is republished about every 30 (at the :05 and
         if: steps.gate.outputs.go == 'true'   # :35 runs), before the open, after the close and whenever the Status
         run: |                        # page changes. The live chart and Status page read site-data, fresh every run.

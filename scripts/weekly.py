@@ -86,6 +86,10 @@ def body(data_dir, store_dir, today, results=None):
                      f"a PUT {rs(tot('put'))}" + (f"; our trades {rs(sum(a['rs'] for a in app))}" if app else "") + ".")
 
     g = _load(os.path.join(data_dir, "gift-nifty.json")) or {}
+    r = g.get("record") or {}
+    if r.get("days"):
+        lines.append(f"GIFT Nifty at ~08:57 vs the real open: off by {r['avg_miss']:.2f}% on average, right side "
+                     f"{r['side_right']} of {r['days']} days.")
     if g.get("gap_pct") is not None:
         lines.append(f"GIFT Nifty {g['price']:,.1f}: points to a Monday open {g['gap_pct']:+.2f}% from Friday's close "
                      f"(after its {g['premium']:+.0f}-point premium; weekend news can change it).")
