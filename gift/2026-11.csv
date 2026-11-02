@@ -19,3 +19,5 @@ fetched,kind,quote_time,price,change,change_pct,contracts,expiry,nifty_prev_clos
 2026-11-02T10:05+05:30,usdinr_future,,95.14,,,,26-Nov-2026,,,
 2026-11-02T10:15+05:30,gift_nifty,02-Nov-2026 10:14,23389.5,149.5,0.64,23185,23-Nov-2026,23053.1,33.9,1.312
 2026-11-02T10:15+05:30,usdinr_future,,95.16,,,,26-Nov-2026,,,
+2026-11-02T10:25+05:30,gift_nifty,02-Nov-2026 10:24,23374.0,134,0.58,24536,23-Nov-2026,23053.1,33.9,1.245
+2026-11-02T10:25+05:30,usdinr_future,,95.155,,,,26-Nov-2026,,,
