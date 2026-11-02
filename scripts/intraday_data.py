@@ -27,6 +27,11 @@ KAGGLE = "https://www.kaggle.com/api/v1/datasets/download/debashis74017/nifty-50
 SERIES = {"nifty": ("^NSEI", "NIFTY 50_5minute.csv"), "banknifty": ("^NSEBANK", "NIFTY BANK_5minute.csv"),
           "vix": ("^INDIAVIX", "INDIA VIX_5minute.csv")}
 FIRST, LAST = time(9, 15), time(15, 25)
+# 2 Nov 2026: since Aug 2026 Yahoo's 5-minute bars stop moving before the close on most days (the 15:20 bar on 98% of
+# days, the 15:15 on 75%; never in the Kaggle years): open = high = low = close = the previous close, then the 15:25
+# bar jumps to NSE's official close. From FREEZE_FROM on, a bar with no range at the previous bar's close is a paused
+# feed, not a price, and is left out when candles are read (the files keep what was downloaded).
+FREEZE_FROM, FROZEN_PCT = time(15, 0), 0.01
 DONE_AFTER = time(15, 35)                     # today's candles count as finished after this
 COLS = ["datetime", "open", "high", "low", "close"]
 
@@ -40,6 +45,19 @@ def session(df):
     df = df.drop_duplicates("datetime", keep="last").sort_values("datetime")
     df[COLS[1:]] = df[COLS[1:]].astype(float).round(2)
     return df.reset_index(drop=True)
+
+
+def frozen(g):
+    """Boolean mask of the paused-feed bars in one day's candles (Open, High, Low, Close; IST index): from FREEZE_FROM,
+    a range and a move from the previous close both within FROZEN_PCT of the price. 0.01% (about 2 NIFTY points)
+    caught 117 bars since Aug 2026 and none in the 11 Kaggle years (2 Nov 2026; 0.02% would have caught 6 real ones)."""
+    tol = g["Close"] * FROZEN_PCT / 100
+    flat = ((g["High"] - g["Low"]) <= tol) & ((g["Close"] - g["Close"].shift(1)).abs() <= tol)
+    return flat & (g.index.time >= FREEZE_FROM)
+
+
+def drop_frozen(g):
+    return g if g is None or len(g) < 2 else g[~frozen(g)]
 
 
 def stored_days(d, name):
@@ -132,7 +150,7 @@ def load(d, name="nifty"):
         return {}
     df = pd.concat(pd.read_csv(f, parse_dates=["datetime"]) for f in files).set_index("datetime")
     df = df.rename(columns=str.title)
-    return {k: g for k, g in df.groupby(df.index.date)}
+    return {k: drop_frozen(g) for k, g in df.groupby(df.index.date)}
 
 
 if __name__ == "__main__":

@@ -102,6 +102,23 @@ class Retire(unittest.TestCase):
         self.assertFalse(live.retired(None)["model"])
 
 
+class PausedFeed(unittest.TestCase):
+    def test_paused_bars_are_left_out_and_their_candles_marked(self):
+        t0 = datetime(2026, 11, 2, 15, 5, tzinfo=IST)
+        bars = [(t0 + timedelta(minutes=5 * k), o, h, l, c) for k, (o, h, l, c) in enumerate(
+            [(23310.95, 23315.65, 23302.7, 23313.25), (23310.95, 23338.65, 23310.95, 23330.25),
+             (23331.1, 23331.1, 23330.35, 23331.1), (23331.1, 23331.1, 23331.1, 23331.1), (23331.1, 23440.8, 23331.1, 23440.8)])]
+        kept, gone = live.drop_frozen(bars)
+        self.assertEqual([t.strftime("%H:%M") for t in gone], ["15:15", "15:20"])
+        c = live.candles10(kept, gone)
+        self.assertEqual([(datetime.utcfromtimestamp(x["time"]).strftime("%H:%M"), x.get("paused", False)) for x in c],
+                         [("15:05", False), ("15:25", False)])
+        c = live.candles10(bars[:4], gone[:1])                                       # 15:15 kept, but its bar paused
+        self.assertTrue(c[-1]["paused"])
+        st = {"candles": [{"time": c[0]["time"] - 600, "close": 23300.0}] + c, "leans": [{"at": "15:15", "lean": "up"}]}
+        self.assertIsNone(live.next_day(st))                                         # a paused candle is not scored
+
+
 class NextRecord(unittest.TestCase):
     """The Next 10 min page's live record over finished days (2 Nov 2026: -Rs19,095 over 3 days)."""
 
