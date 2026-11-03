@@ -105,8 +105,12 @@ def with_gap(row, store_dir, today, last=None):
     pre = (today or {}).get("preopen") or {}
     pc = pre.get("prev_close")
     prev_day = last_close_day(store_dir, row["fetched"][:10])
-    if not pc and last and prev_day and last[0] == prev_day:
+    # the close must be of the day the premium is measured on: nifty.json's last close when it is that day (3 Nov 2026:
+    # today's file still had Friday's close on Tuesday morning, which gave a 331-point "premium" and a wrong gap)
+    if last and prev_day and last[0] == prev_day:
         pc = last[1]
+    elif last and prev_day and last[0] and last[0] < prev_day:
+        pc = None
     row.update({"nifty_prev_close": pc, "premium": None, "gap_pct": None})
     if not pc:
         return row

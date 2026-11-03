@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 import numpy as np
 import pandas as pd
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
@@ -187,3 +188,26 @@ class BandAccuracy(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DailyGuaranteesLastSession(unittest.TestCase):
+    """3 Nov 2026: Yahoo's 5-year series still ended on Friday at 02:09 IST on Tuesday; the full one had Monday."""
+
+    def frame(self, days):
+        idx = pd.DatetimeIndex([pd.Timestamp(d) for d in days])
+        return pd.DataFrame({"open": 1.0, "high": 1.0, "low": 1.0, "close": range(1, len(days) + 1)}, index=idx, dtype=float)
+
+    def test_full_series_then_intraday_fill(self):
+        import todaycall as t
+        from datetime import datetime as dt
+        now = dt(2026, 11, 3, 2, 9, tzinfo=t.IST)
+        old, new = self.frame(["2026-10-29", "2026-10-30"]), self.frame(["2026-10-29", "2026-10-30", "2026-11-02"])
+        self.assertEqual(t.daily(now, get=lambda p: new).index[-1].date().isoformat(), "2026-11-02")
+        self.assertEqual(t.daily(now, get=lambda p: old if p == "5y" else new).index[-1].date().isoformat(), "2026-11-02")
+        bars = pd.DataFrame({"Open": [10.0, 11.0], "High": [12.0, 12.0], "Low": [9.0, 10.0], "Close": [11.0, 11.5]},
+                            index=pd.DatetimeIndex(["2026-11-02 03:45", "2026-11-02 09:45"], tz="UTC"))
+        with mock.patch("dailyfill.daily_from_intraday", return_value={"open": 10.0, "high": 12.0, "low": 9.0, "close": 11.5}):
+            out = t.daily(now, get=lambda p: old, bars=lambda: bars)
+        self.assertEqual((out.index[-1].date().isoformat(), out["close"].iloc[-1]), ("2026-11-02", 11.5))
+        with mock.patch("dailyfill.daily_from_intraday", return_value=None):
+            self.assertEqual(t.daily(now, get=lambda p: old, bars=lambda: bars).index[-1].date().isoformat(), "2026-10-30")
