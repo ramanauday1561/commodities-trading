@@ -360,12 +360,43 @@ def summarize_record(record):
 
 
 # ---------------------------------------------------------------- main
-def daily():
-    raw = yf.download(NIFTY, period="5y", interval="1d", auto_adjust=False, progress=False)
+def _daily(period):
+    raw = yf.download(NIFTY, period=period, interval="1d", auto_adjust=False, progress=False)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["Open", "Close"])
     raw.index = pd.to_datetime(raw.index).tz_localize(None).normalize()
     return raw.rename(columns=str.lower)[["open", "high", "low", "close"]]
+
+
+def daily(now=None, get=_daily, bars=None):
+    """NIFTY's daily candles, with the last finished session guaranteed. 3 Nov 2026: at 02:09 IST Yahoo's 5-year
+    daily series still ended on Friday 30 Oct, so the pre-open call used Friday's close as "yesterday" (the gap and
+    close calls, the results stand-aside and GIFT's gap were all measured from the wrong day), while the full series
+    (predict.py) already had Monday. A missing session is fetched again with the full series, then built from the
+    15-minute bars (dailyfill.py, as predict.py does); if both fail the series is returned as it is."""
+    from calendars import last_finished_session
+    now = now or datetime.now(IST)
+    want = last_finished_session(now.date(), now.time() >= time(15, 45), "XBOM")
+    nd = get("5y")
+    if len(nd) and nd.index[-1].date() >= want:
+        return nd
+    full = get("max")
+    if len(full) and full.index[-1].date() >= want:
+        print(f"todaycall: {want} missing from the 5-year series, taken from the full one", flush=True)
+        return full[full.index >= nd.index[0]] if len(nd) else full
+    try:
+        from dailyfill import daily_from_intraday
+        b = bars() if bars else yf.download(NIFTY, period="5d", interval="15m", auto_adjust=False, progress=False)
+        b.columns = [c[0] if isinstance(c, tuple) else c for c in b.columns]
+        row = daily_from_intraday(b.rename(columns=str.lower), want, "Asia/Kolkata", 15, 30, "XBOM")
+        if row:
+            print(f"todaycall: {want} built from 15-minute bars (close {row['close']:.2f})", flush=True)
+            add = pd.DataFrame([{k: row[k] for k in ("open", "high", "low", "close")}], index=pd.DatetimeIndex([pd.Timestamp(want)]))
+            return pd.concat([nd, add])
+    except Exception as e:
+        print(f"todaycall: could not build {want} from 15-minute bars ({e!r})", flush=True)
+    print(f"todaycall: WARNING the last finished session {want} is missing; yesterday's close is stale", flush=True)
+    return nd
 
 
 def run(store_dir="store", out_dir="docs/data", now=None):

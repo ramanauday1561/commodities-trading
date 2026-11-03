@@ -91,6 +91,23 @@ class Gap(unittest.TestCase):
         self.assertAlmostEqual(r["avg_miss"], round(abs(-0.137 - (22964.5 / 22936.75 - 1) * 100), 3))
         self.assertIsNone(gr.scores(d, []))
 
+    def test_a_stale_close_in_todays_file_is_not_used(self):
+        # 3 Nov 2026: today's file still had Friday's 23,053.10; the premium is measured on Monday, so Monday's close
+        import json
+        d, dd = tempfile.mkdtemp(), tempfile.mkdtemp()
+        os.makedirs(os.path.join(d, "gift"))
+        with open(os.path.join(d, "gift", "2026-11.csv"), "w") as f:
+            f.write(",".join(gr.COLS) + "\n")
+            f.write("2026-11-02T15:25+05:30,gift_nifty,x,23384.5,0,0,1,e,,,\n")
+        json.dump({"date": "2026-11-03", "preopen": {"prev_close": 23053.1}}, open(os.path.join(dd, "today-nifty.json"), "w"))
+        json.dump({"last_date": "2026-11-02", "last_close": 23331.1}, open(os.path.join(dd, "nifty.json"), "w"))
+        answer = {"data": {"giftNifty": {**ANSWER["data"]["giftNifty"], "lastprice": 23529.0}}}
+        r = gr.record(d, datetime(2026, 11, 3, 8, 37, tzinfo=IST), get=lambda: answer, data_dir=dd)[0]
+        self.assertEqual((r["nifty_prev_close"], r["premium"]), (23331.1, 53.4))
+        json.dump({"last_date": "2026-10-30", "last_close": 23053.1}, open(os.path.join(dd, "nifty.json"), "w"))
+        r = gr.record(d, datetime(2026, 11, 3, 8, 47, tzinfo=IST), get=lambda: answer, data_dir=dd)[0]
+        self.assertIsNone(r["gap_pct"])                                                 # can't tell: no gap, not a wrong one
+
     def test_no_recorded_premium_no_gap(self):
         d, dd = tempfile.mkdtemp(), tempfile.mkdtemp()
         import json
