@@ -72,6 +72,20 @@
     .observe(document.documentElement, { childList: true, subtree: true });
   setInterval(() => document.querySelectorAll('.fresh[data-ts]').forEach(paint), 20000);
 
+  // when the next run's data should be out, from this data's run time: runs start as each 10-minute candle closes
+  // (09:25, 09:35 ... IST) and save about 90 seconds later (3 Nov 2026: the 10:35 run's data was saved at 10:36:24),
+  // so the next data lands about 11.5 minutes after this run; "due now" once that has passed
+  // (an HTML tag that repaints itself every 20 seconds, like freshTag, as the page redraws only on new data)
+  function nextText(iso) {
+    const t = Date.parse(iso) + 11.5 * 60000;
+    if (!isFinite(t)) return '';
+    if (Date.now() > t) return 'next update due now';
+    const ist = new Date(Math.ceil(t / 60000) * 60000 + 19800000);
+    return `next ~${String(ist.getUTCHours()).padStart(2, '0')}:${String(ist.getUTCMinutes()).padStart(2, '0')}`;
+  }
+  window.nextRun = (iso) => `<span class="nextrun" data-ts="${iso}">${nextText(iso)}</span>`;
+  setInterval(() => document.querySelectorAll('.nextrun[data-ts]').forEach(el => { el.textContent = nextText(el.dataset.ts); }), 20000);
+
   window.siteFile = siteFile;
   window.siteJSON = async (name, opts) => { const r = await siteFile(name, opts); return r ? r.json() : null; };
 })();

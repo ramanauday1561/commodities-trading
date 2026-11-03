@@ -70,7 +70,11 @@ const chart = LightweightCharts.createChart($('chart'), {
   grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.05)' } },
   rightPriceScale: { borderColor: 'rgba(255,255,255,.1)' },
   timeScale: { borderColor: 'rgba(255,255,255,.1)', timeVisible: true, secondsVisible: false, rightOffset: 4 },
-  crosshair: { mode: 0 }, handleScale: { axisPressedMouseMove: true },
+  crosshair: { mode: 0 },
+  // 3 Nov 2026: a vertical drag on a phone switched the price axis to a manual zoom (23,000-25,000 for a 200-point day)
+  // and it stayed there; the price axis now cannot be dragged, and it re-fits to the candles on every update
+  handleScale: { axisPressedMouseMove: { time: true, price: false }, pinch: true, mouseWheel: true },
+  handleScroll: { vertTouchDrag: false, pressedMouseMove: true, horzTouchDrag: true, mouseWheel: true },
 });
 const candles = chart.addCandlestickSeries({ upColor: '#34d1bf', downColor: '#ff6b6b', borderVisible: false,
   wickUpColor: '#34d1bf', wickDownColor: '#ff6b6b' });
@@ -110,6 +114,7 @@ function draw(d) {
   $('msg').hidden = c.length > 0;
   $('msg').textContent = d.status === 'pre_open' || !c.length ? "Today's 10-minute chart starts after the 09:15 open." : '';
   candles.setData(c);
+  chart.priceScale('right').applyOptions({ autoScale: true });
   // predictions vs the real price: each 10-minute run's predicted close from our model (orange) and from the AI
   // (purple), the 08:57 forecast made before the open (dashed) and the likely close range (dotted)
   const gone = ((d.record || {}).retired) || {};          // lines retired by the track-record rule are not drawn
@@ -137,7 +142,7 @@ function draw(d) {
   const now = d.price ?? (c.length ? c[c.length - 1].close : null);
   $('px').innerHTML = `NIFTY 50 ${now ? f(now) : ''} ${d.move_pct != null ? `<span class="${d.move_pct >= 0 ? 'up' : 'down'}">${pc(d.move_pct)}</span>` : ''}`;
   const upd = d.updated ? d.updated.slice(11, 16) : '';
-  $('when').innerHTML = `Updated ${upd} IST · ${d.status === 'open' ? freshTag(d.updated, true) : d.status === 'closed' ? 'market closed' : 'before the open'}`;
+  $('when').innerHTML = `Updated ${upd} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   if (!$('panel').dataset.pinned) summary();
 }
 // "₹2 lakh today" (daymoney.py): what each way of trading the day made, per NIFTY lot, beside its 11-year result
