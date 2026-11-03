@@ -59,6 +59,10 @@ const chart = LightweightCharts.createChart($('chart'), {
   rightPriceScale: { borderColor: 'rgba(255,255,255,.1)' },
   timeScale: { borderColor: 'rgba(255,255,255,.1)', timeVisible: true, secondsVisible: false, rightOffset: 4 },
   crosshair: { mode: 0 },
+  // 3 Nov 2026: a vertical drag on a phone switched the price axis to a manual zoom (23,000-25,000 for a 200-point day)
+  // and it stayed there; the price axis now cannot be dragged, and it re-fits to the candles on every update
+  handleScale: { axisPressedMouseMove: { time: true, price: false }, pinch: true, mouseWheel: true },
+  handleScroll: { vertTouchDrag: false, pressedMouseMove: true, horzTouchDrag: true, mouseWheel: true },
 });
 const candles = chart.addCandlestickSeries({ upColor: '#34d1bf', downColor: '#ff6b6b', borderVisible: false,
   wickUpColor: '#34d1bf', wickDownColor: '#ff6b6b' });
@@ -104,11 +108,12 @@ function draw(d) {
   $('msg').hidden = c.length > 0;
   $('msg').textContent = c.length ? '' : "Today's candles start after the 09:15 open.";
   candles.setData(c);
+  chart.priceScale('right').applyOptions({ autoScale: true });
   candles.setMarkers(!showLeans ? [] : s.map(x => ({ time: x.t, position: x.lean === 'up' ? 'belowBar' : 'aboveBar',
     shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending || x.paused ? '#9aa6b8' : x.right ? '#34d1bf' : '#ff6b6b',
     text: x.confident ? '★' : '' })).sort((a, b) => a.time - b.time));
   if (first && c.length) { chart.timeScale().fitContent(); first = false; }
-  $('when').innerHTML = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? freshTag(d.updated, true) : d.status === 'closed' ? 'market closed' : 'before the open'}`;
+  $('when').innerHTML = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   const rec = (d.record && d.record.text) || 'not tested';
   const nowIST = Date.now() / 1000 + 19800, late = cur && d.status === 'open' && nowIST >= cur.t + 600 + 120;
   const over = cur && cur.at >= '15:15';                 // no lean after the 15:15 candle (15:25 is a 5-minute stub)
@@ -119,7 +124,7 @@ function draw(d) {
          <div class="m">It runs every 10 minutes, but GitHub sometimes starts it a few minutes late. The page refreshes by itself.</div>`
       : cur && cur.pending && d.status === 'open'
       ? `<div class="m">${cur.at} to ${addMin(cur.at, 10)}</div><div class="big ${cur.lean === 'up' ? 'up' : 'down'}">${cur.lean === 'up' ? '▲ leans up' : '▼ leans down'}
-         <span style="font-size:14px;font-weight:500">${cur.pts >= 0 ? '+' : ''}${cur.pts} pts${cur.confident ? ' · ★ more confident' : ''}</span></div>`
+         <span style="font-size:14px;font-weight:500">${Math.abs(cur.pts) < 0.05 ? '≈0 pts: a coin flip' : `${cur.pts >= 0 ? '+' : ''}${cur.pts} pts`}${cur.confident ? ' · ★ more confident' : ''}</span></div>`
       : `<div class="big m" style="font-size:16px">${d.status === 'open' ? 'Waiting for the next 10-minute candle' : 'No live lean (market closed)'}</div>`)
     + (showLeans ? `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}. <button class="show" data-show="0">Hide the leans</button></div>` : '');
   const right = done.filter(x => x.right).length, money = done.reduce((a, x) => a + x.rs, 0);
