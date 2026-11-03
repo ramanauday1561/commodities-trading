@@ -389,3 +389,43 @@ class OptionNote(unittest.TestCase):
             self.assertIn("this week's at-the-money PUT", status.option_note({"kind": "hold", "side": "PUT"}, now))
         self.assertIn("lost Rs449 a lot", status.option_note({"kind": "no_trade"}, now))
         self.assertEqual(status.option_note({"kind": "closed"}, now), "")
+
+
+class WhyNothing(unittest.TestCase):
+    """3 Nov 2026: NOTHING for 11 sessions with no sign of how near the signal came or what its lean did."""
+
+    def lean_day(self, st="pre_open", recent=None):
+        t = today(trade=False, direction="down", st=st, recent=recent)
+        t["preopen"]["from_open"].update(pred_pct=-0.191, bar_pct=0.312, tier="lean")
+        t["preopen"]["recorded"]["from_open"].update(pred_pct=-0.191)
+        return t
+
+    def test_no_trade_says_how_near(self):
+        s = status.decide(self.lean_day(), at(8, 58))
+        self.assertEqual(s["kind"], "no_trade")
+        self.assertIn("leans DOWN (-0.19% from the open)", s["reason"])
+        self.assertIn("±0.31%", s["reason"])
+
+    def test_closed_says_what_the_lean_did(self):
+        rec = [{"d": "2026-10-22", "open": 23582.25, "close": 23810.85, "from_open_dir": "down"}]
+        s = status.decide(self.lean_day(st="closed", recent=rec), at(16, 5))
+        self.assertIn("NIFTY went +0.97% from the open", s["reason"])
+        self.assertIn("lean was wrong", s["reason"])
+
+    def test_shadow_record(self):
+        rec = [{"d": "2026-11-03", "open": 23582.25, "close": 23810.85, "from_open_dir": "down", "from_open_pred": -0.203},
+               {"d": "2026-11-02", "open": 23222.3, "close": 23440.8, "from_open_dir": "down"},
+               {"d": "2026-10-29", "open": 22690.65, "close": 22936.75, "from_open_dir": "up"},
+               {"d": "2026-10-16", "open": 23065.1, "close": 23146.15, "from_open_dir": None}]        # before it began
+        t = {"record": {"recent": rec}, "preopen": {"from_open": {"tiers": {"all_days": {
+            "days": 566, "from_open": {"win_rate": 0.489, "avg_pct_after_costs": -0.019}}}}}}
+        opts = {"days": [{"d": "2026-11-02", "call": {"rs": 4339}, "put": {"rs": -6269}},
+                         {"d": "2026-10-29", "call": {"rs": 10033}, "put": {"rs": -8986}}]}
+        sh = status.shadow(t, opts)
+        self.assertEqual((sh["since"], sh["days"], sh["right"], sh["traded"]), ("2026-10-29", 3, 1, 0))
+        self.assertEqual((sh["rs"], sh["rs_days"]), (10033 - 6269, 2))
+        self.assertEqual([x["d"] for x in sh["rows"]], ["2026-10-29", "2026-11-02", "2026-11-03"])
+        self.assertIsNone(sh["rows"][-1]["rs"])                       # today's bhavcopy comes in the evening
+        self.assertAlmostEqual(sh["pct"], round(1.085 - 0.941 - 0.969 - 3 * 0.03, 2), places=1)
+        self.assertEqual(sh["test"], {"days": 566, "trade_share": None, "right": 0.489, "pct": -0.019})
+        self.assertIsNone(status.shadow({"record": {"recent": []}}))

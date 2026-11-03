@@ -137,7 +137,7 @@ function draw(d) {
       : '<div class="m">No lean scored yet today.</div>')
     + (showLeans && s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
         + s.slice().reverse().map(x => `<tr><td>${x.at}${x.confident ? ' ★' : ''}</td><td class="${x.lean === 'up' ? 'up' : 'down'}">${x.lean} ${x.pts >= 0 ? '+' : ''}${x.pts}</td>`
-          + (x.pending ? '<td class="n m">pending</td><td></td>' : x.paused ? '<td class="n m">feed paused</td><td></td>' : `<td class="n ${x.right ? 'up' : 'down'}">${x.move >= 0 ? '+' : ''}${x.move.toFixed(1)} ${x.right ? '✓' : '✗'}</td><td class="n ${x.rs >= 0 ? 'up' : 'down'}">${rs(x.rs)}</td>`)
+          + (x.pending ? `<td class="n m">${d.status === 'open' ? 'pending' : 'not scored'}</td><td></td>` : x.paused ? '<td class="n m">feed paused</td><td></td>' : `<td class="n ${x.right ? 'up' : 'down'}">${x.move >= 0 ? '+' : ''}${x.move.toFixed(1)} ${x.right ? '✓' : '✗'}</td><td class="n ${x.rs >= 0 ? 'up' : 'down'}">${rs(x.rs)}</td>`)
           + '</tr>').join('') + '</table>' : '')
     + (d.paused_from ? `<div class="m" style="margin-top:6px">Yahoo's price feed paused from ${d.paused_from}; those candles are left out and their leans are not scored.</div>` : '')
     + (!showLeans ? '' : `<div class="m" style="margin-top:6px">Arrows: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).
