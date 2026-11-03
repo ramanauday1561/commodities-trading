@@ -39,6 +39,13 @@
   #today b { min-width:64px; } #today time { color:var(--muted); min-width:42px; }
   .up { color:var(--up); } .down { color:var(--down); }
   a { color:var(--muted); }
+  /* Why NOTHING (3 Nov 2026): what the 09:15 signal's lean did on every day, traded or not */
+  #why { margin:24px auto 0; max-width:360px; width:100%; text-align:left; font-size:14px; }
+  #why h2 { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; }
+  #why p { margin:6px 0; color:var(--muted); } #why p b { color:var(--text); font-weight:600; }
+  #why table { width:100%; border-collapse:collapse; margin-top:6px; font-size:13px; font-variant-numeric:tabular-nums; }
+  #why td { padding:4px 0; border-top:1px solid #151b26; } #why td.n { text-align:right; }
+  #why td.m { color:var(--muted); }
 </style>
 <script src="fresh.js"></script>
 </head>
@@ -53,6 +60,7 @@
   <div id="trade" class="box" hidden></div>
   <p id="meta"></p>
   <section id="today" hidden><h2>Today</h2><ol id="rows"></ol></section>
+  <section id="why" hidden></section>
   <p style="font-size:13px; margin-top:28px"><a href="live.html">Live chart</a> · <a href="./#nifty">Full forecast</a> · <a href="history.html">History</a> · Learning tool, not financial advice.</p>
 <script>
 const WORD = { CALL: 'CALL', PUT: 'PUT', STAY: 'STAY', SELL: 'SELL', NOTHING: 'NOTHING' };   // the only five states
@@ -106,11 +114,37 @@ async function load() {
         <div><span>NIFTY now</span><b>${f(t2.price)}</b></div>
         <div><span>Trade so far (NIFTY move)</span><b class="${cls}">${t2.pct >= 0 ? '+' : ''}${t2.pct.toFixed(2)}%</b></div>`;
     }
+    whyNothing(s.shadow);
     loadToday(stale ? null : s.date);
   } catch (e) {
     $('word').className = 'NOTHING'; $('word').textContent = 'NOTHING';
     $('headline').textContent = 'No status yet'; $('reason').textContent = String(e.message || e);
   }
+}
+// Why it says NOTHING so often (3 Nov 2026): the only CALL / PUT is the 09:15 signal on its most confident days. Its
+// lean on every other day, scored as if traded: information that builds evidence, not a reason to trade
+function whyNothing(sh) {
+  const el = $('why');
+  el.hidden = !sh || !sh.days;
+  if (el.hidden) return;
+  const day = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const rs = x => (x >= 0 ? '+₹' : '−₹') + Math.abs(x).toLocaleString('en-IN');
+  const pct = x => `${x >= 0 ? '+' : ''}${x.toFixed(2)}%`;
+  const t = sh.test;
+  el.innerHTML = `<h2>Why NOTHING?</h2>
+    <p>Only one tested rule says CALL or PUT: the 09:15 signal, on its most confident days${t && t.trade_share
+      ? ` (about 1 day in ${Math.round(1 / t.trade_share)} in its test)` : ''}.
+      It has traded <b>${sh.traded} of ${sh.days}</b> days since ${day(sh.since)}.</p>
+    <p>Its lean on every day, as if traded from the open to the close: right <b>${sh.right} of ${sh.days}</b>, NIFTY
+      <b class="${sh.pct >= 0 ? 'up' : 'down'}">${pct(sh.pct)}</b> after costs${sh.rs != null ? `; an at-the-money option, 1 lot:
+      <b class="${sh.rs >= 0 ? 'up' : 'down'}">${rs(sh.rs)}</b> (${sh.rs_days} days on real NSE prices)` : ''}.</p>
+    ${t && t.days ? `<p>In its ${t.days}-day test, leaning every day was right ${Math.round(t.right * 100)}% of the time,
+      ${pct(t.pct)} a day after costs: a few weeks of this cannot show an edge. Information, not a trade signal.</p>` : ''}
+    <table>${sh.rows.slice().reverse().map(x => `<tr><td>${day(x.d)}${x.traded ? ' ★' : ''}</td>
+      <td class="${x.dir === 'up' ? 'up' : 'down'}">${x.dir === 'up' ? '▲' : '▼'} ${x.pred != null ? pct(x.pred) : x.dir}</td>
+      <td class="n ${x.move_pct >= 0 ? 'up' : 'down'}">${pct(x.move_pct)} ${x.right ? '✓' : '✗'}</td>
+      <td class="n ${x.rs == null ? 'm' : x.rs >= 0 ? 'up' : 'down'}">${x.rs == null ? '—' : rs(x.rs)}</td></tr>`).join('')}</table>
+    <p style="font-size:12px">Lean · NIFTY open to close · the option on that side, 1 lot (prices come each evening; ★ traded).</p>`;
 }
 // site-data's newest commit (fresh.js: updated by every 10-minute run, no 5-minute cache); the site copy as a fallback
 async function fresh(name) {
@@ -126,6 +160,7 @@ async function loadToday(date) {
     for (const x of (d && d.date === date ? d.rows : [])) {
       const prev = rows[rows.length - 1];
       if (prev && min(prev.at) >= 15 * 60 + 30) break;
+      if (min(x.at) < 8 * 60) continue;                  // the overnight forecast run (02:10): not today's signal yet
       // runs come every 10 minutes: list alerts, changes of state, and otherwise one line per hour
       if (prev && !x.alert && x.state === prev.state && x.at.slice(0, 2) === prev.at.slice(0, 2)) continue;
       rows.push(x);

@@ -48,6 +48,7 @@ IST = ZoneInfo("Asia/Kolkata")
 CALL_FROM = (8, 40)          # earlier runs (the 06:30 forecast) use a stale overnight picture: no trade state yet
 EXIT_FROM = (14, 40)         # the last hourly check of the day (~14:50) says square off
 STOP_PCT = 0.5               # sell when NIFTY has moved this far (%) against the trade from the 09:15 open
+TRADE_COST_PCT = 0.03            # round trip, as todaycall.TRADE_COST_PCT (the tested trade)
 
 
 def stop_level(side, opn):
@@ -102,6 +103,44 @@ def _hm(t):
     return (t.hour, t.minute)
 
 
+def _lean(fo):
+    """'The 09:15 signal leans DOWN (-0.19% from the open); a trade needs ±0.31%.' or '' (3 Nov 2026: the page said
+    NOTHING for 11 sessions with no sign of how near the signal came)."""
+    if fo.get("pred_pct") is None or not fo.get("direction"):
+        return ""
+    bar = fo.get("bar_pct")
+    return (f"The 09:15 signal leans {fo['direction'].upper()} ({fo['pred_pct']:+.2f}% from the open)"
+            + (f"; a trade needs ±{bar:.2f}% or more, its most confident days." if bar else "; too weak to trade."))
+
+
+def shadow(today, options=None):
+    """What the 09:15 signal's direction did on every day, traded or not (information, to build evidence; 3 Nov 2026).
+    NIFTY open to close after the same 0.03% costs as the tested trade, and, where NSE's bhavcopy has the day
+    (option_record.py), the at-the-money option on that side bought at the open and sold at the close, 1 lot."""
+    rows = [r for r in ((today or {}).get("record") or {}).get("recent", [])
+            if r.get("from_open_dir") and r.get("open") and r.get("close")][::-1]       # oldest first
+    if not rows:
+        return None
+    opt = {x["d"]: x for x in (options or {}).get("days", [])}
+    out = []
+    for r in rows:
+        side = 1 if r["from_open_dir"] == "up" else -1
+        move = (r["close"] / r["open"] - 1) * 100
+        o = (opt.get(r["d"]) or {}).get("call" if side > 0 else "put")
+        out.append({"d": r["d"], "dir": r["from_open_dir"], "pred": r.get("from_open_pred"), "traded": bool(r.get("from_open_trade")),
+                    "move_pct": round(move, 2), "right": bool(move * side > 0), "pct": round(side * move - TRADE_COST_PCT, 3),
+                    "rs": o["rs"] if o else None})
+    tiers = (((today or {}).get("preopen") or {}).get("from_open") or {}).get("tiers") or {}
+    allday = tiers.get("all_days") or {}
+    priced = [x["rs"] for x in out if x["rs"] is not None]
+    return {"since": out[0]["d"], "days": len(out), "right": sum(x["right"] for x in out), "traded": sum(x["traded"] for x in out),
+            "pct": round(sum(x["pct"] for x in out), 2), "rs": sum(priced) if priced else None, "rs_days": len(priced),
+            "test": {"days": allday.get("days"), "trade_share": (tiers.get("strong") or {}).get("share"),
+                     "right": (allday.get("from_open") or {}).get("win_rate"),
+                     "pct": (allday.get("from_open") or {}).get("avg_pct_after_costs")} if allday else None,
+            "rows": out[-15:]}
+
+
 def decide(today, now):
     """today: today-nifty.json (or None); now: aware datetime in IST."""
     date = now.date().isoformat()
@@ -137,7 +176,13 @@ def decide(today, now):
             return {**base, "state": "NOTHING", "kind": "closed", "headline": f"Closed: today's {side} {'won' if move > 0 else 'lost'}",
                     "reason": f"NIFTY {rec['open']:,.2f} at the open → {rec['close']:,.2f} at the close: "
                               f"{move:+.2f}% for the {side} side before costs."}
-        return {**base, "state": "NOTHING", "kind": "closed", "headline": "Market closed", "reason": "No trade today."}
+        why = "No trade today."
+        if rec and rec.get("open") and rec.get("close") and fo.get("direction") and fo.get("pred_pct") is not None:
+            move = (rec["close"] / rec["open"] - 1) * 100
+            why += (f" The 09:15 signal leaned {fo['direction'].upper()} ({fo['pred_pct']:+.2f}%, too weak to trade); "
+                    f"NIFTY went {move:+.2f}% from the open ({rec['open']:,.2f} → {rec['close']:,.2f}), so the lean was "
+                    f"{'right' if (move > 0) == (fo['direction'] == 'up') else 'wrong'}.")
+        return {**base, "state": "NOTHING", "kind": "closed", "headline": "Market closed", "reason": why}
     if not p or _hm(now) < CALL_FROM:
         return {**base, "state": "NOTHING", "kind": "pending", "headline": "Wait for the 08:57 call", "reason": "Today's signal is made at about 08:57 IST."}
     if fo.get("skipped_for_results"):
@@ -155,7 +200,8 @@ def decide(today, now):
         hint = (f" The close call leans {'higher' if lean.get('direction') == 'up' else 'lower'}, "
                 f"but that is mostly the opening gap, not a trade.") if lean.get("tier") not in (None, "none") else ""
         return {**base, "state": "NOTHING", "kind": "no_trade", "headline": "No trade today",
-                "reason": "Overnight markets give no edge from the open (the signal trades only its 20% most confident days)." + hint}
+                "reason": (_lean(fo) or "Overnight markets give no edge from the open (the signal trades only its most confident days).")
+                          + hint}
     opn = i.get("open")
     if after_open and stop_hit(side, opn, i.get("high"), i.get("low")):
         far = i["low"] if side == "CALL" else i["high"]
@@ -307,7 +353,8 @@ def summary(today, new):
         calls.append(f"close {rec['close_call']} ({tick(rec.get('close_hit'))})")
     if calls:
         lines.append("Pre-open calls: " + ", ".join(calls))
-    lines.append(f"{new['headline']}. {new['reason']}" if new.get("headline", "").startswith("Closed:") else "No trade today.")
+    lines.append(f"{new['headline']}. {new['reason']}" if new.get("headline", "").startswith("Closed:")
+                 else new.get("reason") or "No trade today.")
     return {"kind": "summary", "body": "\n".join(lines)}
 
 
@@ -402,6 +449,9 @@ def main(data_dir, now=None, store_dir=None):
     load = lambda name: json.load(open(os.path.join(data_dir, name))) if os.path.exists(os.path.join(data_dir, name)) else None
     prev, today = load("status.json"), load("today-nifty.json")
     new = decide(today, now)
+    sh = shadow(today, load("options-nifty.json"))
+    if sh:
+        new["shadow"] = sh
     note = option_note(new, now)
     if note:
         new["option_note"] = note

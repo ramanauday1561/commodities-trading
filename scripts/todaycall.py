@@ -206,8 +206,11 @@ def call_block(X, y, x_today, open_to_close=None, exclude=None):
     tiers = {"very_strong": table["top_10pct"], "strong": table["top_20pct"], "lean": table["top_50pct"],
              "all_days": table["top_100pct"]}
     pred = ridge_predict(ridge_fit(X, y), x_today)
+    # bar_pct: the size of call the trade tiers need (3 Nov 2026: the Status page said NOTHING for 11 sessions and
+    # nothing showed how near the signal came)
     return {"direction": "up" if pred > 0 else "down", "pred_pct": round(pred * 100, 3),
-            "tier": tier_of(abs(pred), np.abs(p)), "tiers": tiers, "test_days": int(ok.sum())}
+            "tier": tier_of(abs(pred), np.abs(p)), "tiers": tiers, "test_days": int(ok.sum()),
+            "bar_pct": round(float(np.quantile(np.abs(p), 1 - dict(TIERS)["strong"])) * 100, 3)}
 
 
 def from_open_block(X, o2c, x_today, results_hist=None, results_today=False, us_today=None):
@@ -354,7 +357,8 @@ def summarize_record(record):
     out["recent"] = [{"d": r["d"], "gap": r["gap"]["direction"], "gap_tier": r["gap"]["tier"],
                       "close_call": r["close"]["direction"], "close_tier": r["close"]["tier"],   # "close" is the price
                       "from_open_trade": bool((r.get("from_open") or {}).get("trade")),
-                      "from_open_dir": (r.get("from_open") or {}).get("direction"), **r["result"]}
+                      "from_open_dir": (r.get("from_open") or {}).get("direction"),
+                      "from_open_pred": (r.get("from_open") or {}).get("pred_pct"), **r["result"]}
                      for r in record if "result" in r][-60:][::-1]                          # the History page
     return out
 
@@ -453,7 +457,7 @@ def run(store_dir="store", out_dir="docs/data", now=None):
             record.append({"d": today.isoformat(), "made_at": now.strftime("%H:%M"), "cutoff": pre["cutoff_ist"],
                            "gap": {k: pre["gap"][k] for k in ("direction", "tier", "pred_pct")},
                            "close": {k: pre["close"][k] for k in ("direction", "tier", "pred_pct")},
-                           "from_open": {k: pre["from_open"][k] for k in ("direction", "tier", "pred_pct", "trade")}})
+                           "from_open": {k: pre["from_open"].get(k) for k in ("direction", "tier", "pred_pct", "trade", "bar_pct")}})
         out["status"] = "pre_open" if made_before_open else ("open" if (now.hour, now.minute) < (15, 30) else "closed")
         rec_today = next((r for r in record if r["d"] == today.isoformat()), None)
         if rec_today:                                       # the call that is scored: the last one made before 09:15
