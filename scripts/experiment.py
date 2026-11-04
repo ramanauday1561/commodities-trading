@@ -201,6 +201,7 @@ STUDIES = {
     "shortopt": ("short_option_study", "main"),
     "movesize": ("movesize_study", "main"),
     "movesizekite": ("movesize_study", "kite_main"),
+    "futures": ("futures_study", "main"),
 }
 
 
