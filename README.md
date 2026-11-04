@@ -16,7 +16,10 @@ is no server. Educational project, not financial advice.
 | History (`history.html`) | Every day's calls and trades, right or wrong |
 | Kite login (`kite.html`) | The morning Kite Connect login: Kite's own 5-minute candles in place of Yahoo's for the day |
 
-A sidebar (`nav.js`) links them; a service worker (`sw.js`) lets the home-screen app open offline.
+`nav.js` links them: a Liquid Glass tab bar and a "More" menu (Glisse, MIT, on React 18; `ui/` builds
+`docs/vendor/glass-ui.js` with `npm install && npm run build`, so nothing loads from a CDN), glass behind the cards and glass
+buttons, on the shared background in `theme.css`. Without the module (an old browser, or `?classic` in the address) the
+pages keep the classic sidebar. A service worker (`sw.js`) lets the home-screen app open offline.
 
 ## What runs when
 
