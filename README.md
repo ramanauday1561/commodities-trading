@@ -12,7 +12,7 @@ is no server. Educational project, not financial advice.
 | Home (`index.html`) | Next-days forecasts per market, today's NIFTY call, news, the backtest behind each number |
 | Status (`status.html`) | CALL, PUT, STAY, SELL or NOTHING for NIFTY right now (only the tested 09:15 signal trades) |
 | Live (`live.html`) | Today in 10-minute candles: our model and the AI's predicted close vs the real price, the track record |
-| Next 10 min (`next.html`) | The model's lean for each next candle, scored as the day goes (information, not a signal) |
+| Next 10 min (`next.html`) | The expected size of the next 10-minute move (tested), and the model's lean for it, scored as the day goes (information, not a signal) |
 | History (`history.html`) | Every day's calls and trades, right or wrong |
 | Kite login (`kite.html`) | The morning Kite Connect login: Kite's own 5-minute candles in place of Yahoo's for the day |
 
@@ -66,7 +66,7 @@ in its own PR. **Actions → Model experiments → Run workflow** with a `mode`:
 
 - `variants` (default), `risk`, `events`, `resultsrisk`, `dailyfill`, `commodity`: the forecast models.
 - `longsignal`, `history`, `preopen`, `open`, `vix`, `accuracy`, `improve`, `extreme`, `strategy`, `intrarules`,
-  `nextcandle`, `shortopt`: the NIFTY studies kept for re-testing.
+  `nextcandle`, `shortopt`, `movesize`: the NIFTY studies kept for re-testing.
 - `intradata` / `dukafetch`: update the stored 5-minute / hourly overnight history.
 - `kitecheck` / `kitecompare` / `kiterepair` / `kitepositions`: are the Kite secrets accepted; Kite vs Yahoo side by side; Kite's 5-minute
   candles in place of Yahoo's in the stored history (test_days = the first day; all need that day's login).

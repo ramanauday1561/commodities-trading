@@ -329,3 +329,9 @@ a day overall but lost every year 2015-2019 and made money every year since 2020
 -Rs66,771 (4 Jun 2024). With a 50% stop per leg: +Rs229 a day, 8 of 12 years, worst day -Rs21,312. The gain is
 mostly on expiry days. Iron flies with 1% wings lost (-Rs386 a day). Next: paper-trade the 50%-stop straddle on the
 live option prices the app now records, before anything else.
+
+Experiment mode "movesize" (5 Nov 2026, movesize_study.py): the SIZE of the next 10-minute move (2,911 days, test
+years 2017-2026). Rule A (the forecast's error beats the time-of-day and last-three-candles baselines by 3%+ overall and
+in 8 of 10 years; its top 10% moves 1.5x+ its bottom 10% every year) PASSES: 10.4% better, all 10 years, 2.7-4.3x. Now
+shown beside each lean on the Next 10 min page. Rule B (the leans, on the candles it ranks in its top 20%, win 55%+ and
+earn after option costs in both halves and 6 of 10 years) FAILS: 51.2% right, -Rs87 a lot a trade, 0 of 10 years.

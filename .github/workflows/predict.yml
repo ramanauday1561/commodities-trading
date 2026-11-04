@@ -269,7 +269,7 @@ jobs:
         run: |
           bash scripts/store.sh push scoreboard store
           mkdir -p site-snap && cp docs/data/*.json site-snap/ && rm -f site-snap/intraday-*.json
-          cp docs/data/nextcandle-model.txt site-snap/ 2>/dev/null || true    # the next-candle model (nextcandle.py)
+          cp docs/data/nextcandle-model.txt docs/data/nextcandle-size.txt site-snap/ 2>/dev/null || true    # the next-candle models (nextcandle.py)
           # day replays (replay.py) may have been added while this job ran: keep them in the squashed copy
           latest="$RUNNER_TEMP/site-latest" && bash scripts/store.sh pull site-data "$latest" && cp "$latest"/replay-*.json site-snap/ 2>/dev/null || true
           bash scripts/store.sh push site-data site-snap --squash

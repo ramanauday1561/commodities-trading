@@ -8,6 +8,10 @@ from 2017. The user chose to see the lean anyway, as information, always beside 
   lean(model_dir, now)                                         live.py: the lean after the last finished candle
   python scripts/nextcandle.py replay <intraday_dir> <store_dir|-> <YYYY-MM-DD|last>
                                                                one day replayed as the live runs would have made it
+5 Nov 2026: the expected SIZE of the next move (movesize_study.py: its error 10.4% below the best plain baseline, better
+in all 10 test years; the candles it ranks in its top 10% moved 2.7-4.3 times its bottom 10%). It passed its rule and
+is shown beside each lean, with the usual size at that time of day. The leans on big-move candles still lost after
+costs (-Rs87 a lot a trade, 0 of 10 years), so the leans stay information.
 """
 import json
 import os
@@ -28,6 +32,8 @@ RECORD = {"right_pct": 53.1, "rs_per_lot": -73, "years_up": "0 of 10",
 DAY_RECORD = {"days": 2371, "from": "2017-01-02", "to": "2026-10-29", "profit_share": 0.105, "avg_rs": -3621,
               "quantiles": {"1": -11923, "5": -8690, "10": -7275, "25": -5333, "50": -3801, "75": -1913, "90": 91,
                             "95": 1705, "99": 6233}}
+SIZE_RECORD = {"better_than_baseline_pct": 10.4, "years_better": "10 of 10", "top_vs_bottom": "2.7-4.3x",
+               "text": "tested 2017-2026: its error was 10% below the usual size at that time of day, in every year"}
 LAST_FULL = "15:15"
 STALE = pd.Timedelta(minutes=6)          # runs come about 40 seconds into each candle; more than 6 minutes in is stale                     # the 15:25 candle is only 5 minutes; it was never in the test, so no lean for it
 
@@ -44,8 +50,15 @@ def train(intra_dir, out_dir, before=None):
     cut = float(np.quantile(np.abs(m.predict(df[ns.FEATS].values)), 0.8))
     os.makedirs(out_dir, exist_ok=True)
     m.save_model(os.path.join(out_dir, "nextcandle-model.txt"))
+    import movesize_study as ms
+    sz = ms.add_size(df).dropna(subset=["y"])
+    rel = sz["size"] / sz["price"]
+    s = lgb.train(PARAMS, lgb.Dataset(sz[ms.SIZE_FEATS].values, rel.clip(rel.quantile(0.01), rel.quantile(0.99)).values),
+                  num_boost_round=300)
+    s.save_model(os.path.join(out_dir, "nextcandle-size.txt"))
+    typical = {str(int(k)): float(v) for k, v in rel.groupby(sz["k"]).mean().items()}       # usual size by candle, as a share
     meta = {"trained_until": str(df["d"].max()), "candles": len(df), "confident_cut": cut, "record": RECORD,
-            "day_record": DAY_RECORD}
+            "day_record": DAY_RECORD, "size_typical": typical, "size_record": SIZE_RECORD}
     json.dump(meta, open(os.path.join(out_dir, "nextcandle-meta.json"), "w"))
     print(f"nextcandle: trained on {len(df)} candles to {meta['trained_until']}", flush=True)
     return meta
@@ -90,8 +103,16 @@ def lean(model_dir, now, get=yahoo_days):
     # or the run is late, that candle is already under way and a lean for it would be stale
     if now.replace(tzinfo=None) - start.to_pydatetime() > STALE:
         return None
-    return {"at": start.strftime("%H:%M"), "lean": "up" if p > 0 else "down", "pts": round(p * float(last["price"]), 1),
-            "confident": abs(p) >= meta["confident_cut"], "record": meta["record"]}
+    out = {"at": start.strftime("%H:%M"), "lean": "up" if p > 0 else "down", "pts": round(p * float(last["price"]), 1),
+           "confident": abs(p) >= meta["confident_cut"], "record": meta["record"]}
+    sp = os.path.join(model_dir, "nextcandle-size.txt")
+    if os.path.exists(sp):                                 # the expected size of the next move (movesize_study.py)
+        import movesize_study as ms
+        z = ms.add_size(df)
+        out["size"] = round(float(lgb.Booster(model_file=sp).predict(z[ms.SIZE_FEATS].values[-1:])[0]) * float(last["price"]), 1)
+        t = (meta.get("size_typical") or {}).get(str(int(last["k"]) + 1))
+        out["typical"] = round(t * float(last["price"]), 1) if t else None
+    return out
 
 
 def replay(day, intra_dir, store_dir=None, work=None):

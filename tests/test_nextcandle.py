@@ -82,3 +82,17 @@ class NextCandle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SizeForecast(unittest.TestCase):
+    """5 Nov 2026: the expected size of the next move beside the lean (movesize_study.py passed its rule)."""
+
+    def test_add_size(self):
+        import movesize_study as ms
+        df = pd.DataFrame({"d": [1, 1, 1, 2], "r1": [0.001, -0.002, 0.003, -0.001], "r2": [0, 0.001, -0.002, 0],
+                           "r3": [0, 0, 0.001, 0], "y": [-0.002, 0.003, np.nan, 0.001], "price": [100.0] * 4})
+        z = ms.add_size(df)
+        self.assertEqual(list(z["a1"]), [0.001, 0.002, 0.003, 0.001])
+        self.assertAlmostEqual(z["day_abs"].iloc[2], 0.002)                  # today's average size so far
+        self.assertAlmostEqual(z["size"].iloc[1], 0.3)
+        self.assertTrue(np.isnan(z["size"].iloc[2]))
