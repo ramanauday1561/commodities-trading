@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pip install exchange_calendars yfinance pandas
+      - run: pip install exchange_calendars yfinance pandas cryptography
       - name: Only one keeper, only on NSE trading days
         id: go
         run: |
@@ -56,4 +56,10 @@ jobs:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
           TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
-        run: python -u scripts/keeper.py
+          # your Kite positions (positions.py, phone only) and Kite's 1-minute candles for the stop watcher
+          KITE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_KEY || '' }}
+          KITE_API_SECRET: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_SECRET || '' }}
+          KITE_DIR: kite
+        run: |
+          bash scripts/store.sh pull kite-session kite || true
+          python -u scripts/keeper.py
