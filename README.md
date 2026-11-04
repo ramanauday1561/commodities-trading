@@ -36,7 +36,8 @@ candles, a missing session, Kite errors) go to `data-health.json` and the Status
 Helpers: `calendars.py` (exchange holidays), `rolls.py` (futures roll adjustment), `results_calendar.py` and
 `us_events.py` (days the 09:15 signal stands aside), `intraday_data.py` and `overnight_data.py` (stored history),
 `daymoney.py` (the ₹2 lakh box), `grok.py` (AI notes), `dailyfill.py`, `evalutil.py`, `build_manifest.py`,
-`prune_data.py`, `store.sh`, `option_data.py` and `option_record.py` (real NIFTY option prices, nightly), `weekly.py` (the Saturday summary). Markets are listed in `scripts/instruments.json`.
+`prune_data.py`, `store.sh`, `option_data.py` and `option_record.py` (real NIFTY option prices, nightly), `options_live.py`
+(live option prices from Kite every 10 minutes, the Live page's line), `weekly.py` (the Saturday summary). Markets are listed in `scripts/instruments.json`.
 
 ## Where data lives
 
@@ -47,6 +48,7 @@ The workflows write to branches; do not delete them.
 | `site-data` | The latest data files the pages read |
 | `kite-session` | The day's Kite access token, encrypted with a key made from the API secret, and its expiry |
 | `scoreboard` | Every forecast and call with its result, the daily journals, live days, GIFT Nifty recordings |
+| `options-live` | NIFTY option quotes near the money every 10 minutes and their 5-minute candles after the close (Kite, from 4 Nov 2026) |
 | `intraday-data` | NIFTY, Bank NIFTY and India VIX 5-minute candles since 2015 (Kite's since 19 May 2026; `sources.json` says which source each day came from; the Yahoo-era copy is `intraday-data-yahoo-backup`) |
 | `overnight-es`, `-nq`, `-nikkei`, `-hangseng`, `-india*` | Hourly overnight markets (Dukascopy) for the long backtests |
 

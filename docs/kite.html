@@ -45,6 +45,7 @@
   <p id="detail"></p>
   <button id="go">Log in to Kite</button>
   <button id="change" class="ghost">Change the API key or GitHub token</button>
+  <p id="keyline" style="font-size:13px; color:var(--muted); margin:8px 0 0"></p>
   <div id="setup" class="box" hidden>
     <b>One-time setup (kept in this browser only)</b>
     <label for="key">Kite API key (developers.kite.trade → your app; the key, not the secret)</label>
@@ -108,15 +109,51 @@ function setup(open) {
   $('tok').value = '';
   $('tok').placeholder = store.get('ghToken') ? 'saved (leave empty to keep it)' : 'github_pat_…';
 }
-function login() {
-  if (!store.get('kiteKey') || !store.get('ghToken')) return setup(true);
+// the saved key's ends, to compare with the developer console (an API key is public: it is in every Kite login link)
+function keyLine() {
+  const k = store.get('kiteKey');
+  $('keyline').textContent = k ? `Saved API key: ${k.slice(0, 3)}…${k.slice(-3)} (${k.length} characters). Kite says "Invalid api_key"? Change it below.` : '';
+}
+// 4 Nov 2026: Kite's login worked, then GitHub refused the saved token (401) and the one-time Kite login was lost.
+// The token is now tried before going to Kite: reading the Kite login workflow needs the same token and permission
+async function tokenProblem() {
+  try {
+    const r = await ghApi('/actions/workflows/kite-login.yml');
+    if (r.ok) return '';
+    return r.status === 401 ? 'GitHub did not accept the saved token (mistyped, expired or deleted). Make a new one and paste it below.'
+      : r.status === 403 || r.status === 404 ? 'The GitHub token cannot see this repository\'s workflows: it needs this repository selected and Actions: Read and write.'
+      : `GitHub answered ${r.status}; try again in a minute.`;
+  } catch (e) { return 'No connection to GitHub. Check the internet and try again.'; }
+}
+async function login() {
+  if (!store.get('kiteKey') || !store.get('ghToken') || keyProblem(store.get('kiteKey'))) {
+    setup(true);
+    if (store.get('kiteKey') && keyProblem(store.get('kiteKey'))) { $('log').hidden = false; $('log').textContent = keyProblem(store.get('kiteKey')); }
+    return;
+  }
+  $('go').disabled = true;
+  const bad = await tokenProblem();
+  $('go').disabled = false;
+  if (bad) { setup(true); $('log').hidden = false; $('log').textContent = bad; return; }
   location.href = 'https://kite.zerodha.com/connect/login?v=3&api_key=' + encodeURIComponent(store.get('kiteKey'));
 }
 $('go').onclick = login;
 $('change').onclick = () => setup($('setup').hidden);
+keyLine();
+// 4 Nov 2026: Kite answered "Invalid api_key" for a key typed here (the one in GitHub's secrets was accepted). A Kite
+// API key is 16 letters and digits; the API secret is 32 and must not be used here
+function keyProblem(k) {
+  if (/^[a-z0-9]{32}$/i.test(k)) return 'That looks like the API secret (32 characters). Paste the API key (16 characters) instead.';
+  if (!/^[a-z0-9]{16}$/i.test(k)) return `A Kite API key is 16 letters and digits; this has ${k.length} characters${/[^a-zA-Z0-9]/.test(k) ? ' and other symbols' : ''}. Copy it again from developers.kite.trade → your app → API key.`;
+  return '';
+}
 $('save').onclick = () => {
-  const k = $('key').value.trim(), g = $('tok').value.trim();
+  const k = $('key').value.replace(/\s+/g, ''), g = $('tok').value.replace(/\s+/g, '');
+  const bad = k && keyProblem(k);
+  if (bad) { $('log').hidden = false; $('log').textContent = bad; return; }
+  $('log').hidden = true;
   if (k) store.set('kiteKey', k);
+  keyLine();
   if (g) store.set('ghToken', g);
   if (!store.get('kiteKey') || !store.get('ghToken')) { $('log').hidden = false; $('log').textContent = 'Both the API key and the GitHub token are needed.'; return; }
   setup(false);
@@ -133,7 +170,7 @@ async function finish(requestToken) {
     const r = await ghApi('/actions/workflows/kite-login.yml/dispatches', { method: 'POST',
       body: JSON.stringify({ ref: 'main', inputs: { request_token: requestToken } }) });
     if (r.status !== 204) {
-      const why = r.status === 401 ? 'GitHub did not accept the saved token (expired or mistyped).'
+      const why = r.status === 401 ? 'Your Kite login worked, but GitHub did not accept the saved token (expired or mistyped).'
         : r.status === 403 || r.status === 404 ? 'The GitHub token needs Actions: Read and write on this repository.'
         : `GitHub answered ${r.status}.`;
       show('Login not started', 'bad', why + ' Change the token below and log in again (Kite login links work once).');
