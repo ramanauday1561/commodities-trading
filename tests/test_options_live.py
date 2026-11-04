@@ -56,11 +56,11 @@ class Snap(unittest.TestCase):
             self.assertEqual(out["app"]["side"], "PUT")
             self.assertEqual(out["atm_now"]["strike"], 23800)
             rows = list(csv.DictReader(open(os.path.join(d, "snapshots", "2026-11-04.csv"))))
-            self.assertEqual(len(rows), 5 * 2 * 2)                        # 5 strikes (the open's among them), CE and PE, 2 expiries
-            self.assertEqual({r["expiry"] for r in rows}, {"2026-11-10", "2026-11-17"})
+            self.assertEqual(len(rows), 13 * 2 * 2)                       # 21 strikes wanted, 13 listed; CE and PE; 2 expiries
+            self.assertEqual({r["expiry"] for r in rows}, {"2026-11-04", "2026-11-10"})     # expiry day: today's and the next
             self.assertEqual(json.load(open(os.path.join(data, "options-live.json")))["call"]["open"], 120.0)
             ol.snap(d, data, now=NOW.replace(minute=15), quote=quote, fetch=instruments)
-            self.assertEqual(len(list(csv.DictReader(open(os.path.join(d, "snapshots", "2026-11-04.csv"))))), 40)
+            self.assertEqual(len(list(csv.DictReader(open(os.path.join(d, "snapshots", "2026-11-04.csv"))))), 104)
 
     def test_nothing_without_login_or_outside_the_session(self):
         with tempfile.TemporaryDirectory() as d:
@@ -75,8 +75,47 @@ class Snap(unittest.TestCase):
             ol.snap(d, data, now=NOW, quote=quote, fetch=instruments)
             hist = lambda tok: [(NOW.replace(hour=9, minute=15), 1, 2, 0.5, 1.5, 100)]
             out = ol.close(d, now=NOW.replace(hour=15, minute=50), history=hist)
-            self.assertEqual(len(out), 20)
+            self.assertEqual(len(out), 52)
             self.assertTrue(os.path.exists(os.path.join(d, "candles", "2026-11-04.csv")))
+
+
+class ChainAndPaper(unittest.TestCase):
+    """5 Nov 2026: the wider chain's open interest summary, and the paper straddle (short_option_study variant C)."""
+
+    def test_oi_summary(self):
+        rows = [{"expiry": "E", "strike": 100.0, "type": "CE", "oi": 50}, {"expiry": "E", "strike": 110.0, "type": "CE", "oi": 150},
+                {"expiry": "E", "strike": 90.0, "type": "PE", "oi": 300}, {"expiry": "E", "strike": 100.0, "type": "PE", "oi": 100},
+                {"expiry": "F", "strike": 100.0, "type": "CE", "oi": 999}]
+        first = [{"at": "09:16", "expiry": "E", "strike": 100.0, "type": "CE", "oi": "100"},
+                 {"at": "09:16", "expiry": "E", "strike": 100.0, "type": "PE", "oi": "100"}]
+        out = ol.oi_summary(rows, "E", first)
+        self.assertEqual((out["pcr"], out["call_wall"], out["put_wall"]), (2.0, 110.0, 90.0))
+        self.assertEqual((out["call_oi_change"], out["put_oi_change"], out["since"]), (100, 300, "09:16"))
+        self.assertIsNone(ol.oi_summary([], "E"))
+
+    def test_paper_straddle(self):
+        with tempfile.TemporaryDirectory() as d:
+            q = {(23850, "CE"): {"last_price": 90.0, "ohlc": {"open": 120.0, "high": 130.0}},
+                 (23850, "PE"): {"last_price": 140.0, "ohlc": {"open": 110.0, "high": 170.0}}}      # the PUT hit +50% (165)
+            row, rec = ol.paper(d, NOW, q, 23850, "2026-11-04", final=False)
+            self.assertEqual(row["legs"]["CE"], {"sold": 120.0, "now": 90.0, "stopped": False, "pts": 30.0})
+            self.assertTrue(row["legs"]["PE"]["stopped"])
+            self.assertEqual(row["pts"], round(30.0 - 57.0 - 2 * ol.COST, 2))
+            self.assertEqual(rec["days"], 0)                                   # not final yet
+            row, rec = ol.paper(d, NOW.replace(hour=15, minute=25), q, 23850, "2026-11-04", final=True)
+            self.assertEqual((rec["days"], rec["total_rs"]), (1, row["rs"]))
+            self.assertEqual(len(json.load(open(os.path.join(d, "paper", "straddle.json")))), 1)     # one row a day
+
+    def test_snap_writes_chain_and_paper(self):
+        with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as data, \
+                mock.patch.object(kite, "session", return_value=("k", "t")):
+            ol.snap(d, data, now=NOW, quote=quote, fetch=instruments)
+            out = ol.snap(d, data, now=NOW.replace(minute=15), quote=quote, fetch=instruments)
+            self.assertEqual(out["chain"]["expiry"], "2026-11-10")
+            self.assertEqual(out["chain"]["pcr"], 1.0)
+            self.assertEqual(out["chain"]["since"], "11:05")
+            self.assertEqual(out["paper"]["today"]["expiry"], "2026-11-04")    # nearest: the expiring one on expiry day
+            self.assertEqual(out["paper"]["today"]["strike"], 23850)
 
 
 if __name__ == "__main__":
