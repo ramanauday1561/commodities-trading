@@ -76,3 +76,51 @@ class Frozen(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KiteRepair(unittest.TestCase):
+    """4 Nov 2026: Kite's candles replace Yahoo days (frozen before the close) and fill gaps; Kaggle days stay."""
+
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+
+    def frozen_day(self, d):
+        g = day(d, start="09:15", end="15:25")
+        late = g["datetime"].dt.time >= pd.Timestamp("15:05").time()
+        g.loc[late, ["open", "high", "low", "close"]] = 100.0                    # no range at the previous close
+        return g
+
+    def test_replace_yahoo_fill_gap_keep_kaggle(self):
+        idata.add(self.d, "nifty", day("2026-05-15", start="09:15", end="15:25"))          # a Kaggle day
+        idata.add(self.d, "nifty", self.frozen_day("2026-08-12"))                           # a Yahoo day
+        self.assertEqual(idata.sources(self.d, "nifty"), {"2026-05-15": "kaggle", "2026-08-12": "yahoo"})
+        self.assertEqual(len(idata.load(self.d)[datetime(2026, 8, 12).date()]), 70)         # frozen bars left out
+        kite = pd.concat([day(x, base=200.0, start="09:15", end="15:25") for x in ("2026-05-15", "2026-06-10", "2026-08-12")])
+        added, replaced, gone = idata.replace(self.d, "nifty", kite)
+        self.assertEqual((added, replaced), (1, 1))
+        self.assertGreater(gone, 0)
+        src = idata.sources(self.d, "nifty")
+        self.assertEqual(src, {"2026-05-15": "kaggle", "2026-06-10": "kite", "2026-08-12": "kite"})
+        got = idata.load(self.d)
+        self.assertEqual(float(got[datetime(2026, 5, 15).date()]["Close"].iloc[0]), 100.0)  # Kaggle kept
+        self.assertEqual(float(got[datetime(2026, 8, 12).date()]["Close"].iloc[0]), 200.0)  # Kite in
+        self.assertEqual(len(got[datetime(2026, 8, 12).date()]), 75)
+        self.assertEqual(idata.replace(self.d, "nifty", kite), (0, 0, 0))                   # Kite days are final
+
+    def test_quiet_kite_bars_are_kept(self):
+        g = self.frozen_day("2026-09-01")
+        idata.replace(self.d, "nifty", g)
+        self.assertEqual(len(idata.load(self.d)[datetime(2026, 9, 1).date()]), 75)
+
+    def test_update_prefers_kite_and_repair(self):
+        now = datetime(2026, 11, 4, 16, 0, tzinfo=IST)
+        idata.add(self.d, "nifty", self.frozen_day("2026-11-02"))
+        open(os.path.join(self.d, "kaggle-loaded.txt"), "w").write("done")
+        kite = lambda sym, a, b: pd.concat([day(x, base=300.0, start="09:15", end="15:25") for x in ("2026-11-02", "2026-11-03", "2026-11-04")])
+        out = idata.update(self.d, now, get_yahoo=lambda s: (_ for _ in ()).throw(AssertionError("Yahoo not needed")), get_kite=kite)
+        self.assertEqual(out["nifty"]["kite_added"], 2)
+        self.assertEqual(out["nifty"]["kite_replaced"], 1)
+        out = idata.update(self.d, now, get_yahoo=lambda s: day("2026-11-04", start="09:15", end="15:25"), get_kite=lambda *a: None)
+        self.assertEqual(idata.sources(self.d, "nifty")["2026-11-04"], "kite")
+        r = idata.repair(self.d, "2026-11-01", now=now, get=lambda *a: None)
+        self.assertEqual(r["nifty"], "no Kite login today")
