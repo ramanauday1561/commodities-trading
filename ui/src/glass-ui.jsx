@@ -66,6 +66,9 @@ export function nav({ tabs, more, here }) {
       row.append(m);
     } else {
       m.className = "gui-more";
+      document.body.classList.add("gui-more-fixed");      // the page's title gets room for it (theme.css)
+      const t = document.querySelector("[data-nav]");
+      if (t && getComputedStyle(t).textAlign === "center") t.classList.add("gui-centered");
       document.body.append(m);
     }
     mount(m, <Menu aria-label="More pages" items={more.map((p) => ({ label: p.label, icon: <Icon name={p.icon} />,

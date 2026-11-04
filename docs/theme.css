@@ -49,7 +49,14 @@ button.gui-native:disabled { opacity:.5; }
 .gui-more-inline { position:static !important; margin-left:auto; flex:none; display:inline-flex; align-items:center; }
 .gui-more-corner { position:absolute !important; top:10px; right:10px; z-index:5; }
 header:has(.gui-more-corner) [data-nav] { padding-right:48px; }        /* the title never runs under the button */
-.gui-more { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:900; }
+/* pages without a header card: the ⋯ sits at the top right of the page and scrolls away with the title */
+.gui-more { position:absolute; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:900; }
 body.gui-on { padding-bottom:calc(env(safe-area-inset-bottom) + 100px) !important; }
+/* Live and Next 10 are one fixed screen (chart above, a scrolling panel below): end it above the tab bar */
+body.gui-on .wrap { padding-bottom:calc(env(safe-area-inset-bottom) + 84px) !important; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+@media (max-height:600px) { body.gui-on .wrap #chart { min-height:140px; } }   /* iPhone SE: the screen scrolls when it does not fit */
+/* Status and Kite login have no header card: the ⋯ floats top right, so their title keeps clear of it */
+body.gui-more-fixed [data-nav] { padding-right:52px; min-height:40px; }
+body.gui-more-fixed [data-nav].gui-centered { padding-left:52px; }      /* a centred title stays centred */
 body.gui-on .nav-btn { display:none !important; }
 @media (prefers-reduced-transparency: reduce) { html::before { background:#05070d; } }
