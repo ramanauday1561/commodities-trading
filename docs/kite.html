@@ -114,12 +114,27 @@ function keyLine() {
   const k = store.get('kiteKey');
   $('keyline').textContent = k ? `Saved API key: ${k.slice(0, 3)}…${k.slice(-3)} (${k.length} characters). Kite says "Invalid api_key"? Change it below.` : '';
 }
-function login() {
+// 4 Nov 2026: Kite's login worked, then GitHub refused the saved token (401) and the one-time Kite login was lost.
+// The token is now tried before going to Kite: reading the Kite login workflow needs the same token and permission
+async function tokenProblem() {
+  try {
+    const r = await ghApi('/actions/workflows/kite-login.yml');
+    if (r.ok) return '';
+    return r.status === 401 ? 'GitHub did not accept the saved token (mistyped, expired or deleted). Make a new one and paste it below.'
+      : r.status === 403 || r.status === 404 ? 'The GitHub token cannot see this repository\'s workflows: it needs this repository selected and Actions: Read and write.'
+      : `GitHub answered ${r.status}; try again in a minute.`;
+  } catch (e) { return 'No connection to GitHub. Check the internet and try again.'; }
+}
+async function login() {
   if (!store.get('kiteKey') || !store.get('ghToken') || keyProblem(store.get('kiteKey'))) {
     setup(true);
     if (store.get('kiteKey') && keyProblem(store.get('kiteKey'))) { $('log').hidden = false; $('log').textContent = keyProblem(store.get('kiteKey')); }
     return;
   }
+  $('go').disabled = true;
+  const bad = await tokenProblem();
+  $('go').disabled = false;
+  if (bad) { setup(true); $('log').hidden = false; $('log').textContent = bad; return; }
   location.href = 'https://kite.zerodha.com/connect/login?v=3&api_key=' + encodeURIComponent(store.get('kiteKey'));
 }
 $('go').onclick = login;
@@ -133,7 +148,7 @@ function keyProblem(k) {
   return '';
 }
 $('save').onclick = () => {
-  const k = $('key').value.replace(/\s+/g, ''), g = $('tok').value.trim();
+  const k = $('key').value.replace(/\s+/g, ''), g = $('tok').value.replace(/\s+/g, '');
   const bad = k && keyProblem(k);
   if (bad) { $('log').hidden = false; $('log').textContent = bad; return; }
   $('log').hidden = true;
@@ -155,7 +170,7 @@ async function finish(requestToken) {
     const r = await ghApi('/actions/workflows/kite-login.yml/dispatches', { method: 'POST',
       body: JSON.stringify({ ref: 'main', inputs: { request_token: requestToken } }) });
     if (r.status !== 204) {
-      const why = r.status === 401 ? 'GitHub did not accept the saved token (expired or mistyped).'
+      const why = r.status === 401 ? 'Your Kite login worked, but GitHub did not accept the saved token (expired or mistyped).'
         : r.status === 403 || r.status === 404 ? 'The GitHub token needs Actions: Read and write on this repository.'
         : `GitHub answered ${r.status}.`;
       show('Login not started', 'bad', why + ' Change the token below and log in again (Kite login links work once).');
