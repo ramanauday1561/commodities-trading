@@ -1,0 +1,42 @@
+name: Kite login
+
+# The morning Kite Connect login (kite.py): docs/kite.html starts this with the one-time request_token Kite sends
+# back after you log in. It is traded for the day's access token with the API secret and saved, encrypted, to the
+# kite-session branch; the 10-minute runs use it until 06:00 the next morning. Nothing here places orders.
+on:
+  workflow_dispatch:
+    inputs:
+      request_token:
+        description: "Kite's one-time request_token (the Kite page fills this in)"
+        required: true
+
+permissions:
+  contents: write              # the kite-session branch
+
+concurrency:
+  group: kite-login
+  cancel-in-progress: false
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hide the request token in the logs
+        env:
+          REQUEST_TOKEN: ${{ github.event.inputs.request_token }}
+        run: echo "::add-mask::$REQUEST_TOKEN"
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - run: pip install cryptography
+      - name: Trade the request token for today's access token
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+          REQUEST_TOKEN: ${{ github.event.inputs.request_token }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -u scripts/kite.py login "$REQUEST_TOKEN" kite
+          bash scripts/store.sh push kite-session kite --squash

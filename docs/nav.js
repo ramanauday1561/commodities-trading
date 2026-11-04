@@ -7,6 +7,7 @@
     ['live.html', 'Live', 'Today: predictions vs the real price'],
     ['next.html', 'Next 10 min', 'The model\'s lean per candle (information)'],
     ['history.html', 'History', 'Every day\'s calls and trades'],
+    ['kite.html', 'Kite login', 'Once each morning: Kite\'s own prices'],
   ];
   const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
   const css = `

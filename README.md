@@ -13,6 +13,7 @@ is no server. Educational project, not financial advice.
 | Live (`live.html`) | Today in 10-minute candles: our model and the AI's predicted close vs the real price, the track record |
 | Next 10 min (`next.html`) | The model's lean for each next candle, scored as the day goes (information, not a signal) |
 | History (`history.html`) | Every day's calls and trades, right or wrong |
+| Kite login (`kite.html`) | The morning Kite Connect login: Kite's own 5-minute candles in place of Yahoo's for the day |
 
 A sidebar (`nav.js`) links them; a service worker (`sw.js`) lets the home-screen app open offline.
 
@@ -25,6 +26,7 @@ A sidebar (`nav.js`) links them; a service worker (`sw.js`) lets the home-screen
 | `keeper.yml` | Before the open, through the session | `keeper.py`: starts the intraday runs on time, watches the stop |
 | `replay.yml` | By hand, after the close | `replay.py`: a finished day replayed as if live, with the AI |
 | `status-alert-test.yml` | By hand | Sends a test alert through every configured channel |
+| `kite-login.yml` | From the Kite login page, each morning | `kite.py`: trades Kite's one-time request token for the day's access token (stored encrypted) |
 | `experiment.yml` | By hand | `experiment.py`: backtests and the kept studies (below) |
 | `tests.yml` | Every PR and push to main | `tests/` |
 
@@ -40,12 +42,15 @@ The workflows write to branches; do not delete them.
 | Branch | Contents |
 |---|---|
 | `site-data` | The latest data files the pages read |
+| `kite-session` | The day's Kite access token, encrypted with a key made from the API secret, and its expiry |
 | `scoreboard` | Every forecast and call with its result, the daily journals, live days, GIFT Nifty recordings |
 | `intraday-data` | NIFTY, Bank NIFTY and India VIX 5-minute candles since 2015 |
 | `overnight-es`, `-nq`, `-nikkei`, `-hangseng`, `-india*` | Hourly overnight markets (Dukascopy) for the long backtests |
 
 Secrets (GitHub → Settings → Secrets, never in the repo): `FRED_API_KEY`, `XAI_API_KEY` (an xAI or Groq key),
-`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` and/or `NTFY_TOPIC` for alerts. The page's Rerun and Recheck buttons need a
+`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` and/or `NTFY_TOPIC` for alerts, `KITE_API_KEY` + `KITE_API_SECRET` for Kite
+Connect's market data (no static IP needed: that covers order placement, which the app never does; the Kite app's
+redirect URL is the site's `kite.html`). The page's Rerun and Recheck buttons need a
 fine-grained token with only **Actions: Read and write** on this repository; the page keeps it in that browser only.
 
 ## Changing a call: test first

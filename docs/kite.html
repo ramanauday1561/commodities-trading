@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Kite login</title>
+<meta name="theme-color" content="#070a12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kite login">
+<!-- The morning Kite Connect login (4 Nov 2026, kite.py). Kite's access token lasts one day, so someone logs in to
+     Kite here once each morning; Kite sends a one-time request_token back to this page, which starts the "Kite login"
+     workflow to trade it for the day's token. The API key and the GitHub token stay in this browser; the API secret
+     is only in GitHub's secrets. -->
+<style>
+  :root { --bg:#070a12; --text:#e8edf5; --muted:#8a96a8; --up:#26a69a; --down:#ef5350; --warn:#f5a623; --line:#1f2735; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+         min-height:100svh; padding:calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 24px); }
+  main { max-width:420px; margin:0 auto; }
+  h1 { font-size:14px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 20px; }
+  #state { font-size:28px; font-weight:700; margin:0 0 6px; }
+  #state.ok { color:var(--up); } #state.no { color:var(--warn); } #state.bad { color:var(--down); }
+  #detail { color:var(--muted); margin:0 0 20px; }
+  button, .btn { display:block; width:100%; padding:14px; border-radius:12px; border:0; font:600 17px/1 inherit;
+                 background:#f5a623; color:#111; cursor:pointer; text-align:center; text-decoration:none; }
+  button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); font-weight:500; font-size:14px; margin-top:10px; }
+  button:disabled { opacity:.5; }
+  .box { border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-top:20px; font-size:14px; color:var(--muted); }
+  .box b { color:var(--text); font-weight:600; }
+  label { display:block; font-size:14px; color:var(--muted); margin:14px 0 6px; }
+  input { width:100%; padding:12px; border-radius:10px; border:1px solid var(--line); background:#0d121d; color:var(--text);
+          font:15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; }
+  ol { padding-left:20px; margin:8px 0 0; } li { margin:4px 0; }
+  a { color:var(--muted); }
+  #setup[hidden], #log[hidden] { display:none; }
+</style>
+</head>
+<body>
+<main>
+  <h1 data-nav>Kite login</h1>
+  <p id="state">…</p>
+  <p id="detail"></p>
+  <button id="go">Log in to Kite</button>
+  <button id="change" class="ghost">Change the API key or GitHub token</button>
+  <div id="setup" class="box" hidden>
+    <b>One-time setup (kept in this browser only)</b>
+    <label for="key">Kite API key (developers.kite.trade → your app; the key, not the secret)</label>
+    <input id="key" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label for="tok">GitHub token (fine-grained, this repository only, Actions: Read and write; the same one as the Home page's Rerun button)</label>
+    <input id="tok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button id="save" style="margin-top:14px">Save and log in</button>
+  </div>
+  <div id="log" class="box" hidden></div>
+  <div class="box">
+    <b>Why log in each morning?</b> Kite's own 5-minute NIFTY candles replace Yahoo's, which freeze before the close.
+    Kite's access token lasts one day (until 06:00), so log in once before 09:15. Without a login, the app uses Yahoo as
+    before. The app only reads prices; it never places orders.
+    <ol>
+      <li>In your Kite Connect app, set the <b>Redirect URL</b> to <span id="here"></span></li>
+      <li>Each morning: tap <b>Log in to Kite</b>, log in, and wait here for "Logged in".</li>
+    </ol>
+  </div>
+  <p style="font-size:13px; margin-top:24px; color:var(--muted)"><a href="status.html">Status</a> · <a href="live.html">Live chart</a> · Learning tool, not financial advice.</p>
+</main>
+<script>
+const REPO = 'ramanauday1561/commodities-trading';
+const $ = id => document.getElementById(id);
+const store = {
+  get: k => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
+  set: (k, v) => { try { v ? localStorage.setItem(k, v) : localStorage.removeItem(k); } catch (e) {} },
+};
+const ghApi = (path, opts = {}) => fetch(`https://api.github.com/repos/${REPO}${path}`, {
+  ...opts, cache: 'no-store',
+  headers: { Authorization: `Bearer ${store.get('ghToken')}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' } });
+const t = iso => new Date(iso).toLocaleString('en-IN', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' });
+const here = location.origin + location.pathname;
+$('here').textContent = here;
+
+function show(state, cls, detail) { $('state').textContent = state; $('state').className = cls; $('detail').innerHTML = detail || ''; }
+
+// today's login, from the kite-session branch (no secrets in it: the login and expiry times)
+async function current() {
+  try {
+    const h = { Accept: 'application/vnd.github.raw+json' };
+    if (store.get('ghToken')) h.Authorization = `Bearer ${store.get('ghToken')}`;
+    const r = await fetch(`https://api.github.com/repos/${REPO}/contents/status.json?ref=kite-session`, { headers: h, cache: 'no-store' });
+    return r.ok ? await r.json() : null;
+  } catch (e) { return null; }
+}
+async function refresh() {
+  const s = await current();
+  if (s && Date.parse(s.until) > Date.now()) {
+    show('Logged in', 'ok', `Since ${t(s.at)} IST; Kite's prices are used until ${t(s.until)} IST.`);
+    $('go').textContent = 'Log in again';
+  } else {
+    show('Not logged in today', 'no', s ? `The last login (${t(s.at)} IST) has expired. The app uses Yahoo until you log in.`
+                                        : 'No Kite login yet. The app uses Yahoo until you log in.');
+    $('go').textContent = 'Log in to Kite';
+  }
+}
+
+function setup(open) {
+  $('setup').hidden = !open;
+  $('key').value = store.get('kiteKey');
+  $('tok').value = '';
+  $('tok').placeholder = store.get('ghToken') ? 'saved (leave empty to keep it)' : 'github_pat_…';
+}
+function login() {
+  if (!store.get('kiteKey') || !store.get('ghToken')) return setup(true);
+  location.href = 'https://kite.zerodha.com/connect/login?v=3&api_key=' + encodeURIComponent(store.get('kiteKey'));
+}
+$('go').onclick = login;
+$('change').onclick = () => setup($('setup').hidden);
+$('save').onclick = () => {
+  const k = $('key').value.trim(), g = $('tok').value.trim();
+  if (k) store.set('kiteKey', k);
+  if (g) store.set('ghToken', g);
+  if (!store.get('kiteKey') || !store.get('ghToken')) { $('log').hidden = false; $('log').textContent = 'Both the API key and the GitHub token are needed.'; return; }
+  setup(false);
+  login();
+};
+
+// back from Kite: ?request_token=...&action=login&status=success
+async function finish(requestToken) {
+  history.replaceState(null, '', location.pathname);         // the one-time token leaves the address bar at once
+  show('Logging in…', '', 'Starting the Kite login on GitHub (about 30 seconds).');
+  $('go').disabled = true;
+  const t0 = new Date(Date.now() - 60000).toISOString();
+  try {
+    const r = await ghApi('/actions/workflows/kite-login.yml/dispatches', { method: 'POST',
+      body: JSON.stringify({ ref: 'main', inputs: { request_token: requestToken } }) });
+    if (r.status !== 204) {
+      const why = r.status === 401 ? 'GitHub did not accept the saved token (expired or mistyped).'
+        : r.status === 403 || r.status === 404 ? 'The GitHub token needs Actions: Read and write on this repository.'
+        : `GitHub answered ${r.status}.`;
+      show('Login not started', 'bad', why + ' Change the token below and log in again (Kite login links work once).');
+      $('go').disabled = false;
+      return;
+    }
+    for (let k = 0; k < 40; k++) {                             // up to ~2 minutes
+      await new Promise(res => setTimeout(res, 4000));
+      const q = await ghApi(`/actions/workflows/kite-login.yml/runs?per_page=3&event=workflow_dispatch&created=${encodeURIComponent('>=' + t0)}`);
+      const run = q.ok ? ((await q.json()).workflow_runs || [])[0] : null;
+      if (!run) continue;
+      if (run.status !== 'completed') { show('Logging in…', '', 'GitHub is trading the login for today\'s token…'); continue; }
+      if (run.conclusion === 'success') { await refresh(); $('go').disabled = false; return; }
+      show('Login failed', 'bad', `Kite did not accept the login (an expired link, or the API secret in GitHub does not match this key).
+        <a href="${run.html_url}" target="_blank" rel="noopener">See the run</a>, then log in again.`);
+      $('go').disabled = false;
+      return;
+    }
+    show('Still waiting', 'no', 'GitHub has not finished yet; reload this page in a minute.');
+  } catch (e) {
+    show('Login not started', 'bad', 'No connection to GitHub. Check the internet and log in again.');
+  }
+  $('go').disabled = false;
+}
+
+const p = new URLSearchParams(location.search);
+if (p.get('request_token') && p.get('status') === 'success') finish(p.get('request_token'));
+else {
+  if (p.get('status')) history.replaceState(null, '', location.pathname);
+  refresh();
+}
+</script>
+<script src="nav.js"></script>
+</body>
+</html>
