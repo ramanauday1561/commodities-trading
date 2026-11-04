@@ -321,6 +321,15 @@ stored history. Added 51 days nobody had (19 May - 30 Jul) and replaced 65 Yahoo
 on the repaired history (2,910 days, 2015 - 3 Nov 2026): top-20% leans right 53.0%, -1.14 points (-Rs74 a lot) a trade
 after costs, 0 of 10 years up: the same verdict as before (-Rs73). The leans stay information only.
 
+Experiment mode "shortopt" (4 Nov 2026, short_option_study.py): SELLING NIFTY options from the open on real premiums
+(NSE bhavcopy, 2,906 sessions 2015 - 3 Nov 2026, one lot of 65, 1.85 points a leg of costs; stops from each leg's
+daily high). Rule fixed before the run: earns over all days, both halves, since 2022, in 9 of 12 years, and the worst
+day within 25% of the margin. None of six variants passes. The short ATM straddle (nearest expiry) made +Rs232 a lot
+a day overall but lost every year 2015-2019 and made money every year since 2020 (+Rs209 to +Rs893 a day); worst day
+-Rs66,771 (4 Jun 2024). With a 50% stop per leg: +Rs229 a day, 8 of 12 years, worst day -Rs21,312. The gain is
+mostly on expiry days. Iron flies with 1% wings lost (-Rs386 a day). Next: paper-trade the 50%-stop straddle on the
+live option prices the app now records, before anything else.
+
 Experiment mode "movesize" (5 Nov 2026, movesize_study.py): the SIZE of the next 10-minute move (2,911 days, test
 years 2017-2026). Rule A (the forecast's error beats the time-of-day and last-three-candles baselines by 3%+ overall and
 in 8 of 10 years; its top 10% moves 1.5x+ its bottom 10% every year) PASSES: 10.4% better, all 10 years, 2.7-4.3x. Now

@@ -198,6 +198,7 @@ STUDIES = {
     "history": ("history_study", "main"), "longsignal": ("long_signal_study", "main"),
     "intrarules": ("intraday_rules_study", "main"), "nextcandle": ("nextcandle_study", "main"),
     "minute": ("minute_study", "main"), "options": ("option_study", "main"),
+    "shortopt": ("short_option_study", "main"),
     "movesize": ("movesize_study", "main"),
 }
 

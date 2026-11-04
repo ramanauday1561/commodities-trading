@@ -161,6 +161,31 @@ async function loadRealOpt() {
 async function loadLiveOpt() {
   try { liveOpt = await siteJSON('options-live.json') || liveOpt; } catch (e) {}
 }
+// The wider option chain's open interest and the paper straddle (options_live.py, 5 Nov 2026): information only
+function chainPaper(day) {
+  const o = liveOpt && liveOpt.date === day ? liveOpt : null;
+  if (!o) return '';
+  const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
+  const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+  const lakh = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}${(Math.abs(x) / 1e5).toFixed(1)} lakh`;
+  const k = x => Number(x).toLocaleString('en-IN');
+  let h = '';
+  const c = o.chain;
+  if (c) h += `<div style="margin-top:6px"><b>Open interest</b> (expiry ${c.expiry}, 21 strikes around NIFTY, ${o.at}):
+    put-call ratio <b>${c.pcr}</b> · most CALL open interest at ${k(c.call_wall)} · most PUT at ${k(c.put_wall)}${c.since
+      ? ` · since ${c.since}: CALL ${lakh(c.call_oi_change)}, PUT ${lakh(c.put_oi_change)}` : ''}.
+    <span class="m">Recorded to be tested once months of it exist; not a signal yet.</span></div>`;
+  const pp = o.paper;
+  if (pp && pp.today) {
+    const t = pp.today, r = pp.record || {};
+    const legs = ['CE', 'PE'].map(x => t.legs[x] ? `${x === 'CE' ? 'CALL' : 'PUT'} ${t.legs[x].sold} → ${t.legs[x].stopped ? 'stopped' : t.legs[x].now}` : '').join(', ');
+    h += `<div style="margin-top:6px"><b>Paper trade, no money</b>: sold the ${k(t.strike)} CALL and PUT at the open, 50% stop each
+      (${legs}): ${t.final ? 'closed' : 'so far'} <b class="${cls(t.rs)}">${rs(t.rs)}</b> a lot.
+      ${r.days ? `Record since ${r.since}: ${r.won} of ${r.days} days up, <b class="${cls(r.total_rs)}">${rs(r.total_rs)}</b>, worst day ${rs(r.worst_rs)}.` : ''}
+      <span class="m">In 2015-2026 this made +₹229 a day but lost every year 2015-2019; it did not pass the test, so it is tracked, not traded.</span></div>`;
+  }
+  return h;
+}
 function liveOptLine(day) {
   const o = liveOpt && liveOpt.date === day ? liveOpt : null;
   if (!o || !o.call || o.call.rs == null) return '';
@@ -272,7 +297,8 @@ function summary() {
   }
   if (d.paused_from) h += sec('Price feed', `<span class="m">Yahoo's 5-minute prices stopped moving from ${d.paused_from} (it happens near the close on most days since Aug 2026); those minutes are left out of the candles until the close.</span>`);
   p.innerHTML = h + recordLine(d.record) + moneyBox(d.money, d.date, d.status)
-    + (d.money && d.money.rows && d.money.rows.length ? '' : liveOptLine(d.date));   // during the day: no money box yet
+    + (d.money && d.money.rows && d.money.rows.length ? '' : liveOptLine(d.date))   // during the day: no money box yet
+    + chainPaper(d.date);
 }
 chart.subscribeClick(param => {
   if (REPLAY || rp) return;                    // the replay view has its own (below)

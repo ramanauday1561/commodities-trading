@@ -8,6 +8,7 @@ is no server. Educational project, not financial advice.
 
 | Page | What it shows |
 |---|---|
+| Today (`today.html`) | The day on one screen: NIFTY, the signal, live option prices and the paper trade, Next 10 min, GIFT Nifty and the AI's read, the data checks |
 | Home (`index.html`) | Next-days forecasts per market, today's NIFTY call, news, the backtest behind each number |
 | Status (`status.html`) | CALL, PUT, STAY, SELL or NOTHING for NIFTY right now (only the tested 09:15 signal trades) |
 | Live (`live.html`) | Today in 10-minute candles: our model and the AI's predicted close vs the real price, the track record |
@@ -48,7 +49,7 @@ The workflows write to branches; do not delete them.
 | `site-data` | The latest data files the pages read |
 | `kite-session` | The day's Kite access token, encrypted with a key made from the API secret, and its expiry |
 | `scoreboard` | Every forecast and call with its result, the daily journals, live days, GIFT Nifty recordings |
-| `options-live` | NIFTY option quotes near the money every 10 minutes and their 5-minute candles after the close (Kite, from 4 Nov 2026) |
+| `options-live` | NIFTY option quotes every 10 minutes (21 strikes, two expiries, with open interest; from 5 Nov 2026), their 5-minute candles after the close, and `paper/straddle.json`: the paper straddle's every day (Kite, from 4 Nov 2026) |
 | `intraday-data` | NIFTY, Bank NIFTY and India VIX 5-minute candles since 2015 (Kite's since 19 May 2026; `sources.json` says which source each day came from; the Yahoo-era copy is `intraday-data-yahoo-backup`) |
 | `overnight-es`, `-nq`, `-nikkei`, `-hangseng`, `-india*` | Hourly overnight markets (Dukascopy) for the long backtests |
 
@@ -65,7 +66,7 @@ in its own PR. **Actions → Model experiments → Run workflow** with a `mode`:
 
 - `variants` (default), `risk`, `events`, `resultsrisk`, `dailyfill`, `commodity`: the forecast models.
 - `longsignal`, `history`, `preopen`, `open`, `vix`, `accuracy`, `improve`, `extreme`, `strategy`, `intrarules`,
-  `nextcandle`, `movesize`: the NIFTY studies kept for re-testing.
+  `nextcandle`, `shortopt`, `movesize`: the NIFTY studies kept for re-testing.
 - `intradata` / `dukafetch`: update the stored 5-minute / hourly overnight history.
 - `kitecheck` / `kitecompare` / `kiterepair` / `kitepositions`: are the Kite secrets accepted; Kite vs Yahoo side by side; Kite's 5-minute
   candles in place of Yahoo's in the stored history (test_days = the first day; all need that day's login).
