@@ -314,3 +314,9 @@ VIX. On the candles both have, closes agree to 0.001% on average (5-minute, 15-m
 5 years; VIX 0.02%). Yahoo had 110 frozen 5-minute NIFTY bars in 60 days (open = high = low = close before the close)
 that Kite has as real candles, and Kite had bars Yahoo lacked (4 five-minute in 60 days, 33 hourly in two years).
 Adopted: prices.py takes Kite first after the morning login, Yahoo otherwise.
+
+Experiment mode "kiterepair" (4 Nov 2026, intraday_data.repair): Kite's 5-minute candles since 19 May 2026 in the
+stored history. Added 51 days nobody had (19 May - 30 Jul) and replaced 65 Yahoo days, removing 119 frozen NIFTY bars
+(118 Bank NIFTY; VIX had none). The Yahoo-era copy is on the intraday-data-yahoo-backup branch. The next-candle study
+on the repaired history (2,910 days, 2015 - 3 Nov 2026): top-20% leans right 53.0%, -1.14 points (-Rs74 a lot) a trade
+after costs, 0 of 10 years up: the same verdict as before (-Rs73). The leans stay information only.

@@ -11,7 +11,15 @@ rules (the first intraday study had 60 days). Two sources:
     stored are never changed. 19 May - ~30 Jul 2026 is missing in both (Kaggle ends, Yahoo's 60 days start later).
 Files: <dir>/<name>/<YYYY-MM>.csv with datetime (IST, the candle's start), open, high, low, close; one file a month so
 a day's update changes one small file. Session candles only (09:15 ... 15:25).
+
+Kite Connect (4 Nov 2026, kite.py): after the morning login, the update takes Kite's candles for the last 100 days and
+replaces the Yahoo days among them (Yahoo's bars froze before the close on most days since Aug 2026), and fills the
+days nobody had. "repair" does the same back to 19 May 2026 (the 19 May - 30 Jul gap included). <dir>/<name>/
+sources.json says where each day came from (kaggle, yahoo, kite; days without an entry: kaggle up to 18 May 2026,
+yahoo after); Kite days skip the frozen-feed check when read.
+Usage: python scripts/intraday_data.py repair <dir> [YYYY-MM-DD]   (needs that day's Kite login)
 """
+import json
 import glob
 import io
 import os
@@ -60,6 +68,23 @@ def drop_frozen(g):
     return g if g is None or len(g) < 2 else g[~frozen(g)]
 
 
+KAGGLE_LAST = "2026-05-18"
+REPAIR_FROM = "2026-05-19"
+
+
+def sources(d, name):
+    """{date iso: "kaggle" / "yahoo" / "kite"} for every stored day."""
+    p = os.path.join(d, name, "sources.json")
+    known = json.load(open(p)) if os.path.exists(p) else {}
+    return {x.isoformat(): known.get(x.isoformat(), "kaggle" if x.isoformat() <= KAGGLE_LAST else "yahoo")
+            for x in stored_days(d, name)}
+
+
+def _save_sources(d, name, src):
+    os.makedirs(os.path.join(d, name), exist_ok=True)
+    json.dump(dict(sorted(src.items())), open(os.path.join(d, name, "sources.json"), "w"), indent=0)
+
+
 def stored_days(d, name):
     days = set()
     for f in glob.glob(os.path.join(d, name, "*.csv")):
@@ -83,6 +108,62 @@ def add(d, name, df):
         out = session(pd.concat([old, g]) if old is not None else g)
         out.to_csv(path, index=False, date_format="%Y-%m-%d %H:%M")
     return int(df["datetime"].dt.date.nunique())
+
+
+def replace(d, name, df, source="kite"):
+    """Store df's days, replacing the same days already stored unless they came from Kaggle or Kite; returns
+    (added, replaced, frozen bars gone) for the days written."""
+    df = session(df)
+    if df.empty:
+        return 0, 0, 0
+    src = sources(d, name)
+    days = sorted(set(df["datetime"].dt.date))
+    write = [x for x in days if src.get(x.isoformat()) not in ("kaggle", "kite")]
+    if not write:
+        return 0, 0, 0
+    old = load(d, name, raw=True)
+    gone = sum(int(frozen(old[x]).sum()) for x in write if x in old)
+    added = sum(1 for x in write if x.isoformat() not in src)
+    df = df[df["datetime"].dt.date.isin(write)]
+    os.makedirs(os.path.join(d, name), exist_ok=True)
+    for month, g in df.groupby(df["datetime"].dt.strftime("%Y-%m")):
+        path = os.path.join(d, name, f"{month}.csv")
+        kept = None
+        if os.path.exists(path):
+            kept = pd.read_csv(path, parse_dates=["datetime"])
+            kept = kept[~kept["datetime"].dt.date.isin(write)]
+        session(pd.concat([kept, g]) if kept is not None else g).to_csv(path, index=False, date_format="%Y-%m-%d %H:%M")
+    src.update({x.isoformat(): source for x in write})
+    _save_sources(d, name, src)
+    return added, len(write) - added, gone
+
+
+def kite_series(symbol, start, end):
+    """Kite's 5-minute candles from start to end (dates) as datetime (IST, naive), open, high, low, close; or None."""
+    import kite
+    import prices
+    s = kite.session()
+    if not s:
+        return None
+    rows = kite.history(s[0], s[1], prices.KITE[symbol], "5minute", datetime.combine(start, time(0, 0)),
+                        datetime.combine(end, time(23, 59, 59)), max_days=100)
+    return pd.DataFrame([(t.replace(tzinfo=None), o, h, lo, c) for t, o, h, lo, c, _ in rows], columns=COLS)
+
+
+def repair(d, since=REPAIR_FROM, now=None, get=kite_series):
+    """Kite's candles for every day since `since` (finished days), replacing Yahoo's and filling the gaps."""
+    from datetime import date as _date, timedelta
+    now = now or datetime.now(IST)
+    start = _date.fromisoformat(since)
+    out = {}
+    for name, (sym, _) in SERIES.items():
+        df = get(sym, start, now.date())
+        if df is None:
+            out[name] = "no Kite login today"
+            continue
+        out[name] = dict(zip(("added", "replaced", "frozen_bars_gone"), replace(d, name, finished(df, now))))
+    print("intraday repair", out, flush=True)
+    return out
 
 
 def from_kaggle(d, get=None):
@@ -119,7 +200,10 @@ def finished(df, now):
     return df[pd.to_datetime(df["datetime"]).dt.date < now.date()]
 
 
-def update(d, now=None, get_yahoo=yahoo, get_kaggle=None):
+def update(d, now=None, get_yahoo=yahoo, get_kaggle=None, get_kite=kite_series):
+    """Kaggle once; then Kite's last 100 days after the morning login (replacing Yahoo days, filling gaps), else
+    Yahoo's 60 days (new days only)."""
+    from datetime import timedelta
     now = now or datetime.now(IST)
     out = {}
     mark = os.path.join(d, "kaggle-loaded.txt")
@@ -132,7 +216,21 @@ def update(d, now=None, get_yahoo=yahoo, get_kaggle=None):
             out["kaggle"] = f"failed: {type(e).__name__}"
     for name, (sym, _) in SERIES.items():
         try:
-            out[name] = add(d, name, finished(get_yahoo(sym), now))
+            k = get_kite(sym, now.date() - timedelta(days=99), now.date()) if get_kite else None
+        except Exception as e:                      # Kite down: Yahoo below
+            print(f"intraday data: Kite failed for {name} ({e})", flush=True)
+            k = None
+        try:
+            if k is not None and len(k):
+                out[name] = dict(zip(("kite_added", "kite_replaced", "frozen_bars_gone"), replace(d, name, finished(k, now))))
+            else:
+                before = stored_days(d, name)
+                out[name] = add(d, name, finished(get_yahoo(sym), now))
+                new = stored_days(d, name) - before
+                if new:
+                    src = sources(d, name)
+                    src.update({x.isoformat(): "yahoo" for x in new})
+                    _save_sources(d, name, src)
         except Exception as e:                      # one series failing must not stop the others
             out[name] = f"failed: {type(e).__name__}"
     for name in SERIES:
@@ -143,16 +241,21 @@ def update(d, now=None, get_yahoo=yahoo, get_kaggle=None):
     return out
 
 
-def load(d, name="nifty"):
-    """{date: DataFrame of that day's candles (index = IST datetime; Open, High, Low, Close)}."""
+def load(d, name="nifty", raw=False):
+    """{date: DataFrame of that day's candles (index = IST datetime; Open, High, Low, Close)}; Yahoo's paused-feed
+    bars left out (not on Kite or Kaggle days; raw=True keeps everything)."""
     files = sorted(glob.glob(os.path.join(d, name, "*.csv")))
     if not files:
         return {}
     df = pd.concat(pd.read_csv(f, parse_dates=["datetime"]) for f in files).set_index("datetime")
     df = df.rename(columns=str.title)
-    return {k: drop_frozen(g) for k, g in df.groupby(df.index.date)}
+    p = os.path.join(d, name, "sources.json")
+    kite_days = {k for k, v in (json.load(open(p)) if os.path.exists(p) else {}).items() if v == "kite"}
+    return {k: g if raw or k.isoformat() in kite_days else drop_frozen(g) for k, g in df.groupby(df.index.date)}
 
 
 if __name__ == "__main__":
     if sys.argv[1:2] == ["update"]:
         update(sys.argv[2])
+    if sys.argv[1:2] == ["repair"]:
+        repair(sys.argv[2], *(sys.argv[3:4] or []))
