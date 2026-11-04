@@ -22,6 +22,23 @@ Rule, fixed before the run: a variant is worth paper-trading only if, after cost
 days, (2) in both halves, (3) since 2022, (4) in at least 9 of the 12 years, and (5) its worst day loses no more than
 25% of its margin. Six variants are tried on the same data, so one passing by a little would still be luck-prone;
 anything that passes goes to paper trading in the app, not to real money.
+
+Result (run 41811711586, 4 Nov 2026; 2,906 sessions, 1 Jan 2015 - 3 Nov 2026; Rs a lot of 65 a day after costs):
+  A. straddle, nearest, no stop     +232/day, won 60%, halves -0.60 / +7.74 pts, since 2022 +7.58 pts, 7/12 years,
+                                    worst day -66,771 (4 Jun 2024, the election result), max drawdown -197,808
+  B. straddle, skip expiry day      +202/day, halves -0.66 / +6.88, 7/12 years, worst -66,771
+  C. A with 50% stops               +229/day, halves -0.26 / +7.32, since 2022 +6.92, 8/12 years, worst -21,312
+                                    (23 Mar 2020), max drawdown -142,644, stops hit on 60% of days, Sharpe 1.29
+  D. A with 30% stops               +110/day, 6/12 years
+  E. iron fly (1% wings), nearest   -386/day, 1/12 years      F. iron fly, skip expiry day  -445/day, 0/12 years
+  None passes. Selling straddles lost money every year 2015-2019 (about -Rs100 to -Rs230 a day) and made money every
+  year since 2020 (A: +Rs209 to +Rs893 a day, rising), so the first half fails. The gain is concentrated on expiry
+  days (A: +13.81 points on expiry days, +1.68 on others). The wings of the iron fly cost more than they saved on
+  bhavcopy opens (thin far-out-of-the-money first trades are part of that). By India VIX at the open (A): low
+  +Rs130, middle +Rs101, high +Rs471 a day, with the worst days in the high third.
+  Choosing "since 2020" now would be picking the window after seeing it; the honest next step is a forward record:
+  the app now records live option prices every 10 minutes (options_live.py), so variant C can be paper-traded on
+  real prices from here on, as information.
 """
 import json
 import os
