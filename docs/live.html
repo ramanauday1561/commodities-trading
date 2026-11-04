@@ -142,7 +142,7 @@ function draw(d) {
   const now = d.price ?? (c.length ? c[c.length - 1].close : null);
   $('px').innerHTML = `NIFTY 50 ${now ? f(now) : ''} ${d.move_pct != null ? `<span class="${d.move_pct >= 0 ? 'up' : 'down'}">${pc(d.move_pct)}</span>` : ''}`;
   const upd = d.updated ? d.updated.slice(11, 16) : '';
-  $('when').innerHTML = `Updated ${upd} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;
+  $('when').innerHTML = `Updated ${upd} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}${d.feed === 'kite' ? ' · Kite prices' : ''}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   if (!$('panel').dataset.pinned) summary();
 }
 // "₹2 lakh today" (daymoney.py): what each way of trading the day made, per NIFTY lot, beside its 11-year result

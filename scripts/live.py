@@ -47,10 +47,11 @@ def ist_epoch(t):
 
 
 def drop_frozen(bars):
-    """(bars kept, start times of the paused-feed bars left out): intraday_data.frozen's rule on today's bars."""
+    """(bars kept, start times of the paused-feed bars left out): intraday_data.frozen's rule on today's bars.
+    Kite's candles (kite.Bars) are kept as they are: the frozen feed is Yahoo's."""
     import pandas as pd
     from intraday_data import frozen
-    if len(bars) < 2:
+    if getattr(bars, "feed", "") == "kite" or len(bars) < 2:
         return list(bars), []
     bars = sorted(bars)
     g = pd.DataFrame([b[1:] for b in bars], columns=["Open", "High", "Low", "Close"],
@@ -267,7 +268,15 @@ def ai_prompt(day, now, pc, opn, price, hi, lo, closes, call, news=None):
 
 
 def bars5():
-    """Today's 5-minute NIFTY candles [(aware start, o, h, l, c)], or []."""
+    """Today's 5-minute NIFTY candles [(aware start, o, h, l, c)], or []: from Kite Connect after the morning login
+    (kite.py, 4 Nov 2026; no frozen bars before the close), else Yahoo."""
+    try:
+        import kite
+        k = kite.bars5()
+        if k:
+            return k
+    except Exception as e:                                   # never stops the run: Yahoo below
+        print(f"live: kite failed: {e!r}", flush=True)
     import pandas as pd
     import yfinance as yf
     raw = yf.download("^NSEI", period="1d", interval="5m", auto_adjust=False, progress=False)
@@ -353,6 +362,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
             print(f"live: 5-minute candles failed: {e!r}", flush=True)
             b = []
         if b:
+            st["feed"] = getattr(b, "feed", "yahoo")         # which prices the chart shows (kite.py)
             b, paused = drop_frozen(b)                      # the feed pauses before the close (intraday_data.FREEZE_FROM)
             st["candles"] = candles10(b, paused)
             if paused:
@@ -418,7 +428,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
     json.dump(st, open(path, "w"), separators=(",", ":"))
     meta = _load(os.path.join(data_dir, "nextcandle-meta.json"), {}) or {}
     json.dump({"date": day, "updated": now.isoformat(timespec="minutes"), "status": today.get("status"),
-               "prev_close": prev_close, "candles": st.get("candles", []), "leans": st.get("leans", []), "paused_from": st.get("paused_from"),
+               "prev_close": prev_close, "candles": st.get("candles", []), "leans": st.get("leans", []), "paused_from": st.get("paused_from"), "feed": st.get("feed"),
                "record": meta.get("record"), "day_record": meta.get("day_record"), "trained_until": meta.get("trained_until"),
                "live_record": next_record(store_dir, day)},
               open(os.path.join(data_dir, "next-nifty.json"), "w"), separators=(",", ":"))
@@ -433,7 +443,7 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
            "trade": {"side": side, "entry": i.get("open"), "stop": round(status.stop_level(side, i["open"]), 2)}
                     if side and i.get("open") else None,
            "candles": st.get("candles", []), "preds": st.get("preds", []), "moves": st.get("moves", []),
-           "paused_from": st.get("paused_from"),
+           "paused_from": st.get("paused_from"), "feed": st.get("feed"),
            "marks": marks(store_dir, day), "morning": st.get("morning"), "card": st.get("card"),
            "money": st.get("money"), "daylike": _daylike(data_dir, today, now), "record": track_record(store_dir)}
     json.dump(out, open(os.path.join(data_dir, "live-nifty.json"), "w"), separators=(",", ":"))

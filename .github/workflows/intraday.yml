@@ -54,7 +54,7 @@ jobs:
           cache: pip                   # downloaded packages kept between runs (2 Nov 2026: the install took ~16 s a run)
           cache-dependency-path: scripts/requirements.txt
       - if: steps.gate.outputs.go == 'true'
-        run: pip install yfinance pandas numpy exchange_calendars lightgbm
+        run: pip install yfinance pandas numpy exchange_calendars lightgbm cryptography
       - name: Latest published data
         if: steps.gate.outputs.go == 'true'
         run: bash scripts/store.sh pull site-data docs/data
@@ -80,8 +80,13 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
           XAI_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.XAI_API_KEY || '' }}
+          # Kite Connect after the morning login (kite.py; docs/kite.html), else Yahoo
+          KITE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_KEY || '' }}
+          KITE_API_SECRET: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_SECRET || '' }}
+          KITE_DIR: kite
           PYTHONPATH: scripts
         run: |
+          bash scripts/store.sh pull kite-session kite || true
           bash scripts/store.sh pull scoreboard store
           before=$(jq -r '"\(.date)\(.state)\(.kind)"' docs/data/status.json 2>/dev/null || echo none)
           python -u scripts/live.py docs/data store morning || true
