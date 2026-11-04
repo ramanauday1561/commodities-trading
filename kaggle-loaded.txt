@@ -1,0 +1,2 @@
+https://www.kaggle.com/api/v1/datasets/download/debashis74017/nifty-50-minute-data
+loaded 2026-10-27 23:30 IST: {'nifty': 2800, 'banknifty': 2800, 'vix': 2799}
