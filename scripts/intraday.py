@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
-import yfinance as yf
+import prices
 
 from evalutil import summarize
 
@@ -30,10 +30,10 @@ def _flat(df):
 
 
 def load(symbol, interval, tz):
-    bars = _flat(yf.download(symbol, period="60d", interval=interval, progress=False, auto_adjust=False))
+    bars = _flat(prices.download(symbol, period="60d", interval=interval, progress=False, auto_adjust=False))
     idx = pd.DatetimeIndex(bars.index)
     bars.index = idx.tz_localize("UTC").tz_convert(tz) if idx.tz is None else idx.tz_convert(tz)
-    daily = _flat(yf.download(symbol, period="1y", interval="1d", progress=False, auto_adjust=False))["Close"]
+    daily = _flat(prices.download(symbol, period="1y", interval="1d", progress=False, auto_adjust=False))["Close"]
     daily.index = pd.to_datetime(daily.index).tz_localize(None).normalize()
     return bars, daily
 

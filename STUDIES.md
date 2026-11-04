@@ -308,3 +308,9 @@ Result (29 Oct 2026, run in the session on the intraday-data branch: 2,857 sessi
   0.3% and 0.6% land in the same place (+0.02% to +0.07% a trade); nothing is far enough from zero to pay for an option.
   So 29 Oct was a day the rule wins, not a rule: strong mornings carry on to 15:15 about as often as they fade.
 ```
+
+Experiment mode "kitecompare" (4 Nov 2026, kite_compare.py): Kite Connect vs Yahoo for NIFTY 50, Bank NIFTY and India
+VIX. On the candles both have, closes agree to 0.001% on average (5-minute, 15-minute, hourly over 730 days, daily over
+5 years; VIX 0.02%). Yahoo had 110 frozen 5-minute NIFTY bars in 60 days (open = high = low = close before the close)
+that Kite has as real candles, and Kite had bars Yahoo lacked (4 five-minute in 60 days, 33 hourly in two years).
+Adopted: prices.py takes Kite first after the morning login, Yahoo otherwise.

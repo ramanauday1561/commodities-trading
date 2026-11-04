@@ -11,14 +11,14 @@ import sys
 from datetime import datetime, timezone
 
 import pandas as pd
-import yfinance as yf
+import prices
 
 IST_OFFSET = 19800          # seconds; the chart shows times as UTC, so shift them to read as IST
 PERIOD = "3mo"
 
 
 def bars(ticker, period=PERIOD):
-    raw = yf.download(ticker, period=period, interval="1h", auto_adjust=False, progress=False)
+    raw = prices.download(ticker, period=period, interval="1h", auto_adjust=False, progress=False)
     if raw is None or not len(raw):
         return []
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]

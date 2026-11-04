@@ -81,8 +81,8 @@ def watchdog(wait=RETRY_WAIT):
 
 def day_range():
     """Today's open and the high / low since, from NIFTY's 1-minute candles (None if unavailable)."""
-    import yfinance as yf
-    raw = yf.download("^NSEI", period="1d", interval="1m", auto_adjust=False, progress=False)
+    import prices
+    raw = prices.download("^NSEI", period="1d", interval="1m", auto_adjust=False, progress=False)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["High", "Low"])
     if not len(raw) or raw.index[-1].tz_convert(IST).date() != datetime.now(IST).date():

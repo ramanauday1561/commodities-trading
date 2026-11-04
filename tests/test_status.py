@@ -429,3 +429,24 @@ class WhyNothing(unittest.TestCase):
         self.assertAlmostEqual(sh["pct"], round(1.085 - 0.941 - 0.969 - 3 * 0.03, 2), places=1)
         self.assertEqual(sh["test"], {"days": 566, "trade_share": None, "right": 0.489, "pct": -0.019})
         self.assertIsNone(status.shadow({"record": {"recent": []}}))
+
+
+class KiteLogin(unittest.TestCase):
+    """4 Nov 2026: one reminder a session day while there is no Kite login; the page shows the price source."""
+
+    def test_state_and_reminder(self):
+        with tempfile.TemporaryDirectory() as d, mock.patch.dict(os.environ, {"KITE_API_KEY": "k", "KITE_DIR": d}):
+            day = {"date": "2026-10-22", "status": "pre_open"}
+            k = status.kite_state(at(8, 20))
+            self.assertEqual(k, {"logged_in": False})
+            self.assertTrue(status.kite_reminder(at(8, 20), day, k, None))
+            self.assertFalse(status.kite_reminder(at(8, 20), day, k, "2026-10-22"))        # once a day
+            self.assertFalse(status.kite_reminder(at(8, 0), day, k, None))                 # not before 08:15
+            self.assertFalse(status.kite_reminder(at(8, 20), dict(day, status="holiday"), k, None))
+            json.dump({"at": "2026-10-22T08:30+05:30", "until": "2026-10-23T06:00+05:30"}, open(os.path.join(d, "status.json"), "w"))
+            k = status.kite_state(at(9, 0))
+            self.assertTrue(k["logged_in"])
+            self.assertFalse(status.kite_reminder(at(9, 0), day, k, None))
+            self.assertFalse(status.kite_state(datetime(2026, 10, 23, 7, 0, tzinfo=IST))["logged_in"])   # expired at 06:00
+        with mock.patch.dict(os.environ, {"KITE_API_KEY": ""}):
+            self.assertIsNone(status.kite_state(at(9, 0)))                                  # Kite not set up: nothing shown

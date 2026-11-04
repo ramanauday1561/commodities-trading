@@ -30,10 +30,14 @@ A sidebar (`nav.js`) links them; a service worker (`sw.js`) lets the home-screen
 | `experiment.yml` | By hand | `experiment.py`: backtests and the kept studies (below) |
 | `tests.yml` | Every PR and push to main | `tests/` |
 
+Prices: `prices.py` serves NIFTY 50, Bank NIFTY and India VIX to every script, from Kite Connect after the morning
+login (`kite.py`, the Kite login page) and from Yahoo otherwise or when Kite fails or falls behind; its checks (stale
+candles, a missing session, Kite errors) go to `data-health.json` and the Status page. Other markets come from Yahoo.
 Helpers: `calendars.py` (exchange holidays), `rolls.py` (futures roll adjustment), `results_calendar.py` and
 `us_events.py` (days the 09:15 signal stands aside), `intraday_data.py` and `overnight_data.py` (stored history),
 `daymoney.py` (the ₹2 lakh box), `grok.py` (AI notes), `dailyfill.py`, `evalutil.py`, `build_manifest.py`,
-`prune_data.py`, `store.sh`, `option_data.py` and `option_record.py` (real NIFTY option prices, nightly), `weekly.py` (the Saturday summary). Markets are listed in `scripts/instruments.json`.
+`prune_data.py`, `store.sh`, `option_data.py` and `option_record.py` (real NIFTY option prices, nightly), `options_live.py`
+(live option prices from Kite every 10 minutes, the Live page's line), `weekly.py` (the Saturday summary). Markets are listed in `scripts/instruments.json`.
 
 ## Where data lives
 
@@ -44,6 +48,7 @@ The workflows write to branches; do not delete them.
 | `site-data` | The latest data files the pages read |
 | `kite-session` | The day's Kite access token, encrypted with a key made from the API secret, and its expiry |
 | `scoreboard` | Every forecast and call with its result, the daily journals, live days, GIFT Nifty recordings |
+| `options-live` | NIFTY option quotes near the money every 10 minutes and their 5-minute candles after the close (Kite, from 4 Nov 2026) |
 | `intraday-data` | NIFTY, Bank NIFTY and India VIX 5-minute candles since 2015 |
 | `overnight-es`, `-nq`, `-nikkei`, `-hangseng`, `-india*` | Hourly overnight markets (Dukascopy) for the long backtests |
 
@@ -62,6 +67,7 @@ in its own PR. **Actions → Model experiments → Run workflow** with a `mode`:
 - `longsignal`, `history`, `preopen`, `open`, `vix`, `accuracy`, `improve`, `extreme`, `strategy`, `intrarules`,
   `nextcandle`: the NIFTY studies kept for re-testing.
 - `intradata` / `dukafetch`: update the stored 5-minute / hourly overnight history.
+- `kitecheck` / `kitecompare`: are the Kite secrets accepted; Kite vs Yahoo side by side (needs that day's login).
 - `nextreplay` (test_days = a date): replay that day's Next 10 min leans with the model as it was that morning, beside what the live page showed.
 
 [STUDIES.md](STUDIES.md) lists what each study found, including the finished one-off studies whose scripts were

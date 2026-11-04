@@ -34,8 +34,17 @@ class KiteError(RuntimeError):
     pass
 
 
+_LAST = [0.0]
+
+
 def _req(path, key=None, token=None, data=None, timeout=20):
-    """Kite's JSON answer; errors say Kite's error type and message, never a key or token."""
+    """Kite's JSON answer; errors say Kite's error type and message, never a key or token. At most ~3 requests a
+    second (Kite's limit for historical candles)."""
+    import time as _t
+    wait = _LAST[0] + 0.35 - _t.time()
+    if wait > 0:
+        _t.sleep(wait)
+    _LAST[0] = _t.time()
     h = {"X-Kite-Version": "3", "User-Agent": "commodities-trading"}
     if token:
         h["Authorization"] = f"token {key}:{token}"
@@ -102,6 +111,53 @@ def candles(key, token, day, interval="5minute", instrument=NIFTY, get=_req):
     d = get(f"/instruments/historical/{instrument}/{interval}?{q}", key, token)
     return [(datetime.strptime(c[0], "%Y-%m-%dT%H:%M:%S%z").astimezone(IST), float(c[1]), float(c[2]), float(c[3]), float(c[4]))
             for c in d["data"]["candles"]]
+
+
+_SESSION = {}
+
+
+def session(now=None):
+    """(api_key, access_token) when there is a valid login today, else None (a found login is kept; a missing one is
+    looked for again after 5 minutes)."""
+    import time as _t
+    if _SESSION.get("v") or _t.time() - _SESSION.get("at", 0) < 300:
+        return _SESSION.get("v")
+    key, secret, d = (os.environ.get(k, "").strip() for k in ("KITE_API_KEY", "KITE_API_SECRET", "KITE_DIR"))
+    tok = load(d, secret, now) if key and secret and d else None
+    _SESSION.update(v=(key, tok) if tok else None, at=_t.time())
+    return _SESSION["v"]
+
+
+def history(key, token, instrument, interval, start, end, get=_req, max_days=100):
+    """[(aware IST start, o, h, l, c, volume)] from start to end (datetimes), in chunks of max_days (Kite's limit per
+    request: minute 60, 3/5/10minute 100, 15/30minute 200, 60minute 400, day 2000)."""
+    out, a = [], start
+    while a <= end:
+        b = min(a + timedelta(days=max_days) - timedelta(seconds=1), end)
+        q = urllib.parse.urlencode({"from": f"{a:%Y-%m-%d %H:%M:%S}", "to": f"{b:%Y-%m-%d %H:%M:%S}"})
+        d = get(f"/instruments/historical/{instrument}/{interval}?{q}", key, token)
+        out += [(datetime.strptime(c[0], "%Y-%m-%dT%H:%M:%S%z").astimezone(IST), float(c[1]), float(c[2]), float(c[3]),
+                 float(c[4]), float(c[5]) if len(c) > 5 and c[5] is not None else 0.0) for c in d["data"]["candles"]]
+        a = b + timedelta(seconds=1)
+    return out
+
+
+def quote(key, token, symbols, get=_req):
+    """Kite's full quotes {"NFO:NIFTY...": {...}} for up to 500 instruments ("EXCHANGE:TRADINGSYMBOL")."""
+    q = "&".join("i=" + urllib.parse.quote(s) for s in symbols)
+    return get(f"/quote?{q}", key, token)["data"]
+
+
+def instruments(exchange, get=None):
+    """Kite's instrument list for one exchange (CSV, refreshed by Kite each morning) as a list of dicts."""
+    import csv
+    import io
+    s = session()
+    if not s:
+        return []
+    h = {"X-Kite-Version": "3", "User-Agent": "commodities-trading", "Authorization": f"token {s[0]}:{s[1]}"}
+    with urllib.request.urlopen(urllib.request.Request(f"{API}/instruments/{exchange}", headers=h), timeout=60) as f:
+        return list(csv.DictReader(io.StringIO(f.read().decode())))
 
 
 class Bars(list):

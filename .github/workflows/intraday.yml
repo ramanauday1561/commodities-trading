@@ -29,6 +29,12 @@ jobs:
       publish: ${{ steps.have.outputs.ok }}
     env:
       GH_TOKEN: ${{ github.token }}
+      # prices.py: Kite Connect after the morning login (docs/kite.html), else Yahoo; checks in data-health.json
+      KITE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_KEY || '' }}
+      KITE_API_SECRET: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_SECRET || '' }}
+      KITE_DIR: kite
+      DATA_HEALTH: docs/data/data-health.json
+      PYTHONPATH: scripts
     steps:
       - name: Fallback run? Skip if the keeper (or anyone) ran this in the last 25 minutes
         id: gate
@@ -55,9 +61,11 @@ jobs:
           cache-dependency-path: scripts/requirements.txt
       - if: steps.gate.outputs.go == 'true'
         run: pip install yfinance pandas numpy exchange_calendars lightgbm cryptography
-      - name: Latest published data
+      - name: Latest published data, and today's Kite login if there is one
         if: steps.gate.outputs.go == 'true'
-        run: bash scripts/store.sh pull site-data docs/data
+        run: |
+          bash scripts/store.sh pull site-data docs/data
+          bash scripts/store.sh pull kite-session kite || true
       - name: Nowcast
         if: steps.gate.outputs.go == 'true'
         run: python scripts/intraday.py nifty
@@ -80,13 +88,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
           XAI_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.XAI_API_KEY || '' }}
-          # Kite Connect after the morning login (kite.py; docs/kite.html), else Yahoo
-          KITE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_KEY || '' }}
-          KITE_API_SECRET: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_SECRET || '' }}
-          KITE_DIR: kite
           PYTHONPATH: scripts
         run: |
-          bash scripts/store.sh pull kite-session kite || true
           bash scripts/store.sh pull scoreboard store
           before=$(jq -r '"\(.date)\(.state)\(.kind)"' docs/data/status.json 2>/dev/null || echo none)
           python -u scripts/live.py docs/data store morning || true
@@ -95,6 +98,16 @@ jobs:
           after=$(jq -r '"\(.date)\(.state)\(.kind)"' docs/data/status.json 2>/dev/null || echo none)
           if [ "$before" != "$after" ]; then echo 1 > "$RUNNER_TEMP/status_changed"; fi
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then bash scripts/store.sh push scoreboard store; fi
+      - name: Live NIFTY option prices (Kite after the morning login; options_live.py, options-live branch)
+        if: steps.gate.outputs.go == 'true' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        timeout-minutes: 3
+        run: |
+          if [ -f kite/session.json ]; then
+            bash scripts/store.sh pull options-live optlive
+            python -u scripts/options_live.py snap optlive docs/data
+            bash scripts/store.sh push options-live optlive
+          fi
       - name: Hourly NIFTY candles for the chart
         if: steps.gate.outputs.go == 'true'
         continue-on-error: true
@@ -105,7 +118,7 @@ jobs:
         continue-on-error: true
         run: |
           snap="$RUNNER_TEMP/site-data" && bash scripts/store.sh pull site-data "$snap"
-          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/status-today.json docs/data/live-nifty.json docs/data/next-nifty.json docs/data/gift-nifty.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
+          cp docs/data/today-nifty.json docs/data/intraday-nifty.json docs/data/hourly-nifty.json docs/data/status.json docs/data/status-today.json docs/data/live-nifty.json docs/data/next-nifty.json docs/data/gift-nifty.json docs/data/data-health.json docs/data/options-live.json docs/data/news-*.json "$snap"/ 2>/dev/null || true
           bash scripts/store.sh push site-data "$snap"
       # 2 Nov 2026: the news refresh took ~20 s and ran before the save, so every page waited for it. It now runs after
       # the save; the phone's hourly update and the AI see the headlines of the run before (at most 10 minutes older).

@@ -270,23 +270,19 @@ def ai_prompt(day, now, pc, opn, price, hi, lo, closes, call, news=None):
 def bars5():
     """Today's 5-minute NIFTY candles [(aware start, o, h, l, c)], or []: from Kite Connect after the morning login
     (kite.py, 4 Nov 2026; no frozen bars before the close), else Yahoo."""
-    try:
-        import kite
-        k = kite.bars5()
-        if k:
-            return k
-    except Exception as e:                                   # never stops the run: Yahoo below
-        print(f"live: kite failed: {e!r}", flush=True)
+    import kite
     import pandas as pd
-    import yfinance as yf
-    raw = yf.download("^NSEI", period="1d", interval="5m", auto_adjust=False, progress=False)
+    import prices
+    raw = prices.download("^NSEI", period="1d", interval="5m", auto_adjust=False, progress=False)
+    src = prices.source_of(raw)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
     idx = pd.DatetimeIndex(raw.index)
     idx = idx.tz_localize("UTC") if idx.tz is None else idx
     today = datetime.now(IST).date()
-    return [(t.to_pydatetime(), float(r.Open), float(r.High), float(r.Low), float(r.Close))
-            for t, r in zip(idx, raw.itertuples()) if t.tz_convert(IST).date() == today]
+    out = [(t.to_pydatetime(), float(r.Open), float(r.High), float(r.Low), float(r.Close))
+           for t, r in zip(idx, raw.itertuples()) if t.tz_convert(IST).date() == today]
+    return kite.Bars(out) if src == "kite" else out
 
 
 def marks(store_dir, day):
