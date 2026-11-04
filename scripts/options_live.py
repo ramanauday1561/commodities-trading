@@ -225,7 +225,55 @@ def close(d, now=None, history=None):
             w.writeheader()
             w.writerows(out)
     print(f"options live close: {len(out)} candles for {len(syms)} contracts", flush=True)
+    if out:
+        try:
+            backfill(d, now.date().isoformat())       # a day whose last live run did not finish the paper trade
+        except Exception as e:
+            print(f"paper backfill failed: {e!r}", flush=True)
     return out
+
+
+def backfill(d, day=None, nifty_open=None):
+    """The paper straddle of a day from its saved 5-minute candles (5 Nov 2026): for a day the live runs did not finish
+    (a missed or late last run), or before the paper trade existed (4 Nov 2026). Each leg's first price of the day, its
+    high (the stop) and its last price come from the candles; NIFTY's open (the strike) from Kite's daily candle.
+    Returns the day's row, or None."""
+    days = [day] if day else sorted(os.path.basename(p)[:10] for p in glob.glob(os.path.join(d, "candles", "*.csv")))
+    path = os.path.join(d, "paper", "straddle.json")
+    done = {x["d"] for x in (json.load(open(path)) if os.path.exists(path) else []) if x.get("final")}
+    row = None
+    for day in days:
+        if day in done:
+            continue
+        rows = list(csv.DictReader(open(os.path.join(d, "candles", f"{day}.csv"))))
+        if not rows:
+            continue
+        opn = nifty_open
+        if opn is None:
+            s = kite.session()
+            if not s:
+                print(f"paper backfill {day}: no Kite login for NIFTY's open", flush=True)
+                continue
+            dd = datetime.fromisoformat(day)
+            got = kite.history(s[0], s[1], 256265, "day", dd, dd.replace(hour=23, minute=59), max_days=1)
+            opn = got[0][1] if got else None
+        if not opn:
+            continue
+        exps = sorted({r["expiry"] for r in rows if r["expiry"] >= day})
+        if not exps:
+            continue
+        k = atm(opn)
+        quotes = {}
+        for typ in ("CE", "PE"):
+            c = sorted((r for r in rows if r["expiry"] == exps[0] and float(r["strike"]) == k and r["type"] == typ),
+                       key=lambda r: r["datetime"])
+            if c:
+                quotes[(k, typ)] = {"ohlc": {"open": float(c[0]["open"]), "high": max(float(r["high"]) for r in c)},
+                                    "last_price": float(c[-1]["close"])}
+        now = datetime.fromisoformat(day).replace(hour=15, minute=30, tzinfo=IST)
+        row, _ = paper(d, now, quotes, k, exps[0], final=True)
+        print(f"paper backfill {day}: {'Rs ' + str(row['rs']) if row else 'no candles for the open strike'}", flush=True)
+    return row
 
 
 if __name__ == "__main__":
@@ -234,3 +282,5 @@ if __name__ == "__main__":
         snap(sys.argv[2], sys.argv[3], today_json=json.load(open(tj)) if os.path.exists(tj) else None)
     if sys.argv[1:2] == ["close"]:
         close(sys.argv[2])
+    if sys.argv[1:2] == ["backfill"]:
+        backfill(sys.argv[2])
