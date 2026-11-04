@@ -128,16 +128,24 @@ def session(now=None):
     return _SESSION["v"]
 
 
-def history(key, token, instrument, interval, start, end, get=_req, max_days=100):
-    """[(aware IST start, o, h, l, c, volume)] from start to end (datetimes), in chunks of max_days (Kite's limit per
-    request: minute 60, 3/5/10minute 100, 15/30minute 200, 60minute 400, day 2000)."""
+def history(key, token, instrument, interval, start, end, get=_req, max_days=100, continuous=False, oi=False):
+    """[(aware IST start, o, h, l, c, volume[, oi])] from start to end (datetimes), in chunks of max_days (Kite's limit
+    per request: minute 60, 3/5/10minute 100, 15/30minute 200, 60minute 400, day 2000). continuous=True: a futures
+    contract's history joined across expiries (NFO / MCX futures only; 5 Nov 2026, futures_data.py); oi=True adds open
+    interest as a seventh field."""
     out, a = [], start
     while a <= end:
         b = min(a + timedelta(days=max_days) - timedelta(seconds=1), end)
-        q = urllib.parse.urlencode({"from": f"{a:%Y-%m-%d %H:%M:%S}", "to": f"{b:%Y-%m-%d %H:%M:%S}"})
-        d = get(f"/instruments/historical/{instrument}/{interval}?{q}", key, token)
-        out += [(datetime.strptime(c[0], "%Y-%m-%dT%H:%M:%S%z").astimezone(IST), float(c[1]), float(c[2]), float(c[3]),
-                 float(c[4]), float(c[5]) if len(c) > 5 and c[5] is not None else 0.0) for c in d["data"]["candles"]]
+        params = {"from": f"{a:%Y-%m-%d %H:%M:%S}", "to": f"{b:%Y-%m-%d %H:%M:%S}"}
+        if continuous:
+            params["continuous"] = 1
+        if oi:
+            params["oi"] = 1
+        d = get(f"/instruments/historical/{instrument}/{interval}?{urllib.parse.urlencode(params)}", key, token)
+        for c in d["data"]["candles"]:
+            row = (datetime.strptime(c[0], "%Y-%m-%dT%H:%M:%S%z").astimezone(IST), float(c[1]), float(c[2]), float(c[3]),
+                   float(c[4]), float(c[5]) if len(c) > 5 and c[5] is not None else 0.0)
+            out.append(row + ((float(c[6]) if len(c) > 6 and c[6] is not None else 0.0),) if oi else row)
         a = b + timedelta(seconds=1)
     return out
 

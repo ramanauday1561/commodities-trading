@@ -335,3 +335,16 @@ years 2017-2026). Rule A (the forecast's error beats the time-of-day and last-th
 in 8 of 10 years; its top 10% moves 1.5x+ its bottom 10% every year) PASSES: 10.4% better, all 10 years, 2.7-4.3x. Now
 shown beside each lean on the Next 10 min page. Rule B (the leans, on the candles it ranks in its top 20%, win 55%+ and
 earn after option costs in both halves and 6 of 10 years) FAILS: 51.2% right, -Rs87 a lot a trade, 0 of 10 years.
+
+Experiment mode "movesizekite" (5 Nov 2026): the size forecast on the 117 sessions with Kite's own candles (19 May -
+4 Nov 2026), each month predicted by a model fitted on everything before it: error 9.47 points against 11.05 for the
+usual size (14.3% better), better in 7 of 7 months and on 86 of 117 days.
+
+Experiment mode "futures" (5 Nov 2026, futures_study.py): the 09:15 signal in NIFTY futures, on Kite's continuous daily
+futures (2011 - 4 Nov 2026), 0.04% costs, the live 0.5% stop. The 11-year walk-forward's 190 trades: +0.022% a trade
+(-Rs95 a lot), halves +0.123% / -0.079%, since 2022 -0.172%, 5 of 12 years up: FAILS. The futures open about 0.14%
+above the index, so the index numbers the app showed (+0.094%) flattered the trade. Live version (56 trades, not
+independent): +0.097% a trade, 3 of 3 years. Nothing changes.
+
+Paper straddle backfill (5 Nov 2026, options_live.backfill): 4 Nov 2026 from the saved 5-minute option candles: the
+23,750 CALL stopped (149.35 -> +50%), the PUT 228.75 -> 85.60: +Rs4,081 a lot. The record starts there.

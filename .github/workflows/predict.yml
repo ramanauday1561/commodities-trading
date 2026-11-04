@@ -232,6 +232,18 @@ jobs:
             python -u scripts/options_live.py close optlive
             bash scripts/store.sh push options-live optlive
           fi
+      - name: NIFTY futures from Kite (futures_data.py; the futures-data branch)
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          PYTHONPATH: scripts
+        run: |
+          if [ -f kite/session.json ]; then
+            bash scripts/store.sh pull futures-data fut
+            python -u scripts/futures_data.py update fut
+            bash scripts/store.sh push futures-data fut
+          fi
       - name: NIFTY option prices (NSE bhavcopy of the latest sessions, option_data.py) and each day on real premiums
         continue-on-error: true
         timeout-minutes: 8

@@ -120,3 +120,26 @@ class ChainAndPaper(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Backfill(unittest.TestCase):
+    """5 Nov 2026: the paper straddle of a day from its saved 5-minute option candles."""
+
+    def test_from_candles(self):
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "candles"))
+            rows = []
+            for t, ce, pe in (("09:15", (100, 160, 95, 150), (110, 112, 90, 95)), ("15:25", (150, 155, 140, 140), (60, 62, 55, 58))):
+                for typ, (o, h, lo, c) in (("CE", ce), ("PE", pe)):
+                    rows.append({"datetime": f"2026-11-04 {t}", "tradingsymbol": f"X{typ}", "expiry": "2026-11-09", "strike": 23750.0,
+                                 "type": typ, "open": o, "high": h, "low": lo, "close": c, "volume": 1})
+            with open(os.path.join(d, "candles", "2026-11-04.csv"), "w", newline="") as f:
+                w = csv.DictWriter(f, fieldnames=list(rows[0]))
+                w.writeheader()
+                w.writerows(rows)
+            row = ol.backfill(d, nifty_open=23742.25)
+            self.assertEqual(row["strike"], 23750)
+            self.assertTrue(row["legs"]["CE"]["stopped"])                         # high 160 reached +50% (150)
+            self.assertEqual(row["legs"]["PE"], {"sold": 110.0, "now": 58.0, "stopped": False, "pts": 52.0})
+            self.assertEqual(row["pts"], round(-52.0 + 52.0 - 2 * ol.COST, 2))
+            self.assertIsNone(ol.backfill(d, nifty_open=23742.25))                # done once

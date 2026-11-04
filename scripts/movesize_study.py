@@ -24,6 +24,10 @@ Result (run 41815386034, 4 Nov 2026; 101,877 candles, 2,911 days, test years 201
   B fails. On the candles it ranks in its top 20%, the leans were right 51.2% and lost 1.33 option points (-Rs87 a lot)
     a trade after costs, in every year, though 50-80% of those candles moved more than the 7.4 points that cover costs:
     a big move does not help when its direction is a coin flip. The leans stay information.
+Kite era (experiment mode movesizekite, 5 Nov 2026): the 117 sessions with Kite's own candles (19 May - 4 Nov 2026),
+  each month predicted by a model fitted on everything before it: average error 9.47 points against 11.05 for the
+  usual size at that time of day (14.3% better) and 10.54 for the last three candles; better in 7 of 7 months and on
+  86 of 117 days; its top 20% moved 12.0-26.7 points against 7.5-14.7 for its bottom 20% (Nov 2026: 3 days).
 """
 import json
 import os
@@ -80,6 +84,42 @@ def size_year(tr, te):
     return out
 
 
+def size_only(tr, te):
+    """The size forecast's errors on te from a model fitted on tr, beside the two baselines (points), and per day."""
+    m = fit(tr.assign(rel=tr["size"] / tr["price"]), "rel", SIZE_FEATS)
+    pred = m.predict(te[SIZE_FEATS].values) * te["price"].values
+    tod = tr.assign(rel=tr["size"] / tr["price"]).groupby("k")["rel"].mean()
+    b1 = te["k"].map(tod).fillna(tr["size"].mean() / tr["price"].mean()).values * te["price"].values
+    b2 = (te[["a1", "a2", "a3"]].mean(axis=1) * te["price"]).values
+    act = te["size"].values
+    days = pd.DataFrame({"d": te["d"].values, "m": np.abs(pred - act), "b": np.abs(b1 - act)}).groupby("d").mean()
+    q = pd.Series(pred).rank(pct=True).values
+    return {"candles": int(len(te)), "days": int(te["d"].nunique()), "mae_model": round(float(np.abs(pred - act).mean()), 2),
+            "mae_time_of_day": round(float(np.abs(b1 - act).mean()), 2), "mae_last3": round(float(np.abs(b2 - act).mean()), 2),
+            "corr": round(float(pd.Series(pred).corr(pd.Series(act), method="spearman")), 3),
+            "top20_pts": round(float(act[q > 0.8].mean()), 1), "bottom20_pts": round(float(act[q <= 0.2].mean()), 1),
+            "days_model_better": int((days["m"] < days["b"]).sum())}
+
+
+def kite_era(df, since="2026-05-19"):
+    """5 Nov 2026: the size forecast on the days with Kite's own candles (intraday_data repair, from 19 May 2026),
+    each month predicted by a model fitted on everything before that month."""
+    df = df.copy()
+    df["month"] = pd.to_datetime(df["d"]).dt.strftime("%Y-%m")
+    s = pd.Timestamp(since).date()
+    res = {}
+    for m in sorted(df[df["d"] >= s]["month"].unique()):
+        res[m] = size_only(df[df["month"] < m], df[(df["month"] == m) & (df["d"] >= s)])
+    n = sum(v["candles"] for v in res.values())
+    w = lambda k: round(sum(v[k] * v["candles"] for v in res.values()) / n, 2)
+    days = sum(v["days"] for v in res.values())
+    better = sum(v["days_model_better"] for v in res.values())
+    return {"since": since, "by_month": res, "candles": n, "days": days, "mae_model": w("mae_model"),
+            "mae_time_of_day": w("mae_time_of_day"), "mae_last3": w("mae_last3"),
+            "better_than_usual_pct": round((1 - w("mae_model") / w("mae_time_of_day")) * 100, 1),
+            "days_model_better": f"{better} of {days}", "months_better": f"{sum(v['mae_model'] < v['mae_time_of_day'] for v in res.values())} of {len(res)}"}
+
+
 def main():
     try:
         d = os.environ.get("INTRADAY_DIR", "intra")
@@ -87,10 +127,14 @@ def main():
         out = {"candles": int(len(df)), "days": int(df["d"].nunique()), "from": str(df["d"].min()), "to": str(df["d"].max()),
                "avg_size_pts": round(float(df["size"].mean()), 1)}
         res = {}
-        for y in sorted(df["year"].unique()):
+        for y in ([] if os.environ.get("MOVESIZE_KITE_ONLY") else sorted(df["year"].unique())):
             if y < 2017:
                 continue
             res[str(y)] = size_year(df[df["year"] < y], df[df["year"] == y])
+        if os.environ.get("MOVESIZE_KITE_ONLY"):         # experiment mode movesizekite: only the Kite-era grade
+            out["kite_era"] = kite_era(df)
+            print("STUDY movesize " + json.dumps(out), flush=True)
+            return out
         out["by_year"] = res
         n = sum(v["candles"] for v in res.values())
         w = lambda k: sum(v[k] * v["candles"] for v in res.values()) / n
@@ -117,3 +161,8 @@ def main():
         import traceback
         traceback.print_exc()
         print(f"STUDY movesize failed: {e!r}", flush=True)
+
+
+def kite_main():
+    os.environ["MOVESIZE_KITE_ONLY"] = "1"
+    return main()
