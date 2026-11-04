@@ -23,7 +23,7 @@ A sidebar (`nav.js`) links them; a service worker (`sw.js`) lets the home-screen
 |---|---|---|
 | `predict.yml` | 08:30, 15:45 and 04:00 IST on weekdays, and on merges that change `scripts/` or `index.html` | `predict.py` (Kronos + LightGBM forecasts, `gbm.py`, `exo.py`, `blend.py`), `todaycall.py`, `scoreboard.py`, `news.py`, `newsfeat.py`, `daylike.py`, `nextcandle.py` |
 | `intraday.yml` | Every 10 minutes in the NSE session (started by `keeper.yml`) | `todaycall.py`, `intraday.py`, `hourly.py`, `status.py` (phone alerts), `live.py`, `gift_record.py` |
-| `keeper.yml` | Before the open, through the session | `keeper.py`: starts the intraday runs on time, watches the stop |
+| `keeper.yml` | Before the open, through the session | `keeper.py`: starts the intraday runs on time, watches the stop, and (after the Kite login) your own NIFTY / BANKNIFTY option positions every 2 minutes: phone alerts only, via `positions.py` |
 | `replay.yml` | By hand, after the close | `replay.py`: a finished day replayed as if live, with the AI |
 | `status-alert-test.yml` | By hand | Sends a test alert through every configured channel |
 | `kite-login.yml` | From the Kite login page, each morning | `kite.py`: trades Kite's one-time request token for the day's access token (stored encrypted) |
@@ -67,7 +67,7 @@ in its own PR. **Actions → Model experiments → Run workflow** with a `mode`:
 - `longsignal`, `history`, `preopen`, `open`, `vix`, `accuracy`, `improve`, `extreme`, `strategy`, `intrarules`,
   `nextcandle`, `shortopt`: the NIFTY studies kept for re-testing.
 - `intradata` / `dukafetch`: update the stored 5-minute / hourly overnight history.
-- `kitecheck` / `kitecompare` / `kiterepair`: are the Kite secrets accepted; Kite vs Yahoo side by side; Kite's 5-minute
+- `kitecheck` / `kitecompare` / `kiterepair` / `kitepositions`: are the Kite secrets accepted; Kite vs Yahoo side by side; Kite's 5-minute
   candles in place of Yahoo's in the stored history (test_days = the first day; all need that day's login).
 - `nextreplay` (test_days = a date): replay that day's Next 10 min leans with the model as it was that morning, beside what the live page showed.
 

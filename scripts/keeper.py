@@ -8,6 +8,10 @@ At 09:08 it checks that the 08:57 call reached the Status page (status.json on s
 If not, the phone gets a "no signal today" warning (status.py's Telegram / ntfy channels), so silence never hides a
 failure, and the nowcast is started once more.
 
+Your positions (positions.py, 4 Nov 2026): with that day's Kite login, every 2 minutes from 09:15 to 15:30 it looks
+at your open NIFTY / BANKNIFTY options and alerts the phone (levels, closes, a 15:10 reminder). Without a login it
+looks for one every 5 minutes (the Kite login page can be used at any time). Nothing about positions is printed.
+
 Stop watcher: on a trade day (status.json kind call / put / hold) it looks at NIFTY's 1-minute candles every 5 minutes
 from 09:20 to 15:10 and starts the nowcast at once when NIFTY has moved status.STOP_PCT against the trade from the
 open. That run's status.py sees the same high / low, switches the page to SELL (kind "stop") and sends the alert, so
@@ -118,18 +122,41 @@ class StopWatcher:
         return False
 
 
-def wait_until(t, watcher=None):
-    """Sleep until t; inside the watch window, look at the stop every WATCH_EVERY seconds on the way."""
+_LOOKED = [0.0]
+
+
+def wait_until(t, watcher=None, positions=None):
+    """Sleep until t; inside the watch window, look at the stop every WATCH_EVERY seconds on the way, and at your
+    positions every 2 minutes (positions.Watcher keeps its own pace)."""
     while True:
         now = datetime.now(IST)
         if now >= t:
             return
-        if watcher and at(now, WATCH_FROM) <= now <= at(now, WATCH_TO):
+        if watcher and at(now, WATCH_FROM) <= now <= at(now, WATCH_TO) and time.time() - _LOOKED[0] >= WATCH_EVERY:
+            _LOOKED[0] = time.time()
             try:
                 watcher.check()
             except Exception as e:                      # the watcher must never stop the keeper
                 print(f"{now:%H:%M:%S} IST  stop watcher error: {e!r}", flush=True)
-        time.sleep(max(0.0, min(WATCH_EVERY, (t - datetime.now(IST)).total_seconds())))
+        if positions:
+            try:
+                positions.check(now)
+            except Exception as e:                      # nor the position check (its error says no position detail)
+                print(f"{now:%H:%M:%S} IST  positions check error: {type(e).__name__}", flush=True)
+        time.sleep(max(0.0, min(60, (t - datetime.now(IST)).total_seconds())))
+
+
+_PULLED = [0.0]
+
+
+def refresh_kite():
+    """Pull the kite-session branch again (the Kite login can happen after the keeper started), every 5 minutes at most."""
+    if not os.environ.get("KITE_DIR") or time.time() - _PULLED[0] < 300:
+        return
+    _PULLED[0] = time.time()
+    subprocess.run(["bash", "scripts/store.sh", "pull", "kite-session", os.environ["KITE_DIR"]], capture_output=True)
+    import kite
+    kite._SESSION.clear()
 
 
 def hand_over():
@@ -151,11 +178,14 @@ def main():
     check = at(start, WATCHDOG)
     plan = sorted([(s, "run") for s in due] + ([(check, "watchdog")] if check > start else []))
     watcher = StopWatcher()
+    import positions
+    pos = positions.Watcher(refresh_fn=refresh_kite, silent_first=bool(os.environ.get("HANDOFF"))) \
+        if os.environ.get("KITE_API_KEY") else None
     for s, what in plan:
         if s - start > MAX_RUN:
             hand_over()
             break
-        wait_until(s, watcher)
+        wait_until(s, watcher, pos)
         if what == "watchdog":
             watchdog()
         else:
