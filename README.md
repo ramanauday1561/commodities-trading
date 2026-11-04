@@ -30,6 +30,9 @@ A sidebar (`nav.js`) links them; a service worker (`sw.js`) lets the home-screen
 | `experiment.yml` | By hand | `experiment.py`: backtests and the kept studies (below) |
 | `tests.yml` | Every PR and push to main | `tests/` |
 
+Prices: `prices.py` serves NIFTY 50, Bank NIFTY and India VIX to every script, from Kite Connect after the morning
+login (`kite.py`, the Kite login page) and from Yahoo otherwise or when Kite fails or falls behind; its checks (stale
+candles, a missing session, Kite errors) go to `data-health.json` and the Status page. Other markets come from Yahoo.
 Helpers: `calendars.py` (exchange holidays), `rolls.py` (futures roll adjustment), `results_calendar.py` and
 `us_events.py` (days the 09:15 signal stands aside), `intraday_data.py` and `overnight_data.py` (stored history),
 `daymoney.py` (the ₹2 lakh box), `grok.py` (AI notes), `dailyfill.py`, `evalutil.py`, `build_manifest.py`,
@@ -62,6 +65,7 @@ in its own PR. **Actions → Model experiments → Run workflow** with a `mode`:
 - `longsignal`, `history`, `preopen`, `open`, `vix`, `accuracy`, `improve`, `extreme`, `strategy`, `intrarules`,
   `nextcandle`: the NIFTY studies kept for re-testing.
 - `intradata` / `dukafetch`: update the stored 5-minute / hourly overnight history.
+- `kitecheck` / `kitecompare`: are the Kite secrets accepted; Kite vs Yahoo side by side (needs that day's login).
 - `nextreplay` (test_days = a date): replay that day's Next 10 min leans with the model as it was that morning, beside what the live page showed.
 
 [STUDIES.md](STUDIES.md) lists what each study found, including the finished one-off studies whose scripts were
