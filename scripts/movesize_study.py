@@ -24,6 +24,10 @@ Result (run 41815386034, 4 Nov 2026; 101,877 candles, 2,911 days, test years 201
   B fails. On the candles it ranks in its top 20%, the leans were right 51.2% and lost 1.33 option points (-Rs87 a lot)
     a trade after costs, in every year, though 50-80% of those candles moved more than the 7.4 points that cover costs:
     a big move does not help when its direction is a coin flip. The leans stay information.
+Kite era (experiment mode movesizekite, 5 Nov 2026): the 117 sessions with Kite's own candles (19 May - 4 Nov 2026),
+  each month predicted by a model fitted on everything before it: average error 9.47 points against 11.05 for the
+  usual size at that time of day (14.3% better) and 10.54 for the last three candles; better in 7 of 7 months and on
+  86 of 117 days; its top 20% moved 12.0-26.7 points against 7.5-14.7 for its bottom 20% (Nov 2026: 3 days).
 """
 import json
 import os

@@ -16,6 +16,15 @@ Rule, fixed before the run: worth trading in futures only if the 11-year walk-fo
 after costs over all years, in both halves, since 2022, and in at least 2 of 3 years. Beside it, for information:
 the same trades without the stop, the same days on the index (what the app has shown), and trading the signal's
 direction every day.
+Result (run 41827339754, 4 Nov 2026; Kite's continuous futures 2011 - 4 Nov 2026; Rs a lot of 65):
+  11-year walk-forward, 190 trades, with the stop: +0.022% a trade but -Rs95 a lot (the later, dearer years lost),
+    halves +0.123% / -0.079%, since 2022 -0.172%, 5 of 12 years up: FAILS. Without the stop -0.115% a trade. The same
+    days on the index (what the app has shown) made +0.094%: the futures open about 0.14% above the index on average
+    (from -0.15% to +0.49%), so the index flattered the trade.
+  Live version, last 2 years, 56 trades: +0.097% (+Rs1,521 a lot) with the stop, 3 of 3 years, but its inputs were
+    chosen on these same years, so it is not an independent test.
+  The lean every day: -0.018% a trade, 4 of 12 years up.
+  Futures do not rescue the signal; nothing changes in the app.
 """
 import json
 import os
