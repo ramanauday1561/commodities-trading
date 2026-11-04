@@ -47,7 +47,7 @@ The workflows write to branches; do not delete them.
 | `site-data` | The latest data files the pages read |
 | `kite-session` | The day's Kite access token, encrypted with a key made from the API secret, and its expiry |
 | `scoreboard` | Every forecast and call with its result, the daily journals, live days, GIFT Nifty recordings |
-| `intraday-data` | NIFTY, Bank NIFTY and India VIX 5-minute candles since 2015 |
+| `intraday-data` | NIFTY, Bank NIFTY and India VIX 5-minute candles since 2015 (Kite's since 19 May 2026; `sources.json` says which source each day came from; the Yahoo-era copy is `intraday-data-yahoo-backup`) |
 | `overnight-es`, `-nq`, `-nikkei`, `-hangseng`, `-india*` | Hourly overnight markets (Dukascopy) for the long backtests |
 
 Secrets (GitHub → Settings → Secrets, never in the repo): `FRED_API_KEY`, `XAI_API_KEY` (an xAI or Groq key),
@@ -65,7 +65,8 @@ in its own PR. **Actions → Model experiments → Run workflow** with a `mode`:
 - `longsignal`, `history`, `preopen`, `open`, `vix`, `accuracy`, `improve`, `extreme`, `strategy`, `intrarules`,
   `nextcandle`: the NIFTY studies kept for re-testing.
 - `intradata` / `dukafetch`: update the stored 5-minute / hourly overnight history.
-- `kitecheck` / `kitecompare`: are the Kite secrets accepted; Kite vs Yahoo side by side (needs that day's login).
+- `kitecheck` / `kitecompare` / `kiterepair`: are the Kite secrets accepted; Kite vs Yahoo side by side; Kite's 5-minute
+  candles in place of Yahoo's in the stored history (test_days = the first day; all need that day's login).
 - `nextreplay` (test_days = a date): replay that day's Next 10 min leans with the model as it was that morning, beside what the live page showed.
 
 [STUDIES.md](STUDIES.md) lists what each study found, including the finished one-off studies whose scripts were
