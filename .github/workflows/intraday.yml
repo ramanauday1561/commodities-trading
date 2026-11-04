@@ -29,6 +29,12 @@ jobs:
       publish: ${{ steps.have.outputs.ok }}
     env:
       GH_TOKEN: ${{ github.token }}
+      # prices.py: Kite Connect after the morning login (docs/kite.html), else Yahoo; checks in data-health.json
+      KITE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_KEY || '' }}
+      KITE_API_SECRET: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_SECRET || '' }}
+      KITE_DIR: kite
+      DATA_HEALTH: docs/data/data-health.json
+      PYTHONPATH: scripts
     steps:
       - name: Fallback run? Skip if the keeper (or anyone) ran this in the last 25 minutes
         id: gate
@@ -55,9 +61,11 @@ jobs:
           cache-dependency-path: scripts/requirements.txt
       - if: steps.gate.outputs.go == 'true'
         run: pip install yfinance pandas numpy exchange_calendars lightgbm cryptography
-      - name: Latest published data
+      - name: Latest published data, and today's Kite login if there is one
         if: steps.gate.outputs.go == 'true'
-        run: bash scripts/store.sh pull site-data docs/data
+        run: |
+          bash scripts/store.sh pull site-data docs/data
+          bash scripts/store.sh pull kite-session kite || true
       - name: Nowcast
         if: steps.gate.outputs.go == 'true'
         run: python scripts/intraday.py nifty
@@ -80,13 +88,8 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
           TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
           XAI_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.XAI_API_KEY || '' }}
-          # Kite Connect after the morning login (kite.py; docs/kite.html), else Yahoo
-          KITE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_KEY || '' }}
-          KITE_API_SECRET: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_SECRET || '' }}
-          KITE_DIR: kite
           PYTHONPATH: scripts
         run: |
-          bash scripts/store.sh pull kite-session kite || true
           bash scripts/store.sh pull scoreboard store
           before=$(jq -r '"\(.date)\(.state)\(.kind)"' docs/data/status.json 2>/dev/null || echo none)
           python -u scripts/live.py docs/data store morning || true

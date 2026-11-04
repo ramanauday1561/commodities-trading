@@ -53,15 +53,17 @@ def train(intra_dir, out_dir, before=None):
 
 def yahoo_days(symbol):
     """The last few days of 5-minute candles as {date: DataFrame} (IST, naive), like intraday_data.load()."""
-    import yfinance as yf
-    raw = yf.download(symbol, period="5d", interval="5m", auto_adjust=False, progress=False)
+    import prices
+    raw = prices.download(symbol, period="5d", interval="5m", auto_adjust=False, progress=False)
+    kite_feed = prices.source_of(raw) == "kite"
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
     idx = pd.DatetimeIndex(raw.index)
     raw.index = (idx.tz_localize("UTC") if idx.tz is None else idx).tz_convert("Asia/Kolkata").tz_localize(None)
     raw = raw[(raw.index.time >= pd.Timestamp("09:15").time()) & (raw.index.time <= pd.Timestamp("15:25").time())]
     from intraday_data import drop_frozen
-    return {d: drop_frozen(g[["Open", "High", "Low", "Close"]]) for d, g in raw.groupby(raw.index.date)}
+    keep = (lambda g: g) if kite_feed else drop_frozen          # the frozen feed is Yahoo's (kite.py)
+    return {d: keep(g[["Open", "High", "Low", "Close"]]) for d, g in raw.groupby(raw.index.date)}
 
 
 def lean(model_dir, now, get=yahoo_days):

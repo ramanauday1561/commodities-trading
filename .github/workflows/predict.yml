@@ -111,6 +111,10 @@ jobs:
       fail-fast: false
       matrix:
         key: ${{ fromJson(needs.setup.outputs.keys) }}
+    env:                               # prices.py: NIFTY's own candles from Kite after the morning login, else Yahoo
+      KITE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_KEY || '' }}
+      KITE_API_SECRET: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_SECRET || '' }}
+      KITE_DIR: kite
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -133,7 +137,9 @@ jobs:
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
-        run: bash scripts/store.sh pull scoreboard store
+        run: |
+          bash scripts/store.sh pull scoreboard store
+          bash scripts/store.sh pull kite-session kite || true
       - name: Run prediction
         env:
           KRONOS_T: ${{ github.event.inputs.kronos_t }}
@@ -155,6 +161,9 @@ jobs:
       id-token: write
     env:
       GH_TOKEN: ${{ github.token }}
+      KITE_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_KEY || '' }}
+      KITE_API_SECRET: ${{ github.ref == 'refs/heads/main' && secrets.KITE_API_SECRET || '' }}
+      KITE_DIR: kite
     environment:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url || steps.deploy_first.outputs.page_url }}
@@ -163,9 +172,11 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-      - run: pip install numpy pandas
-      - name: Last published data (fallback for any instrument that failed this time)
-        run: bash scripts/store.sh pull site-data docs/data
+      - run: pip install numpy pandas cryptography
+      - name: Last published data (fallback for any instrument that failed this time), today's Kite login
+        run: |
+          bash scripts/store.sh pull site-data docs/data
+          bash scripts/store.sh pull kite-session kite || true
       - uses: actions/download-artifact@v7
         with:
           pattern: data-*

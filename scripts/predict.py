@@ -23,6 +23,8 @@ import pandas as pd
 import torch
 import yfinance as yf
 
+import prices
+
 sys.path.append("Kronos")  # cloned by the workflow
 from model import Kronos, KronosPredictor, KronosTokenizer  # noqa: E402
 
@@ -50,14 +52,14 @@ BT_BATCH = 8
 
 
 def _download(symbol):
-    raw = yf.download(symbol, period="max", interval="1d", auto_adjust=False, progress=False)
+    raw = prices.download(symbol, period="max", interval="1d", auto_adjust=False, progress=False)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw.index = pd.to_datetime(raw.index).tz_localize(None)
     # Just after a session ends Yahoo can list it with Open/High/Low but a NaN Close; take the close from the last intraday bar
     last = raw.iloc[-1]
     if pd.isna(last["Close"]) and last[["Open", "High", "Low"]].notna().all():
         try:
-            intra = yf.download(symbol, period="5d", interval="15m", auto_adjust=False, progress=False)
+            intra = prices.download(symbol, period="5d", interval="15m", auto_adjust=False, progress=False)
             intra.columns = [c[0] if isinstance(c, tuple) else c for c in intra.columns]
             intra = intra.dropna(subset=["Close"])
             if len(intra) and pd.Timestamp(intra.index[-1]).tz_localize(None).normalize() == raw.index[-1].normalize():
@@ -82,7 +84,7 @@ def load_history(symbol, expected, tries=3, wait=20, session=None):
             time.sleep(wait)
     if session:
         try:
-            bars = yf.download(symbol, period="5d", interval="15m", auto_adjust=False, progress=False)
+            bars = prices.download(symbol, period="5d", interval="15m", auto_adjust=False, progress=False)
             bars.columns = [c[0] if isinstance(c, tuple) else c for c in bars.columns]
             row = daily_from_intraday(bars.rename(columns=str.lower), expected, *session)
             if row:

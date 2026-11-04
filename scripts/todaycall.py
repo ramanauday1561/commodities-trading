@@ -49,6 +49,8 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
+import prices
+
 import results_calendar as rc
 import us_events
 from calendars import is_session
@@ -85,7 +87,7 @@ MIN_HIST = 60
 
 # ---------------------------------------------------------------- data helpers (also used by accuracy_study.py)
 def hourly(symbol, period="730d"):
-    raw = yf.download(symbol, period=period, interval="1h", auto_adjust=False, progress=False)
+    raw = prices.download(symbol, period=period, interval="1h", auto_adjust=False, progress=False)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["Close"])
     idx = pd.to_datetime(raw.index)
@@ -365,7 +367,7 @@ def summarize_record(record):
 
 # ---------------------------------------------------------------- main
 def _daily(period):
-    raw = yf.download(NIFTY, period=period, interval="1d", auto_adjust=False, progress=False)
+    raw = prices.download(NIFTY, period=period, interval="1d", auto_adjust=False, progress=False)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["Open", "Close"])
     raw.index = pd.to_datetime(raw.index).tz_localize(None).normalize()
@@ -390,7 +392,7 @@ def daily(now=None, get=_daily, bars=None):
         return full[full.index >= nd.index[0]] if len(nd) else full
     try:
         from dailyfill import daily_from_intraday
-        b = bars() if bars else yf.download(NIFTY, period="5d", interval="15m", auto_adjust=False, progress=False)
+        b = bars() if bars else prices.download(NIFTY, period="5d", interval="15m", auto_adjust=False, progress=False)
         b.columns = [c[0] if isinstance(c, tuple) else c for c in b.columns]
         row = daily_from_intraday(b.rename(columns=str.lower), want, "Asia/Kolkata", 15, 30, "XBOM")
         if row:
@@ -467,7 +469,7 @@ def run(store_dir="store", out_dir="docs/data", now=None):
         # during the session: the move so far
         if out["status"] in ("open", "closed"):
             bars = hourly(NIFTY)
-            live = yf.download(NIFTY, period="5d", interval="15m", auto_adjust=False, progress=False)
+            live = prices.download(NIFTY, period="5d", interval="15m", auto_adjust=False, progress=False)
             live.columns = [c[0] if isinstance(c, tuple) else c for c in live.columns]
             live = live.dropna(subset=["Close"])
             li = pd.to_datetime(live.index)

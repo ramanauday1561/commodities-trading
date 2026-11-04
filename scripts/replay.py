@@ -31,8 +31,8 @@ GAP_S = 4                                     # stay inside the AI service's per
 
 def day_bars(day):
     import pandas as pd
-    import yfinance as yf
-    raw = yf.download("^NSEI", period="5d", interval="5m", auto_adjust=False, progress=False)
+    import prices
+    raw = prices.download("^NSEI", period="5d", interval="5m", auto_adjust=False, progress=False)
     raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
     raw = raw.dropna(subset=["Open", "High", "Low", "Close"])
     idx = pd.DatetimeIndex(raw.index)
@@ -42,8 +42,8 @@ def day_bars(day):
 
 
 def prev_close(day):
-    import yfinance as yf
-    d = yf.download("^NSEI", period="1mo", interval="1d", auto_adjust=False, progress=False)
+    import prices
+    d = prices.download("^NSEI", period="1mo", interval="1d", auto_adjust=False, progress=False)
     d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
     closes = [(i.date(), float(c)) for i, c in d["Close"].dropna().items()]
     return [c for dd, c in closes if dd < day][-1]

@@ -227,10 +227,10 @@ TITLES = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": "NIFTY: ST
           "test": "NIFTY: test alert", "info": "NIFTY update (info, not a trade signal)",
           "summary": "NIFTY: today's summary", "warning": "NIFTY: NO SIGNAL TODAY",
           "stop": "NIFTY: STOP HIT, SELL the {side} now", "move": "NIFTY: big move (info, not a trade signal)",
-          "weekly": "Markets: the week (info, not a trade signal)"}
+          "weekly": "Markets: the week (info, not a trade signal)", "kite": "Log in to Kite for today's prices"}
 ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514",
          "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8", "stop": "\U0001F6A8",
-         "move": "\u26A1", "weekly": "\U0001F5D3\uFE0F"}
+         "move": "\u26A1", "weekly": "\U0001F5D3\uFE0F", "kite": "\U0001F511"}
 
 
 def _title(status):
@@ -244,8 +244,9 @@ def _body(status):
 def send_ntfy(status, topic, silent=False):
     """BUY / SELL are "urgent" (iOS: time-sensitive). No link: tapping just opens the alert."""
     kind = status.get("kind", "")
+    link = {"Click": status["link"]} if status.get("link") else {}       # the Kite login reminder opens its page
     req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=_body(status).encode(),
-                                 headers={"Title": _title(status),
+                                 headers={**link, "Title": _title(status),
                                           "Priority": "low" if silent else
                                           "urgent" if kind in ("call", "put", "sell", "stop", "test", "warning") else "default",
                                           "Tags": {"call": "green_circle", "put": "red_circle", "sell": "warning", "stop": "rotating_light",
@@ -444,6 +445,31 @@ def _daylike(load, today, now):
         return ""
 
 
+KITE_PAGE = "https://ramanauday1561.github.io/commodities-trading/kite.html"
+KITE_REMIND_FROM, KITE_REMIND_TO = (8, 15), (15, 0)
+
+
+def kite_state(now):
+    """Today's Kite login for the Status page and the reminder (kite-session/status.json holds no secret), or None
+    when Kite is not set up for this run."""
+    if not os.environ.get("KITE_API_KEY"):
+        return None
+    try:
+        s = json.load(open(os.path.join(os.environ.get("KITE_DIR", "kite"), "status.json")))
+        until = datetime.fromisoformat(s["until"])
+    except (OSError, ValueError, KeyError):
+        return {"logged_in": False}
+    return {"logged_in": now < until, "at": s.get("at"), "until": s["until"]}
+
+
+def kite_reminder(now, today, k, reminded):
+    """One alert a session day, from 08:15, while there is no Kite login (4 Nov 2026): the app falls back to Yahoo,
+    whose 5-minute candles freeze before the close."""
+    return bool(k and not k["logged_in"] and today and today.get("date") == now.date().isoformat()
+                and today.get("status") != "holiday" and KITE_REMIND_FROM <= _hm(now) < KITE_REMIND_TO
+                and reminded != now.date().isoformat())
+
+
 def main(data_dir, now=None, store_dir=None):
     now = now or datetime.now(IST)
     load = lambda name: json.load(open(os.path.join(data_dir, name))) if os.path.exists(os.path.join(data_dir, name)) else None
@@ -456,7 +482,7 @@ def main(data_dir, now=None, store_dir=None):
     if note:
         new["option_note"] = note
     same_day = prev if prev and prev.get("date") == new["date"] else {}
-    for k in ("info_at", "summary_sent"):
+    for k in ("info_at", "summary_sent", "kite_reminded"):
         if same_day.get(k):
             new[k] = same_day[k]
     alert, extra = None, {}
@@ -485,6 +511,15 @@ def main(data_dir, now=None, store_dir=None):
             extra["info"] = notify(msg, silent=True)
             new["info_at"] = now.isoformat(timespec="minutes")
             print("info:", extra["info"])
+    k = kite_state(now)
+    if k:
+        new["kite"] = k
+    if kite_reminder(now, today, k, new.get("kite_reminded")) and channels():
+        extra["kite_reminder"] = notify({"kind": "kite", "link": KITE_PAGE, "headline": "No Kite login yet today",
+                                         "reason": "The app uses Yahoo's prices until you log in (Yahoo's 5-minute candles freeze "
+                                                   f"before the close). Open {KITE_PAGE} in Safari and tap Log in to Kite; the login "
+                                                   "lasts until 06:00 tomorrow."})
+        new["kite_reminded"] = new["date"]
     if (today or {}).get("next_session"):
         new["next_session"] = today["next_session"]
     box = trade_box(new, today)
