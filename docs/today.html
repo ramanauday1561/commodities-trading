@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Today</title>
+<meta name="theme-color" content="#070a12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Today">
+<!-- Today (5 Nov 2026, asked by the user): the day on one screen instead of four pages. Everything here is read from
+     the files the other pages use (status.json, live-nifty.json, next-nifty.json, gift-nifty.json, options-live.json,
+     data-health.json) and refreshes every 30 seconds; each card links to its page for the detail. -->
+<style>
+  :root { --bg:#070a12; --card:#0d121d; --line:#1f2735; --text:#e8edf5; --muted:#8a96a8; --up:#34d1bf; --down:#ff6b6b;
+          --warn:#f2c14e; --blue:#5aa9ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+         padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px); }
+  main { max-width:560px; margin:0 auto; }
+  header { display:flex; align-items:center; gap:10px; margin-bottom:12px; }
+  header b { font-size:22px; } header small { display:block; color:var(--muted); font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:10px 0; }
+  .card h2 { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; font-weight:600;
+             display:flex; justify-content:space-between; }
+  .card h2 a { color:var(--muted); text-transform:none; letter-spacing:0; font-weight:500; }
+  .price { font-size:30px; font-weight:700; letter-spacing:-.01em; }
+  .up { color:var(--up); } .down { color:var(--down); } .m { color:var(--muted); } .warn { color:var(--warn); }
+  .word { font-size:34px; font-weight:800; letter-spacing:-.02em; }
+  .word.CALL { color:var(--up); } .word.PUT { color:var(--down); } .word.STAY { color:var(--warn); } .word.SELL { color:var(--blue); }
+  .word.NOTHING { color:var(--muted); }
+  .row { display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-top:1px solid #151b26; }
+  .row:first-of-type { border-top:0; } .row span:first-child { color:var(--muted); } .row b { font-weight:600; text-align:right; }
+  svg { display:block; width:100%; height:64px; margin-top:6px; }
+  .note { font-size:12px; color:var(--muted); margin-top:6px; }
+  a { color:var(--muted); }
+</style>
+<script src="fresh.js"></script>
+</head>
+<body>
+<main>
+  <header data-nav><div><b>Today</b><small id="when">Loading…</small></div></header>
+  <div id="cards"></div>
+  <p class="note">Learning tool, not financial advice. Leans, AI reads and option lines are information, not trade signals.</p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const f2 = x => Number(x).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const k0 = x => Number(x).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+const pct = x => `${x >= 0 ? '+' : ''}${Number(x).toFixed(2)}%`;
+const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(Math.round(x)).toLocaleString('en-IN')}`;
+const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+const todayIst = () => new Date(Date.now() + 19800000).toISOString().slice(0, 10);
+const card = (title, link, body) => body ? `<section class="card"><h2>${title}${link ? `<a href="${link}">details ›</a>` : ''}</h2>${body}</section>` : '';
+const row = (a, b) => `<div class="row"><span>${a}</span><b>${b}</b></div>`;
+
+function spark(candles, prev) {
+  const c = (candles || []).map(x => x.close);
+  if (c.length < 2) return '';
+  const all = prev ? c.concat([prev]) : c, lo = Math.min(...all), hi = Math.max(...all), span = hi - lo || 1;
+  const x = i => (i / (c.length - 1)) * 300, y = v => 60 - ((v - lo) / span) * 56 - 2;
+  const pts = c.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const base = prev ? `<line x1="0" x2="300" y1="${y(prev)}" y2="${y(prev)}" stroke="#6b7688" stroke-dasharray="3 3" stroke-width="1"/>` : '';
+  const col = c[c.length - 1] >= (prev || c[0]) ? 'var(--up)' : 'var(--down)';
+  return `<svg viewBox="0 0 300 64" preserveAspectRatio="none" aria-label="NIFTY today">${base}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function priceCard(l) {
+  if (!l || !l.price) return '';
+  const pc = l.prev_close, mv = l.move_pct;
+  return card('NIFTY 50', 'live.html', `<div class="price">${f2(l.price)} <span class="${cls(mv)}" style="font-size:16px">${mv != null ? pct(mv) : ''}</span></div>
+    <div class="m" style="font-size:13px">${pc ? `yesterday ${f2(pc)}` : ''}${l.feed === 'kite' ? ' · Kite prices' : l.feed ? ' · Yahoo prices' : ''}</div>${spark(l.candles, pc)}`);
+}
+
+function signalCard(s) {
+  if (!s) return '';
+  const word = s.date === todayIst() ? s.state : 'NOTHING';
+  return card('Signal', 'status.html', `<div class="word ${word}">${word}</div><div><b>${s.headline || ''}</b></div>
+    <div class="m" style="font-size:14px">${s.reason || ''}</div>`);
+}
+
+function morningCard(l, g) {
+  let b = '';
+  if (g && g.gap_pct != null) {
+    const r = g.record || {};
+    b += row('GIFT Nifty', `${k0(g.price)} → open ${pct(g.gap_pct)}`) + (r.days ? row('GIFT record', `off ${r.avg_miss.toFixed(2)}% · right side ${r.side_right}/${r.days}`) : '');
+  }
+  if (l && l.call && l.call.dir) b += row('08:57 close call', `<span class="${l.call.dir === 'up' ? 'up' : 'down'}">${l.call.dir}</span> ${l.call.target ? f2(l.call.target) : ''}`);
+  const mo = l && l.morning;
+  if (mo && mo.score != null) b += row('AI morning read', `<span class="${cls(mo.score)}">${mo.score > 0 ? 'bullish' : mo.score < 0 ? 'bearish' : 'neutral'} (${mo.score > 0 ? '+' : ''}${mo.score})</span>`)
+    + (mo.reasons && mo.reasons[0] ? `<div class="note">${mo.reasons[0]}</div>` : '');
+  return card('Before the open', 'index.html', b);
+}
+
+function optionsCard(o) {
+  if (!o || o.date !== todayIst()) return '';
+  const leg = x => x && x.rs != null ? `${x.open} → ${x.now} <span class="${cls(x.rs)}">${rs(x.rs)}</span>` : '—';
+  let b = row(`ATM CALL ${k0(o.call.strike)}`, leg(o.call)) + row(`ATM PUT ${k0(o.put.strike)}`, leg(o.put));
+  if (o.app) b += row(`Our ${o.app.side}`, leg(o.app));
+  const c = o.chain;
+  if (c) b += row('Put-call ratio (OI)', `${c.pcr} · CALL wall ${k0(c.call_wall)} · PUT wall ${k0(c.put_wall)}`);
+  const p = o.paper;
+  if (p && p.today) b += row('Paper straddle (no money)', `<span class="${cls(p.today.rs)}">${rs(p.today.rs)}</span>${p.record && p.record.days ? ` · ${p.record.days}d ${rs(p.record.total_rs)}` : ''}`);
+  return card(`Options · ${o.at} · expiry ${o.expiry}`, 'live.html', b + '<div class="note">Bought at the first price today, per lot after costs.</div>');
+}
+
+function nextCard(n) {
+  if (!n || n.date !== todayIst()) return '';
+  const last = (n.leans || [])[n.leans.length - 1];
+  const lr = n.live_record;
+  let b = '';
+  if (last) b += row(`Lean for ${last.at}`, `<span class="${last.lean === 'up' ? 'up' : 'down'}">${last.lean}</span> ${Math.abs(last.pts) < 0.05 ? '≈0' : (last.pts > 0 ? '+' : '') + last.pts} pts`);
+  if (last && last.size != null) b += row('Expected size of that move', `±${last.size} pts${last.typical ? ` <span class="m">(usual ±${last.typical})</span>` : ''}`);
+  if (lr && lr.days) b += row(`Leans since ${lr.since.slice(5)}`, `${lr.right}/${lr.leans} right · <span class="${cls(lr.rs)}">${rs(lr.rs)}</span>`);
+  return card('Next 10 minutes', 'next.html', b && b + '<div class="note">The leans lose after option costs in every tested year: information only.</div>');
+}
+
+function healthCard(s, h) {
+  const k = s && s.kite;
+  let b = k ? row('Prices', k.logged_in ? '<span class="up">Kite</span>' : '<a href="kite.html">Yahoo · log in to Kite</a>') : '';
+  if (h && h.date === todayIst()) b += (h.issues || []).length ? h.issues.slice(0, 3).map(x => `<div class="warn" style="font-size:13px">${x}</div>`).join('')
+                                                             : row('Data checks', '<span class="up">all fine</span>');
+  return card('Data', 'kite.html', b);
+}
+
+async function load() {
+  try {
+    const [s, l, n, g, o, h] = await Promise.all(['status.json', 'live-nifty.json', 'next-nifty.json', 'gift-nifty.json',
+      'options-live.json', 'data-health.json'].map(x => siteJSON(x).catch(() => null)));
+    const open = l && l.status === 'open';
+    $('when').innerHTML = l ? `Updated ${(l.updated || '').slice(11, 16)} IST · ${open ? `${freshTag(l.updated, true)} · ${nextRun(l.updated)}` : l.status === 'closed' ? 'market closed' : 'before the open'}` : 'No data yet';
+    $('cards').innerHTML = priceCard(l) + signalCard(s) + optionsCard(o) + nextCard(n) + morningCard(l, g) + healthCard(s, h);
+  } catch (e) {
+    $('when').textContent = 'Could not load: check the connection.';
+  }
+}
+load();
+setInterval(load, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+<script src="nav.js"></script>
+</body>
+</html>

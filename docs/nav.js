@@ -2,6 +2,7 @@
 // Each page marks where the menu button goes with data-nav and loads this file; a new page only needs a line in PAGES.
 (function () {
   const PAGES = [
+    ['today.html', 'Today', 'The day on one screen'],
     ['index.html', 'Home', 'Forecasts and today\'s call'],
     ['status.html', 'Status', 'CALL, PUT, STAY, SELL or NOTHING now'],
     ['live.html', 'Live', 'Today: predictions vs the real price'],

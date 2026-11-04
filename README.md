@@ -8,6 +8,7 @@ is no server. Educational project, not financial advice.
 
 | Page | What it shows |
 |---|---|
+| Today (`today.html`) | The day on one screen: NIFTY, the signal, live option prices and the paper trade, Next 10 min, GIFT Nifty and the AI's read, the data checks |
 | Home (`index.html`) | Next-days forecasts per market, today's NIFTY call, news, the backtest behind each number |
 | Status (`status.html`) | CALL, PUT, STAY, SELL or NOTHING for NIFTY right now (only the tested 09:15 signal trades) |
 | Live (`live.html`) | Today in 10-minute candles: our model and the AI's predicted close vs the real price, the track record |
