@@ -320,3 +320,9 @@ stored history. Added 51 days nobody had (19 May - 30 Jul) and replaced 65 Yahoo
 (118 Bank NIFTY; VIX had none). The Yahoo-era copy is on the intraday-data-yahoo-backup branch. The next-candle study
 on the repaired history (2,910 days, 2015 - 3 Nov 2026): top-20% leans right 53.0%, -1.14 points (-Rs74 a lot) a trade
 after costs, 0 of 10 years up: the same verdict as before (-Rs73). The leans stay information only.
+
+Experiment mode "movesize" (5 Nov 2026, movesize_study.py): the SIZE of the next 10-minute move (2,911 days, test
+years 2017-2026). Rule A (the forecast's error beats the time-of-day and last-three-candles baselines by 3%+ overall and
+in 8 of 10 years; its top 10% moves 1.5x+ its bottom 10% every year) PASSES: 10.4% better, all 10 years, 2.7-4.3x. Now
+shown beside each lean on the Next 10 min page. Rule B (the leans, on the candles it ranks in its top 20%, win 55%+ and
+earn after option costs in both halves and 6 of 10 years) FAILS: 51.2% right, -Rs87 a lot a trade, 0 of 10 years.

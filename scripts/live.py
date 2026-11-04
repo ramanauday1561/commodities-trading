@@ -420,7 +420,8 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
         nx = _next(data_dir, today, now)
         if nx:
             st["leans"] = [x for x in st.get("leans", []) if x["at"] != nx["at"]] + [
-                {"made": now.strftime("%H:%M"), **{k: nx[k] for k in ("at", "lean", "pts", "confident")}}]
+                {"made": now.strftime("%H:%M"), **{k: nx[k] for k in ("at", "lean", "pts", "confident")},
+                 **{k: nx[k] for k in ("size", "typical") if nx.get(k) is not None}}]
     json.dump(st, open(path, "w"), separators=(",", ":"))
     meta = _load(os.path.join(data_dir, "nextcandle-meta.json"), {}) or {}
     json.dump({"date": day, "updated": now.isoformat(timespec="minutes"), "status": today.get("status"),

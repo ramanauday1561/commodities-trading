@@ -17,6 +17,13 @@ Rules, fixed before the run:
   B. The direction leans become usable on big-move candles only if, on the candles the size model ranks in its top
      20%, the leans win at least 55%, earn after option costs in both halves and in at least 6 of the 10 years
      (nextcandle_study's rule).
+Result (run 41815386034, 4 Nov 2026; 101,877 candles, 2,911 days, test years 2017-2026; the average move 11.0 points):
+  A passes. Average error 7.80 points against 8.76 (time of day) and 8.71 (last three candles): 10.4% better than the
+    better baseline, and better than both in all 10 years. Its top 10% moved 2.7-4.3 times its bottom 10% every year
+    (2026: 8.8 against 28.6 points). Shown on the Next 10 min page beside the lean (nextcandle.py).
+  B fails. On the candles it ranks in its top 20%, the leans were right 51.2% and lost 1.33 option points (-Rs87 a lot)
+    a trade after costs, in every year, though 50-80% of those candles moved more than the 7.4 points that cover costs:
+    a big move does not help when its direction is a coin flip. The leans stay information.
 """
 import json
 import os
