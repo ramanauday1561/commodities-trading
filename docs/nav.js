@@ -50,6 +50,7 @@
   btn.setAttribute('aria-label', 'Open menu');
   btn.setAttribute('aria-expanded', 'false');
   btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+  btn.setAttribute('data-plain', '');                       // never turned into a glass button (the tab bar replaces it)
   const host = document.querySelector('[data-nav]') || document.body;
   host.classList.add('nav-host');
   host.prepend(btn);
@@ -63,4 +64,22 @@
   shade.addEventListener('click', () => set(false));
   drawer.querySelector('.nav-head button').addEventListener('click', () => set(false));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') set(false); });
+
+  // Liquid Glass (5 Nov 2026, Glisse on React, vendor/glass-ui.js): a glass tab bar for the main pages and a "More" menu
+  // for the rest, glass behind the cards, glass buttons. The sidebar above stays as the fallback: if the module cannot
+  // load (an old browser, or ?classic in the address), the page keeps it and works as before.
+  const theme = document.createElement('link');
+  theme.rel = 'stylesheet';
+  theme.href = 'theme.css?v=1';
+  document.head.appendChild(theme);
+  const TABS = [['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'], ['live.html', 'Live', 'live'],
+                ['next.html', 'Next 10', 'next'], ['index.html', 'Forecast', 'home']];
+  const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite']];
+  if (!/[?&]classic\b/.test(location.search)) {
+    import('./vendor/glass-ui.js?v=1')
+      .then(m => m.start({ nav: { here: here === '' ? 'index.html' : here,
+                                  tabs: TABS.map(([href, label, icon]) => ({ href, label, icon })),
+                                  more: MORE.map(([href, label, icon]) => ({ href, label, icon })) } }))
+      .catch(e => console.warn('glass UI not loaded; the classic menu stays', e));
+  }
 })();

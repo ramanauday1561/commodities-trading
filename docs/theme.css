@@ -1,0 +1,42 @@
+/* Liquid Glass theme (5 Nov 2026): the shared background and the glass layer's rules; nav.js loads it on every page.
+   The glass itself (Glisse, in vendor/glass-ui.js) needs something behind it to bend and blur, hence the soft colour
+   fields behind the page. Without the module the pages keep their own look on this background. */
+html { background:#05070d; color-scheme:dark; }
+body { background:transparent !important; }
+html::before { content:""; position:fixed; inset:-10vmax; z-index:-2; pointer-events:none;
+  background:
+    radial-gradient(38vmax 30vmax at 12% 8%, rgba(52,209,191,.20), transparent 70%),
+    radial-gradient(34vmax 28vmax at 92% 18%, rgba(90,169,255,.20), transparent 70%),
+    radial-gradient(40vmax 32vmax at 70% 92%, rgba(167,112,255,.14), transparent 70%),
+    radial-gradient(30vmax 24vmax at 8% 78%, rgba(242,193,78,.10), transparent 70%),
+    #05070d; }
+
+/* glass behind cards: the page's content stays on top of the layer */
+.gui-host { position:relative; isolation:isolate; background:transparent !important; border-color:rgba(255,255,255,.10) !important;
+  border-radius:18px; }
+[data-glass].gui-host { padding:14px 16px !important; border-radius:18px; margin-top:12px; margin-bottom:12px; }
+.gui-layer { position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none; }
+.gui-layer > .lg-glass { width:100%; height:100%; border-radius:inherit; --lg-blur:18px; }
+
+/* glass buttons stand in for the page's own (hidden) buttons */
+.gui-hidden { display:none !important; }
+.gui-btn { display:inline-flex; vertical-align:middle; }
+.gui-btn .lg-button { height:34px; padding:0 14px; font-size:14px; font-weight:600; }
+.gui-btn .gui-label { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+.gui-switch-row { display:inline-flex; align-items:center; gap:10px; font-size:14px; cursor:pointer; }
+/* the Home page's market chips: a 4-column grid of two-line buttons */
+nav > .gui-btn { display:flex; min-width:0; }
+nav > .gui-btn .lg-button { width:100%; height:auto; min-height:46px; padding:6px 10px; border-radius:14px; justify-content:flex-start; }
+nav > .gui-btn .gui-label { flex-direction:column; align-items:flex-start; gap:1px; white-space:nowrap; min-width:0; overflow:hidden; }
+@media (min-width:720px) { nav > .gui-btn .gui-label { flex-direction:row; align-items:baseline; gap:8px; } }
+
+/* the tab bar floats at the bottom; the old menu button gives way to it */
+.gui-tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 10px); z-index:900;
+  display:flex; justify-content:center; width:max-content; max-width:calc(100vw - 16px); }
+.gui-tabbar .lg-tab-bar { --lg-tab-width:min(76px, calc((100vw - 32px) / 5)); }
+.gui-tabbar a { color:inherit; text-decoration:none; }
+.gui-more-inline { position:static !important; margin-left:auto; flex:none; }
+.gui-more { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:900; }
+body.gui-on { padding-bottom:calc(env(safe-area-inset-bottom) + 100px) !important; }
+body.gui-on .nav-btn { display:none !important; }
+@media (prefers-reduced-transparency: reduce) { html::before { background:#05070d; } }

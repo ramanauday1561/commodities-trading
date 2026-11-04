@@ -39,9 +39,9 @@
     <div data-nav><div><b>Next 10 minutes</b><small id="when">Loading…</small></div></div>
     <a href="live.html">Live</a>
   </div>
-  <div class="now" id="now">…</div>
+  <div class="now" id="now" data-glass>…</div>
   <div id="chart"><div id="msg" hidden></div></div>
-  <div id="panel"></div>
+  <div id="panel" data-glass></div>
 </div>
 <script src="lightweight-charts.js"></script>
 <script src="fresh.js"></script>
@@ -99,7 +99,7 @@ function recordHTML(d) {
     : '<div class="big m" style="font-size:16px">No finished day yet</div>';
   const test = t ? `<div class="m">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
   return live + test + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
-    <button class="show" data-show="1">Show today's leans anyway</button></div>`;
+    <button class="show" data-show="1" data-switch="off">Show today's leans anyway</button></div>`;
 }
 
 function draw(d) {
@@ -126,7 +126,7 @@ function draw(d) {
       ? `<div class="m">${cur.at} to ${addMin(cur.at, 10)}</div><div class="big ${cur.lean === 'up' ? 'up' : 'down'}">${cur.lean === 'up' ? '▲ leans up' : '▼ leans down'}
          <span style="font-size:14px;font-weight:500">${Math.abs(cur.pts) < 0.05 ? '≈0 pts: a coin flip' : `${cur.pts >= 0 ? '+' : ''}${cur.pts} pts`}${cur.confident ? ' · ★ more confident' : ''}</span></div>`
       : `<div class="big m" style="font-size:16px">${d.status === 'open' ? 'Waiting for the next 10-minute candle' : 'No live lean (market closed)'}</div>`)
-    + (showLeans ? `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}. <button class="show" data-show="0">Hide the leans</button></div>` : ''));
+    + (showLeans ? `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}. <button class="show" data-show="0" data-switch="on">Show the leans</button></div>` : ''));
   const right = done.filter(x => x.right).length, money = done.reduce((a, x) => a + x.rs, 0);
   const conf = done.filter(x => x.confident), cRight = conf.filter(x => x.right).length;
   $('panel').innerHTML = (done.length
