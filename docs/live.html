@@ -153,15 +153,29 @@ document.addEventListener('toggle', e => {
   else if (e.target.classList.contains('money')) moneyOpen = e.target.open;
 }, true);
 // Real option prices for the day (option_record.py, from NSE's bhavcopy: published the evening after, added at 04:00 IST)
-let realOpt = null;
+let realOpt = null, liveOpt = null;
 async function loadRealOpt() {
   try { realOpt = await siteJSON('options-nifty.json') || realOpt; } catch (e) {}
+}
+// Live option prices during the day (options_live.py, from Kite after the morning login, 4 Nov 2026)
+async function loadLiveOpt() {
+  try { liveOpt = await siteJSON('options-live.json') || liveOpt; } catch (e) {}
+}
+function liveOptLine(day) {
+  const o = liveOpt && liveOpt.date === day ? liveOpt : null;
+  if (!o || !o.call || o.call.rs == null) return '';
+  const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
+  const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+  const leg = (name, x) => x && x.rs != null ? `${name} ${Number(x.strike).toLocaleString('en-IN')} (${x.open} → ${x.now}) <b class="${cls(x.rs)}">${rs(x.rs)}</b>` : '';
+  return `<div style="margin-top:6px"><b>Live option prices</b> (Kite, ${o.at}; expiry ${o.expiry}; bought at the first price today, per lot after costs):
+    ${o.app ? `our app's ${leg(o.app.side, o.app)} · ` : ''}an at-the-money ${[leg('CALL', o.call), leg('PUT', o.put)].filter(Boolean).join(' · ')}.
+    <span class="m">Information, not a trade signal.</span></div>`;
 }
 function realLine(day, status) {
   const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN')}`;
   const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
   const r = realOpt && (realOpt.days || []).find(x => x.d === day);
-  if (!r) return status === 'open' ? '' : `<div class="m" style="margin-top:4px">With real option prices: NSE publishes the day's prices in the evening; they appear here from about 04:00 IST.</div>`;
+  if (!r) return liveOptLine(day) || (status === 'open' ? '' : `<div class="m" style="margin-top:4px">With real option prices: NSE publishes the day's prices in the evening; they appear here from about 04:00 IST.</div>`);
   const leg = (name, x) => x ? `${name} ${x.strike.toLocaleString('en-IN')} (${x.open} → ${x.close}) <b class="${cls(x.rs)}">${rs(x.rs)}</b>` : '';
   return `<div style="margin-top:6px"><b>With real option prices</b> (NSE, open to close, no stop, per lot after costs):
     ${r.app ? `our app's ${leg(r.app.side, r.app)} · ` : ''}an at-the-money ${[leg('CALL', r.call), leg('PUT', r.put)].filter(Boolean).join(' · ')}.
@@ -257,7 +271,8 @@ function summary() {
       <span class="m">${pc(dl.avg_pct)} on average, usually ${pc(dl.range_pct[0])} to ${pc(dl.range_pct[1])} (${dl.read}). Not a trade signal.</span>`);
   }
   if (d.paused_from) h += sec('Price feed', `<span class="m">Yahoo's 5-minute prices stopped moving from ${d.paused_from} (it happens near the close on most days since Aug 2026); those minutes are left out of the candles until the close.</span>`);
-  p.innerHTML = h + recordLine(d.record) + moneyBox(d.money, d.date, d.status);
+  p.innerHTML = h + recordLine(d.record) + moneyBox(d.money, d.date, d.status)
+    + (d.money && d.money.rows && d.money.rows.length ? '' : liveOptLine(d.date));   // during the day: no money box yet
 }
 chart.subscribeClick(param => {
   if (REPLAY || rp) return;                    // the replay view has its own (below)
@@ -283,7 +298,7 @@ async function load() {
   let d = null;
   try { d = await siteJSON('live-nifty.json'); } catch (e) { /* below */ }
   if (!d) { $('msg').hidden = false; $('msg').textContent = 'No live data yet today.'; return; }
-  if (d.updated !== last) { if (d.status !== 'open') await loadRealOpt(); last = d.updated; draw(d); }
+  if (d.updated !== last) { if (d.status !== 'open') await loadRealOpt(); await loadLiveOpt(); last = d.updated; draw(d); }
   // no 10-minute candles (after the close, or a day before the live runs existed): show the day's replay if one exists
   if (!(d.candles || []).length && d.status !== 'open' && !(rp && rp.date === d.date)) await replayOf(d.date);
 }

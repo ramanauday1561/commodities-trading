@@ -220,6 +220,18 @@ jobs:
         run: |                       # after the close: the live chart's scorecard and Grok's why, then the summary
           python -u scripts/live.py docs/data store close || true
           python -u scripts/status.py docs/data store         # journal saved with the scoreboard below
+      - name: The day's 5-minute option candles (Kite after the morning login; options_live.py, options-live branch)
+        if: github.ref == 'refs/heads/main'
+        continue-on-error: true
+        timeout-minutes: 3
+        env:
+          PYTHONPATH: scripts
+        run: |
+          if [ -f kite/session.json ]; then
+            bash scripts/store.sh pull options-live optlive
+            python -u scripts/options_live.py close optlive
+            bash scripts/store.sh push options-live optlive
+          fi
       - name: NIFTY option prices (NSE bhavcopy of the latest sessions, option_data.py) and each day on real premiums
         continue-on-error: true
         timeout-minutes: 8

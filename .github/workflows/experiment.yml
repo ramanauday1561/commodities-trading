@@ -9,7 +9,7 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute, options (see STUDIES.md); nextreplay (one day's next-candle leans replayed, test_days = the date); intradata (update the 5-minute history), dukafetch (the hourly overnight history) or optdata (NIFTY option prices); kitecheck (are the Kite secrets accepted), kitecompare (Kite vs Yahoo)"
+        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute, options (see STUDIES.md); nextreplay (one day's next-candle leans replayed, test_days = the date); intradata (update the 5-minute history), dukafetch (the hourly overnight history) or optdata (NIFTY option prices); kitecheck (are the Kite secrets accepted), kitecompare (Kite vs Yahoo), kiteoptions (live option prices once)"
         required: false
         default: "variants"
 
@@ -48,6 +48,21 @@ jobs:
           pip install -q cryptography
           bash scripts/store.sh pull kite-session kite
           python -u scripts/kite_compare.py
+      - name: Live option prices once, not saved (mode "kiteoptions"; needs today's Kite login)
+        if: github.event.inputs.mode == 'kiteoptions' && matrix.key == 'nifty'
+        env:
+          KITE_API_KEY: ${{ secrets.KITE_API_KEY }}
+          KITE_API_SECRET: ${{ secrets.KITE_API_SECRET }}
+          KITE_DIR: kite
+          GH_TOKEN: ${{ github.token }}
+          PYTHONPATH: scripts
+        run: |
+          pip install -q cryptography
+          bash scripts/store.sh pull kite-session kite
+          mkdir -p optlive docs/data
+          python -u scripts/options_live.py snap optlive docs/data
+          cat docs/data/options-live.json || true
+          head -5 optlive/snapshots/*.csv || true
       - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options", "nextreplay"; intraday-data branch)
         if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options", "nextreplay"]'), github.event.inputs.mode) && matrix.key == 'nifty'
         env:
@@ -101,5 +116,5 @@ jobs:
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
           INTRADAY_DIR: intra
           OPTIONS_DIRS: opt/p0,opt/p1,opt/p2,opt/p3
-        if: github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'dukafetch' && github.event.inputs.mode != 'optdata' && github.event.inputs.mode != 'nextreplay' && github.event.inputs.mode != 'kitecheck' && github.event.inputs.mode != 'kitecompare'
+        if: github.event.inputs.mode != 'intradata' && github.event.inputs.mode != 'dukafetch' && github.event.inputs.mode != 'optdata' && github.event.inputs.mode != 'nextreplay' && github.event.inputs.mode != 'kitecheck' && github.event.inputs.mode != 'kitecompare' && github.event.inputs.mode != 'kiteoptions'
         run: python -u scripts/experiment.py ${{ matrix.key }} ${{ github.event.inputs.test_days || 750 }} 2 ${{ github.event.inputs.mode || 'variants' }}
