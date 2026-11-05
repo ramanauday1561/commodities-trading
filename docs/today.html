@@ -117,6 +117,16 @@ function nextCard(n) {
   return card('Next 10 minutes', 'next.html', b && b + '<div class="note">The leans lose after option costs in every tested year: information only.</div>');
 }
 
+// Paper accounts on Kite's real option prices (5 Nov 2026, paper_accounts.py): ₹2 lakh each from 4 Nov, scored at the close
+function paperCard(p) {
+  if (!p || !p.totals) return '';
+  const order = ['straddle', 'leans_star', 'leans', 'signal_lean'], short = { leans: 'Every Next 10 lean', leans_star: '★ leans only',
+    straddle: 'Short straddle (50% stops)', signal_lean: "09:15 signal's lean" };
+  const b = order.filter(k => p.totals[k]).map(k => { const t = p.totals[k];
+    return row(short[k], `₹${k0(t.balance)} <span class="${cls(t.rs)}">${rs(t.rs)}</span> <span class="m">· ${t.up_days}/${t.days}d up</span>`); }).join('');
+  return card(`Paper accounts · since ${new Date(p.start + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })}`, 'next.html', b && b + '<div class="note">₹2,00,000 each, 1 lot a trade on Kite\'s real option prices, after costs; updated at the close. No money is traded.</div>');
+}
+
 function healthCard(s, h) {
   const k = s && s.kite;
   let b = k ? row('Prices', k.logged_in ? '<span class="up">Kite</span>' : '<a href="kite.html">Yahoo · log in to Kite</a>') : '';
@@ -127,11 +137,11 @@ function healthCard(s, h) {
 
 async function load() {
   try {
-    const [s, l, n, g, o, h] = await Promise.all(['status.json', 'live-nifty.json', 'next-nifty.json', 'gift-nifty.json',
-      'options-live.json', 'data-health.json'].map(x => siteJSON(x).catch(() => null)));
+    const [s, l, n, g, o, h, p] = await Promise.all(['status.json', 'live-nifty.json', 'next-nifty.json', 'gift-nifty.json',
+      'options-live.json', 'data-health.json', 'paper-accounts.json'].map(x => siteJSON(x).catch(() => null)));
     const open = l && l.status === 'open';
     $('when').innerHTML = l ? `Updated ${(l.updated || '').slice(11, 16)} IST · ${open ? `${freshTag(l.updated, true)} · ${nextRun(l.updated)}` : l.status === 'closed' ? 'market closed' : 'before the open'}` : 'No data yet';
-    $('cards').innerHTML = priceCard(l) + signalCard(s) + optionsCard(o) + nextCard(n) + morningCard(l, g) + healthCard(s, h);
+    $('cards').innerHTML = priceCard(l) + signalCard(s) + optionsCard(o) + nextCard(n) + paperCard(p) + morningCard(l, g) + healthCard(s, h);
   } catch (e) {
     $('when').textContent = 'Could not load: check the connection.';
   }

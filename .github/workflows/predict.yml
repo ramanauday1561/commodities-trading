@@ -230,6 +230,7 @@ jobs:
           if [ -f kite/session.json ]; then
             bash scripts/store.sh pull options-live optlive
             python -u scripts/options_live.py close optlive
+            python -u scripts/paper_accounts.py optlive docs/data || true    # paper accounts on the real option prices
             bash scripts/store.sh push options-live optlive
           fi
       - name: NIFTY futures from Kite (futures_data.py; the futures-data branch)

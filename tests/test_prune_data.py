@@ -11,7 +11,7 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 class Prune(unittest.TestCase):
     def test_keeps_shared_files(self):
         with tempfile.TemporaryDirectory() as d:
-            names = ["options-live", "options-nifty", "data-health", "nifty", "status", "live-nifty", "next-nifty",
+            names = ["options-live", "options-nifty", "data-health", "paper-accounts", "nifty", "status", "live-nifty", "next-nifty",
                      "replay-2026-11-03", "gone-instrument"]
             for n in names:
                 open(os.path.join(d, n + ".json"), "w").write("{}")
