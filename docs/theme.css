@@ -45,7 +45,9 @@ button.gui-native:disabled { opacity:.5; }
 /* 5 Nov 2026 (iPhone): the bar sits at the bottom edge on a dark strip, so the page no longer shows through and
    under it (the blurred text and blue glows inside the glass were the page behind it) */
 .gui-tabbar { position:fixed; left:0; right:0; bottom:0; transform:none; z-index:900; display:flex; justify-content:center;
-  padding:16px 8px calc(env(safe-area-inset-bottom) + 6px); pointer-events:none;
+  /* 5 Nov 2026: the full home-bar inset plus 6px left the bar ~40 points above the screen's edge on an iPhone; it now
+     overlaps the home-bar area as iOS's own tab bars do, 20 points from the edge there and 6 on a phone without one */
+  padding:16px 8px max(6px, calc(env(safe-area-inset-bottom) - 14px)); pointer-events:none;
   background:linear-gradient(to bottom, rgb(5 7 13 / 0), rgb(5 7 13 / .92) 34%, #05070d 62%); }
 .gui-tabbar > * { pointer-events:auto; }
 .gui-tabbar .lg-tab-bar { --lg-tab-width:min(76px, calc((100vw - 32px) / 5)); }
@@ -61,9 +63,9 @@ button.gui-native:disabled { opacity:.5; }
 header:has(.gui-more-corner) [data-nav], header[data-nav]:has(.gui-more-corner) { padding-right:52px; }   /* the title never runs under the button */
 /* pages without a header card: the ⋯ sits at the top right of the page and scrolls away with the title */
 .gui-more { position:absolute; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:900; }
-body.gui-on { padding-bottom:calc(env(safe-area-inset-bottom) + 100px) !important; }
+body.gui-on { padding-bottom:calc(env(safe-area-inset-bottom) + 86px) !important; }
 /* Live and Next 10 are one fixed screen (chart above, a scrolling panel below): end it above the tab bar */
-body.gui-on .wrap { padding-bottom:calc(env(safe-area-inset-bottom) + 84px) !important; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+body.gui-on .wrap { padding-bottom:calc(env(safe-area-inset-bottom) + 72px) !important; overflow-y:auto; -webkit-overflow-scrolling:touch; }
 /* 5 Nov 2026: on Live the panel grew (live option prices, open interest, the paper trade) and squeezed the chart to
    ~50px; and a panel that scrolled inside itself left its text outside the glass, which covers only what shows. Now
    the chart keeps a fixed share of the screen, the panel shows in full, and the whole screen scrolls */
