@@ -39,15 +39,22 @@ button.gui-native[data-variant="filled"] small { color:rgba(255,255,255,.9) !imp
 button.gui-native:disabled { opacity:.5; }
 
 /* the tab bar floats at the bottom; the old menu button gives way to it */
-.gui-tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 10px); z-index:900;
-  display:flex; justify-content:center; width:max-content; max-width:calc(100vw - 16px); }
+/* 5 Nov 2026 (iPhone): the bar sits at the bottom edge on a dark strip, so the page no longer shows through and
+   under it (the blurred text and blue glows inside the glass were the page behind it) */
+.gui-tabbar { position:fixed; left:0; right:0; bottom:0; transform:none; z-index:900; display:flex; justify-content:center;
+  padding:16px 8px calc(env(safe-area-inset-bottom) + 6px); pointer-events:none;
+  background:linear-gradient(to bottom, rgb(5 7 13 / 0), rgb(5 7 13 / .92) 34%, #05070d 62%); }
+.gui-tabbar > * { pointer-events:auto; }
 .gui-tabbar .lg-tab-bar { --lg-tab-width:min(76px, calc((100vw - 32px) / 5)); }
 .gui-tabbar a { color:inherit; text-decoration:none; }
 /* the bar and the menu keep their own look whatever a page styles for its own icons, buttons and links */
 .gui-tabbar svg, .gui-more svg { width:22px !important; height:22px !important; margin:0 !important; display:block; max-width:none; }
 .gui-tabbar nav, nav.gui-tabbar { grid-template-columns:none; gap:0; margin:0; }
-.gui-more-inline { position:static !important; margin-left:auto; flex:none; display:inline-flex; align-items:center; }
-.gui-more-corner { position:absolute !important; top:10px; right:10px; z-index:5; }
+.gui-more.gui-more-inline { position:static !important; margin-left:auto; flex:none; display:inline-flex; align-items:center; }
+/* the corner and inline places win over the page-level rule below, whose top adds the iPhone's notch area (5 Nov 2026:
+   on a real iPhone that pushed the ⋯ about 60 points down, onto the Home page's "?" button) */
+.gui-more.gui-more-corner { position:absolute !important; top:10px; right:10px; z-index:5; }
+.gui-more.gui-more-inline { top:auto; right:auto; }
 header:has(.gui-more-corner) [data-nav] { padding-right:48px; }        /* the title never runs under the button */
 /* pages without a header card: the ⋯ sits at the top right of the page and scrolls away with the title */
 .gui-more { position:absolute; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:900; }
