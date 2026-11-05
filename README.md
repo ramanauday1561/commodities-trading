@@ -32,6 +32,7 @@ pages keep the classic sidebar. A service worker (`sw.js`) lets the home-screen 
 | `status-alert-test.yml` | By hand | Sends a test alert through every configured channel |
 | `kite-login.yml` | From the Kite login page, each morning | `kite.py`: trades Kite's one-time request token for the day's access token (stored encrypted) |
 | `experiment.yml` | By hand | `experiment.py`: backtests and the kept studies (below) |
+| `site.yml` | Merges that change a page (`docs/`) | Publishes the site with the latest data (a pages-only merge started no publishing run before) |
 | `tests.yml` | Every PR and push to main | `tests/` |
 
 Prices: `prices.py` serves NIFTY 50, Bank NIFTY and India VIX to every script, from Kite Connect after the morning
