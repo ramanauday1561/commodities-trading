@@ -1,8 +1,9 @@
 """Zerodha Kite Connect: NIFTY's own 5-minute candles in place of Yahoo's (4 Nov 2026, asked by the user).
 
 Yahoo's 5-minute NIFTY bars freeze from about 15:10 (since Aug 2026; 3 Nov 2026 the chart ended 80 points below the
-official close). Kite's market data needs no static IP (that rule covers order placement only, which this app never
-does), but its access token lasts one day: someone logs in to Kite once each morning (docs/kite.html), Kite sends a
+official close). Kite's market data needs no static IP (that rule covers order placement only, which only the order
+server on the static-IP box does: server/orders_server.py, your own picks; nothing here places orders), but its
+access token lasts one day: someone logs in to Kite once each morning (docs/kite.html), Kite sends a
 one-time request_token back to that page, and the "Kite login" workflow trades it for the day's access token with
 the API secret. The token is stored encrypted with a key made from the API secret (the kite-session branch is
 public), and every 10-minute run decrypts it. With no login that day, the runs use Yahoo as before.
