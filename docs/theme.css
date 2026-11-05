@@ -37,6 +37,9 @@ button.gui-native.chip { height:auto; min-height:46px; border-radius:14px; justi
 button.gui-native[data-variant="filled"] { color:#fff; }
 button.gui-native[data-variant="filled"] small { color:rgba(255,255,255,.9) !important; }
 button.gui-native:disabled { opacity:.5; }
+/* the Home chart's Day / Hour and 1M ... All buttons: compact, and they wrap on the smallest phones (iPhone SE) */
+#ranges { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+#ranges button.gui-native { height:30px; padding:0 10px; font-size:13px; }
 
 /* the tab bar floats at the bottom; the old menu button gives way to it */
 /* 5 Nov 2026 (iPhone): the bar sits at the bottom edge on a dark strip, so the page no longer shows through and
@@ -55,13 +58,18 @@ button.gui-native:disabled { opacity:.5; }
    on a real iPhone that pushed the ⋯ about 60 points down, onto the Home page's "?" button) */
 .gui-more.gui-more-corner { position:absolute !important; top:10px; right:10px; z-index:5; }
 .gui-more.gui-more-inline { top:auto; right:auto; }
-header:has(.gui-more-corner) [data-nav] { padding-right:48px; }        /* the title never runs under the button */
+header:has(.gui-more-corner) [data-nav], header[data-nav]:has(.gui-more-corner) { padding-right:52px; }   /* the title never runs under the button */
 /* pages without a header card: the ⋯ sits at the top right of the page and scrolls away with the title */
 .gui-more { position:absolute; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:900; }
 body.gui-on { padding-bottom:calc(env(safe-area-inset-bottom) + 100px) !important; }
 /* Live and Next 10 are one fixed screen (chart above, a scrolling panel below): end it above the tab bar */
 body.gui-on .wrap { padding-bottom:calc(env(safe-area-inset-bottom) + 84px) !important; overflow-y:auto; -webkit-overflow-scrolling:touch; }
-@media (max-height:600px) { body.gui-on .wrap #chart { min-height:140px; } }   /* iPhone SE: the screen scrolls when it does not fit */
+/* 5 Nov 2026: on Live the panel grew (live option prices, open interest, the paper trade) and squeezed the chart to
+   ~50px; and a panel that scrolled inside itself left its text outside the glass, which covers only what shows. Now
+   the chart keeps a fixed share of the screen, the panel shows in full, and the whole screen scrolls */
+body.gui-on .wrap #chart { flex:none; height:max(240px, 44vh); min-height:0; }
+body.gui-on .wrap #panel { flex:none; max-height:none; overflow:visible; }
+body.gui-on .wrap > * { flex-shrink:0; }          /* the title row and the legend keep their height; the screen scrolls */
 /* Status and Kite login have no header card: the ⋯ floats top right, so their title keeps clear of it */
 body.gui-more-fixed [data-nav] { padding-right:52px; min-height:40px; }
 body.gui-more-fixed [data-nav].gui-centered { padding-left:52px; }      /* a centred title stays centred */

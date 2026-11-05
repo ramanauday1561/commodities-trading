@@ -117,7 +117,8 @@ function draw(d) {
   const rec = (d.record && d.record.text) || 'not tested';
   const nowIST = Date.now() / 1000 + 19800, late = cur && d.status === 'open' && nowIST >= cur.t + 600 + 120;
   const over = cur && cur.at >= '15:15';                 // no lean after the 15:15 candle (15:25 is a 5-minute stub)
-  $('now').innerHTML = sizeLine(cur, d, late) + (!showLeans ? recordHTML(d) : (late && over
+  // 5 Nov 2026: with the leans on, the direction comes first (as before the size forecast), the size one line under it
+  $('now').innerHTML = (showLeans ? '' : sizeLine(cur, d, late)) + (!showLeans ? recordHTML(d) : (late && over
       ? `<div class="big m" style="font-size:16px">No more leans today</div><div class="m">The last 10-minute candle is 15:15 to 15:25.</div>`
       : late
       ? `<div class="big m" style="font-size:16px">Waiting for the ${addMin(cur.at, 10)} update</div>
@@ -125,6 +126,7 @@ function draw(d) {
       : cur && cur.pending && d.status === 'open'
       ? `<div class="m">${cur.at} to ${addMin(cur.at, 10)}</div><div class="big ${cur.lean === 'up' ? 'up' : 'down'}">${cur.lean === 'up' ? '▲ leans up' : '▼ leans down'}
          <span style="font-size:14px;font-weight:500">${Math.abs(cur.pts) < 0.05 ? '≈0 pts: a coin flip' : `${cur.pts >= 0 ? '+' : ''}${cur.pts} pts`}${cur.confident ? ' · ★ more confident' : ''}</span></div>`
+        + sizeShort(cur)
       : `<div class="big m" style="font-size:16px">${d.status === 'open' ? 'Waiting for the next 10-minute candle' : 'No live lean (market closed)'}</div>`)
     + (showLeans ? `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}. <button class="show" data-show="0" data-switch="on">Show the leans</button></div>` : ''));
   const right = done.filter(x => x.right).length, money = done.reduce((a, x) => a + x.rs, 0);
@@ -146,6 +148,12 @@ function draw(d) {
 
 // The expected size of the next move (5 Nov 2026, movesize_study.py): it passed its test (error 10% below the usual
 // size at that time of day, in all 10 years), unlike the direction; shown whether the leans are on or off
+function sizeShort(cur) {
+  if (cur.size == null) return '';
+  const big = cur.typical ? cur.size / cur.typical : 1;
+  const word = big >= 1.3 ? 'bigger than usual' : big <= 0.75 ? 'smaller than usual' : 'about usual';
+  return `<div class="m" style="font-size:13px;margin-top:2px">Expected size of this move: <b style="color:var(--text)">±${cur.size} pts</b>, ${word}${cur.typical ? ` (usual ±${cur.typical})` : ''}. The size is tested; the direction is not.</div>`;
+}
 function sizeLine(cur, d, late) {
   if (!cur || !cur.pending || d.status !== 'open' || late || cur.size == null) return '';
   const big = cur.typical ? cur.size / cur.typical : 1;
