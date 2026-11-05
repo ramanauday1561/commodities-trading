@@ -70,7 +70,7 @@
   // load (an old browser, or ?classic in the address), the page keeps it and works as before.
   const theme = document.createElement('link');
   theme.rel = 'stylesheet';
-  theme.href = 'theme.css?v=3';
+  theme.href = 'theme.css?v=4';
   document.head.appendChild(theme);
   const TABS = [['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'], ['live.html', 'Live', 'live'],
                 ['next.html', 'Next 10', 'next'], ['index.html', 'Forecast', 'home']];
