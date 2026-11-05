@@ -9,6 +9,7 @@
     ['next.html', 'Next 10 min', 'The model\'s lean per candle (information)'],
     ['history.html', 'History', 'Every day\'s calls and trades'],
     ['kite.html', 'Kite login', 'Once each morning: Kite\'s own prices'],
+    ['orders.html', 'Orders', 'Your own picks, real money (order server)'],
   ];
   const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
   const css = `
@@ -74,7 +75,7 @@
   document.head.appendChild(theme);
   const TABS = [['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'], ['live.html', 'Live', 'live'],
                 ['next.html', 'Next 10', 'next'], ['index.html', 'Forecast', 'home']];
-  const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite']];
+  const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite'], ['orders.html', 'Orders', 'live']];
   if (!/[?&]classic\b/.test(location.search)) {
     import('./vendor/glass-ui.js?v=2')
       .then(m => m.start({ nav: { here: here === '' ? 'index.html' : here,
