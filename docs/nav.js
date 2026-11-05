@@ -70,13 +70,13 @@
   // load (an old browser, or ?classic in the address), the page keeps it and works as before.
   const theme = document.createElement('link');
   theme.rel = 'stylesheet';
-  theme.href = 'theme.css?v=1';
+  theme.href = 'theme.css?v=2';
   document.head.appendChild(theme);
   const TABS = [['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'], ['live.html', 'Live', 'live'],
                 ['next.html', 'Next 10', 'next'], ['index.html', 'Forecast', 'home']];
   const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite']];
   if (!/[?&]classic\b/.test(location.search)) {
-    import('./vendor/glass-ui.js?v=1')
+    import('./vendor/glass-ui.js?v=2')
       .then(m => m.start({ nav: { here: here === '' ? 'index.html' : here,
                                   tabs: TABS.map(([href, label, icon]) => ({ href, label, icon })),
                                   more: MORE.map(([href, label, icon]) => ({ href, label, icon })) } }))

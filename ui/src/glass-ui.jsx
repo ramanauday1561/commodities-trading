@@ -55,9 +55,22 @@ export function nav({ tabs, more, here }) {
                      defaultValue={current} />);
   if (more && more.length) {
     const m = document.createElement("div");
-    const head = document.querySelector("[data-nav]");
-    m.className = head ? "gui-more gui-more-inline" : "gui-more";   // in the page's header row when it has one
-    (head || document.body).append(m);
+    // in the top-right corner of the page's header card, or at the end of its top row (Live, Next 10), else of the screen
+    const header = document.querySelector("header"), row = document.querySelector(".top");
+    if (header) {
+      m.className = "gui-more gui-more-corner";
+      if (getComputedStyle(header).position === "static") header.classList.add("gui-rel");
+      header.append(m);
+    } else if (row) {
+      m.className = "gui-more gui-more-inline";
+      row.append(m);
+    } else {
+      m.className = "gui-more";
+      document.body.classList.add("gui-more-fixed");      // the page's title gets room for it (theme.css)
+      const t = document.querySelector("[data-nav]");
+      if (t && getComputedStyle(t).textAlign === "center") t.classList.add("gui-centered");
+      document.body.append(m);
+    }
     mount(m, <Menu aria-label="More pages" items={more.map((p) => ({ label: p.label, icon: <Icon name={p.icon} />,
                                                                       onSelect: () => { location.href = p.href; } }))} />);
   }
@@ -69,6 +82,7 @@ function addLayer(el) {
   if (el.tagName === "DETAILS" || el.hidden || el.querySelector(":scope > .gui-layer")) return;   // closed details hide children
   if (el.closest("[data-glass-skip]") || (el.parentElement && el.parentElement.closest(".gui-host"))) return;
   el.classList.add("gui-host");
+  if (getComputedStyle(el).position === "static") el.classList.add("gui-rel");   // a sticky header stays sticky
   const layer = document.createElement("div");
   layer.className = "gui-layer";
   layer.setAttribute("aria-hidden", "true");
@@ -79,6 +93,22 @@ function addLayer(el) {
 // ---------------------------------------------------------------- glass buttons mirroring the page's buttons
 function label(btn) {
   return <span className="gui-label" dangerouslySetInnerHTML={{ __html: btn.innerHTML }} />;
+}
+// 5 Nov 2026: on iPhone Safari the React copies of buttons went missing or out of line (the Home page's market chips),
+// so the page's own buttons now get Glisse's glass classes directly and keep their own layout and handlers; only a
+// button marked data-switch is drawn as a Glisse Switch.
+function styleNative(btn) {
+  if (btn.__gui || btn.hasAttribute("data-plain") || btn.closest(".gui-btn, .gui-tabbar, .gui-more, .nav-drawer, [data-glass-skip]")) return;
+  if (btn.dataset.switch !== undefined) return mirror(btn);
+  btn.__gui = true;
+  btn.classList.add("lg-glass", "lg-button", "gui-native");
+  const paint = () => {
+    const on = btn.classList.contains("on") || btn.getAttribute("aria-pressed") === "true" || btn.dataset.variant === "filled";
+    if (on && btn.getAttribute("data-variant") !== "filled") btn.setAttribute("data-variant", "filled");
+    if (!on && btn.hasAttribute("data-variant")) btn.removeAttribute("data-variant");
+  };
+  paint();
+  new MutationObserver(paint).observe(btn, { attributes: true, attributeFilter: ["class", "aria-pressed"] });
 }
 function mirror(btn) {
   if (btn.__gui || btn.hasAttribute("data-plain") || btn.closest(".gui-btn, .gui-tabbar, .gui-more, .nav-drawer, [data-glass-skip]")) return;
@@ -113,7 +143,7 @@ function scan() {
   queued = false;
   sweep();
   document.querySelectorAll(SURFACES).forEach(addLayer);
-  document.querySelectorAll("button").forEach(mirror);
+  document.querySelectorAll("button").forEach(styleNative);
 }
 export function start(options = {}) {
   document.documentElement.setAttribute("data-theme", "dark");

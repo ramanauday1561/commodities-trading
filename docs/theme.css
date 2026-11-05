@@ -12,11 +12,17 @@ html::before { content:""; position:fixed; inset:-10vmax; z-index:-2; pointer-ev
     #05070d; }
 
 /* glass behind cards: the page's content stays on top of the layer */
-.gui-host { position:relative; isolation:isolate; background:transparent !important; border-color:rgba(255,255,255,.10) !important;
+.gui-rel { position:relative; }
+.gui-host { isolation:isolate; background:transparent !important; border-color:rgba(255,255,255,.10) !important;
   border-radius:18px; }
 [data-glass].gui-host { padding:14px 16px !important; border-radius:18px; margin-top:12px; margin-bottom:12px; }
 .gui-layer { position:absolute; inset:0; z-index:-1; border-radius:inherit; pointer-events:none; }
 .gui-layer > .lg-glass { width:100%; height:100%; border-radius:inherit; --lg-blur:18px; }
+
+/* a pinned header must stay readable over the text scrolling under it; and nothing runs under the phone's status bar */
+header.gui-host .gui-layer > .lg-glass { --lg-blur:28px; background-color:rgb(16 19 28 / .78); }
+body.gui-on::after { content:""; position:fixed; left:0; right:0; top:0; height:calc(env(safe-area-inset-top) + 10px); z-index:800;
+  pointer-events:none; background:linear-gradient(#05070d, rgb(5 7 13 / .85) 70%, transparent); }
 
 /* glass buttons stand in for the page's own (hidden) buttons */
 .gui-hidden { display:none !important; }
@@ -24,19 +30,33 @@ html::before { content:""; position:fixed; inset:-10vmax; z-index:-2; pointer-ev
 .gui-btn .lg-button { height:34px; padding:0 14px; font-size:14px; font-weight:600; }
 .gui-btn .gui-label { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
 .gui-switch-row { display:inline-flex; align-items:center; gap:10px; font-size:14px; cursor:pointer; }
-/* the Home page's market chips: a 4-column grid of two-line buttons */
-nav > .gui-btn { display:flex; min-width:0; }
-nav > .gui-btn .lg-button { width:100%; height:auto; min-height:46px; padding:6px 10px; border-radius:14px; justify-content:flex-start; }
-nav > .gui-btn .gui-label { flex-direction:column; align-items:flex-start; gap:1px; white-space:nowrap; min-width:0; overflow:hidden; }
-@media (min-width:720px) { nav > .gui-btn .gui-label { flex-direction:row; align-items:baseline; gap:8px; } }
+/* the page's own buttons with Glisse's glass classes: they keep their layout; sizes evened out */
+button.gui-native { color:var(--lg-foreground); font-weight:600; border:0; }
+button.gui-native:not(.chip) { height:34px; padding:0 14px; font-size:14px; }
+button.gui-native.chip { height:auto; min-height:46px; border-radius:14px; justify-content:center; align-items:flex-start; }
+button.gui-native[data-variant="filled"] { color:#fff; }
+button.gui-native[data-variant="filled"] small { color:rgba(255,255,255,.9) !important; }
+button.gui-native:disabled { opacity:.5; }
 
 /* the tab bar floats at the bottom; the old menu button gives way to it */
 .gui-tabbar { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(env(safe-area-inset-bottom) + 10px); z-index:900;
   display:flex; justify-content:center; width:max-content; max-width:calc(100vw - 16px); }
 .gui-tabbar .lg-tab-bar { --lg-tab-width:min(76px, calc((100vw - 32px) / 5)); }
 .gui-tabbar a { color:inherit; text-decoration:none; }
-.gui-more-inline { position:static !important; margin-left:auto; flex:none; }
-.gui-more { position:fixed; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:900; }
+/* the bar and the menu keep their own look whatever a page styles for its own icons, buttons and links */
+.gui-tabbar svg, .gui-more svg { width:22px !important; height:22px !important; margin:0 !important; display:block; max-width:none; }
+.gui-tabbar nav, nav.gui-tabbar { grid-template-columns:none; gap:0; margin:0; }
+.gui-more-inline { position:static !important; margin-left:auto; flex:none; display:inline-flex; align-items:center; }
+.gui-more-corner { position:absolute !important; top:10px; right:10px; z-index:5; }
+header:has(.gui-more-corner) [data-nav] { padding-right:48px; }        /* the title never runs under the button */
+/* pages without a header card: the ⋯ sits at the top right of the page and scrolls away with the title */
+.gui-more { position:absolute; top:calc(env(safe-area-inset-top) + 10px); right:calc(env(safe-area-inset-right) + 12px); z-index:900; }
 body.gui-on { padding-bottom:calc(env(safe-area-inset-bottom) + 100px) !important; }
+/* Live and Next 10 are one fixed screen (chart above, a scrolling panel below): end it above the tab bar */
+body.gui-on .wrap { padding-bottom:calc(env(safe-area-inset-bottom) + 84px) !important; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+@media (max-height:600px) { body.gui-on .wrap #chart { min-height:140px; } }   /* iPhone SE: the screen scrolls when it does not fit */
+/* Status and Kite login have no header card: the ⋯ floats top right, so their title keeps clear of it */
+body.gui-more-fixed [data-nav] { padding-right:52px; min-height:40px; }
+body.gui-more-fixed [data-nav].gui-centered { padding-left:52px; }      /* a centred title stays centred */
 body.gui-on .nav-btn { display:none !important; }
 @media (prefers-reduced-transparency: reduce) { html::before { background:#05070d; } }
