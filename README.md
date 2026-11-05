@@ -32,6 +32,7 @@ pages keep the classic sidebar. A service worker (`sw.js`) lets the home-screen 
 | `status-alert-test.yml` | By hand | Sends a test alert through every configured channel |
 | `kite-login.yml` | From the Kite login page, each morning | `kite.py`: trades Kite's one-time request token for the day's access token (stored encrypted) |
 | `experiment.yml` | By hand | `experiment.py`: backtests and the kept studies (below) |
+| `site.yml` | Merges that change a page (`docs/`) | Publishes the site with the latest data (a pages-only merge started no publishing run before) |
 | `tests.yml` | Every PR and push to main | `tests/` |
 
 Prices: `prices.py` serves NIFTY 50, Bank NIFTY and India VIX to every script, from Kite Connect after the morning
@@ -62,6 +63,12 @@ Secrets (GitHub → Settings → Secrets, never in the repo): `FRED_API_KEY`, `X
 Connect's market data (no static IP needed: that covers order placement, which the app never does; the Kite app's
 redirect URL is the site's `kite.html`). The page's Rerun and Recheck buttons need a
 fine-grained token with only **Actions: Read and write** on this repository; the page keeps it in that browser only.
+
+## How changes reach the app
+
+Every change is a pull request into the `dev` branch (5 Nov 2026, asked by the user); the live app runs from `main`
+and does not change when `dev` does. When `dev` is ready, one release pull request from `dev` into `main` puts it live.
+Tests run on every pull request and on pushes to both branches.
 
 ## Changing a call: test first
 
