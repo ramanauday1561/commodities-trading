@@ -98,7 +98,7 @@ function recordHTML(d) {
        <div>Lost money on ${r.losing_days} of ${r.days} day${r.days > 1 ? 's' : ''}; ${r.right} of ${r.leans} leans right (${Math.round(r.right / r.leans * 100)}%).</div>`
     : '<div class="big m" style="font-size:16px">No finished day yet</div>';
   const test = t ? `<div class="m">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
-  return live + test + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
+  return live + test + paperLine(d) + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
     <button class="show" data-show="1" data-switch="off">Show today's leans anyway</button></div>`;
 }
 
@@ -131,19 +131,34 @@ function draw(d) {
     + (showLeans ? `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}. <button class="show" data-show="0" data-switch="on">Show the leans</button></div>` : ''));
   const right = done.filter(x => x.right).length, money = done.reduce((a, x) => a + x.rs, 0);
   const conf = done.filter(x => x.confident), cRight = conf.filter(x => x.right).length;
+  // each lean's ₹ on Kite's real option prices once the close has scored the day (paper_accounts.py), else the estimate
+  const pd = paper && paper.days && paper.days.length && paper.days[paper.days.length - 1].d === d.date ? paper.today_leans || [] : [];
+  const real = Object.fromEntries(pd.map(x => [x.at + x.lean, x.rs]));
   $('panel').innerHTML = (done.length
       ? `<div><b>Today: ${right} of ${done.length} right (${Math.round(right / done.length * 100)}%)</b>`
         + (conf.length ? ` · ★ more confident: ${cRight} of ${conf.length}` : '')
         + `. Trading every lean with 1 lot of an at-the-money option: <b class="${money >= 0 ? 'up' : 'down'}">${rs(money)}</b> after costs.</div>`
-        + dayLine(money, d)
+        + dayLine(money, d) + (showLeans ? paperLine(d) : '')
       : '<div class="m">No lean scored yet today.</div>')
     + (showLeans && s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
         + s.slice().reverse().map(x => `<tr><td>${x.at}${x.confident ? ' ★' : ''}</td><td class="${x.lean === 'up' ? 'up' : 'down'}">${x.lean} ${x.pts >= 0 ? '+' : ''}${x.pts}${x.size != null ? ` <span class="m">±${x.size}</span>` : ''}</td>`
-          + (x.pending ? `<td class="n m">${d.status === 'open' ? 'pending' : 'not scored'}</td><td></td>` : x.paused ? '<td class="n m">feed paused</td><td></td>' : `<td class="n ${x.right ? 'up' : 'down'}">${x.move >= 0 ? '+' : ''}${x.move.toFixed(1)} ${x.right ? '✓' : '✗'}</td><td class="n ${x.rs >= 0 ? 'up' : 'down'}">${rs(x.rs)}</td>`)
+          + (x.pending ? `<td class="n m">${d.status === 'open' ? 'pending' : 'not scored'}</td><td></td>` : x.paused ? '<td class="n m">feed paused</td><td></td>' : `<td class="n ${x.right ? 'up' : 'down'}">${x.move >= 0 ? '+' : ''}${x.move.toFixed(1)} ${x.right ? '✓' : '✗'}</td><td class="n ${(real[x.at + x.lean] ?? x.rs) >= 0 ? 'up' : 'down'}">${rs(real[x.at + x.lean] ?? x.rs)}${real[x.at + x.lean] != null ? '•' : ''}</td>`)
           + '</tr>').join('') + '</table>' : '')
     + (d.paused_from ? `<div class="m" style="margin-top:6px">Yahoo's price feed paused from ${d.paused_from}; those candles are left out and their leans are not scored.</div>` : '')
     + (!showLeans ? '' : `<div class="m" style="margin-top:6px">Arrows: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).
-       ₹ per lot assumes the option moves half as much as NIFTY and a round trip costs about ₹120.${d.trained_until ? ` Model trained on candles to ${d.trained_until}.` : ''}</div>`);
+       ₹ per lot: with • on Kite's real option prices (bought at the at-the-money option's price when the lean was made, sold 10 minutes later), added after the close; without •, assuming the option moves half as much as NIFTY. A round trip costs about ₹120.${d.trained_until ? ` Model trained on candles to ${d.trained_until}.` : ''}</div>`);
+}
+
+// Paper accounts on Kite's real option prices (5 Nov 2026, paper_accounts.py, at the close): each lean bought at its
+// at-the-money option's real price when it was made and sold at the next run's, instead of the half-delta estimate above
+function paperLine(d) {
+  const p = paper;
+  if (!p || !p.totals || !p.totals.leans) return '';
+  const a = p.totals.leans, s = p.totals.leans_star, day = (p.days || []).find(x => x.d === d.date);
+  const t = day && day.accounts.leans, ts = day && day.accounts.leans_star;
+  return `<div class="m" style="margin-top:6px"><b style="color:var(--text)">On real option prices</b> (Kite quotes, ₹2 lakh paper from ${new Date(p.start + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })}):
+    every lean <b class="${a.rs >= 0 ? 'up' : 'down'}">${rs(a.rs)}</b> in ${a.days} day${a.days > 1 ? 's' : ''}${s ? `, ★ leans only <b class="${s.rs >= 0 ? 'up' : 'down'}">${rs(s.rs)}</b>` : ''}.
+    ${t ? `Today: every lean <b class="${t.rs >= 0 ? 'up' : 'down'}">${rs(t.rs)}</b> (${t.won} of ${t.trades} made money)${ts && ts.trades ? `, ★ <b class="${ts.rs >= 0 ? 'up' : 'down'}">${rs(ts.rs)}</b> (${ts.won} of ${ts.trades})` : ''}.` : 'Today is added after the close.'}</div>`;
 }
 
 // The expected size of the next move (5 Nov 2026, movesize_study.py): it passed its test (error 10% below the usual
@@ -192,11 +207,14 @@ function dayLine(money, d) {
 
 function addMin(hm, m) { const [h, mm] = hm.split(':').map(Number), t = h * 60 + mm + m; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
 
+let paper = null;
 async function load() {
-  let d = null;
-  try { d = await siteJSON('next-nifty.json'); } catch (e) { /* below */ }     // fresh.js: site-data's newest commit
+  let d = null, p = null;
+  [d, p] = await Promise.all([siteJSON('next-nifty.json'), siteJSON('paper-accounts.json')].map(x => x.catch(() => null)));   // fresh.js: site-data's newest commit
   if (!d) { $('msg').hidden = false; $('msg').textContent = 'No data yet today.'; return; }
-  if (d.updated !== last) { last = d.updated; draw(d); }
+  const key = d.updated + (p && p.updated);
+  paper = p;
+  if (key !== last) { last = key; draw(d); }
 }
 load();
 setInterval(load, 30000);
