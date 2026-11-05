@@ -24,25 +24,25 @@
 },
 {
 "d": "2026-11-05",
-"at": "10:35",
+"at": "10:46",
 "strike": 24400,
 "expiry": "2026-11-09",
 "legs": {
 "CE": {
 "sold": 108,
-"now": 138.75,
+"now": 133.8,
 "stopped": true,
 "pts": -56.0
 },
 "PE": {
 "sold": 226,
-"now": 160.5,
+"now": 165.2,
 "stopped": false,
-"pts": 65.5
+"pts": 60.8
 }
 },
-"pts": 5.8,
-"rs": 377,
+"pts": 1.1,
+"rs": 71,
 "final": false
 }
 ]
