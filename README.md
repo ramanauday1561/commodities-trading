@@ -64,6 +64,12 @@ Connect's market data (no static IP needed: that covers order placement, which t
 redirect URL is the site's `kite.html`). The page's Rerun and Recheck buttons need a
 fine-grained token with only **Actions: Read and write** on this repository; the page keeps it in that browser only.
 
+## How changes reach the app
+
+Every change is a pull request into the `dev` branch (5 Nov 2026, asked by the user); the live app runs from `main`
+and does not change when `dev` does. When `dev` is ready, one release pull request from `dev` into `main` puts it live.
+Tests run on every pull request and on pushes to both branches.
+
 ## Changing a call: test first
 
 Every change is backtested on history only (walk-forward), against a pass rule written down before the run, and goes
