@@ -70,7 +70,7 @@
   // load (an old browser, or ?classic in the address), the page keeps it and works as before.
   const theme = document.createElement('link');
   theme.rel = 'stylesheet';
-  theme.href = 'theme.css?v=7';
+  theme.href = 'theme.css?v=8';
   document.head.appendChild(theme);
   // 6 Nov 2026: Next 10 first, the screen the app opens on (index.html sends a fresh launch there)
   const TABS = [['next.html', 'Next 10', 'next'], ['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'],
