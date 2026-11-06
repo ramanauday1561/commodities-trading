@@ -2,7 +2,7 @@
   "name": "Kronos Forecast",
   "short_name": "Forecast",
   "description": "Daily forecasts for NIFTY 50, gold, silver and crude oil, with today's NIFTY call.",
-  "start_url": "./",
+  "start_url": "next.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",

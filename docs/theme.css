@@ -49,6 +49,15 @@ button.gui-native:disabled { opacity:.5; }
      overlaps the home-bar area as iOS's own tab bars do, 20 points from the edge there and 6 on a phone without one */
   padding:16px 8px max(6px, calc(env(safe-area-inset-bottom) - 14px)); pointer-events:none;
   background:linear-gradient(to bottom, rgb(5 7 13 / 0), rgb(5 7 13 / .92) 34%, #05070d 62%); }
+/* 6 Nov 2026 (iPhone, home-screen app): the bar still sat ~60 points above the screen's edge. In the installed app iOS
+   26.0 places "bottom: 0" (and viewport-sized fixed boxes) as if Safari's toolbar were still there (fixed in Safari 26.1);
+   the large viewport (100lvh) is the whole screen, so the bar is pinned to it instead, and Live / Next 10 fill it. */
+@media (display-mode: standalone) {
+  @supports (height: 100lvh) {
+    .gui-tabbar { bottom:auto; top:100lvh; transform:translateY(-100%); }
+    body.gui-on .wrap { bottom:auto; height:100lvh; }
+  }
+}
 .gui-tabbar > * { pointer-events:auto; }
 .gui-tabbar .lg-tab-bar { --lg-tab-width:min(76px, calc((100vw - 32px) / 5)); }
 .gui-tabbar a { color:inherit; text-decoration:none; }
