@@ -70,13 +70,33 @@
   // load (an old browser, or ?classic in the address), the page keeps it and works as before.
   const theme = document.createElement('link');
   theme.rel = 'stylesheet';
-  theme.href = 'theme.css?v=6';
+  theme.href = 'theme.css?v=7';
   document.head.appendChild(theme);
   // 6 Nov 2026: Next 10 first, the screen the app opens on (index.html sends a fresh launch there)
   const TABS = [['next.html', 'Next 10', 'next'], ['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'],
                 ['live.html', 'Live', 'live'], ['index.html', 'Forecast', 'home']];
   try { sessionStorage.setItem('opened', '1'); } catch (e) { /* private mode */ }
-  const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite']];
+  // ?debug (6 Nov 2026): the viewport sizes the phone reports, to find the gap under the tab bar in the home-screen app
+  if (/[?&]debug\b/.test(location.search)) {
+    const probe = h => { const d = document.createElement('div'); d.style.cssText = `position:fixed;top:0;left:0;width:1px;visibility:hidden;height:${h}`;
+      document.body.append(d); const v = d.getBoundingClientRect().height; d.remove(); return Math.round(v); };
+    const show = () => {
+      const vv = window.visualViewport, bar = document.querySelector('.gui-tabbar');
+      let box = document.getElementById('vp-debug');
+      if (!box) { box = document.createElement('pre'); box.id = 'vp-debug'; box.style.cssText = 'position:fixed;top:30%;left:8px;right:8px;z-index:2000;margin:0;padding:10px;'
+        + 'background:#000c;color:#7cf;font:12px/1.4 ui-monospace,Menlo,monospace;border:1px solid #7cf;border-radius:8px;white-space:pre-wrap;'; document.body.append(box); }
+      box.textContent = [`standalone ${!!(navigator.standalone || matchMedia('(display-mode: standalone)').matches)}  ${navigator.userAgent.match(/OS [\d_]+/) || ''}`,
+        `screen ${screen.width}x${screen.height}  inner ${innerWidth}x${innerHeight}  outer ${outerHeight}`,
+        `clientHeight ${document.documentElement.clientHeight}  visualViewport ${vv ? Math.round(vv.height) + ' +' + Math.round(vv.offsetTop) : '-'}`,
+        `100vh ${probe('100vh')}  100svh ${probe('100svh')}  100dvh ${probe('100dvh')}  100lvh ${probe('100lvh')}`,
+        `safe-area top ${probe('env(safe-area-inset-top)')}  bottom ${probe('env(safe-area-inset-bottom)')}`,
+        `tab bar bottom ${bar ? Math.round(bar.getBoundingClientRect().bottom) : '-'}`].join('\n');
+    };
+    addEventListener('load', () => setTimeout(show, 800));
+    addEventListener('resize', show);
+  }
+  const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite'],
+                ['next.html?debug', 'Screen check', 'status']];      // 6 Nov 2026, for a while: the tab bar's gap (?debug below)
   if (!/[?&]classic\b/.test(location.search)) {
     import('./vendor/glass-ui.js?v=2')
       .then(m => m.start({ nav: { here: here === '' ? 'index.html' : here,
