@@ -44,5 +44,28 @@
 "pts": 74.35,
 "rs": 4833,
 "final": true
+},
+{
+"d": "2026-11-06",
+"at": "09:25",
+"strike": 24550,
+"expiry": "2026-11-09",
+"legs": {
+"CE": {
+"sold": 98.95,
+"now": 119.5,
+"stopped": true,
+"pts": -51.48
+},
+"PE": {
+"sold": 222.95,
+"now": 241.2,
+"stopped": false,
+"pts": -18.25
+}
+},
+"pts": -73.43,
+"rs": -4773,
+"final": false
 }
 ]
