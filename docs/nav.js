@@ -70,10 +70,12 @@
   // load (an old browser, or ?classic in the address), the page keeps it and works as before.
   const theme = document.createElement('link');
   theme.rel = 'stylesheet';
-  theme.href = 'theme.css?v=5';
+  theme.href = 'theme.css?v=6';
   document.head.appendChild(theme);
-  const TABS = [['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'], ['live.html', 'Live', 'live'],
-                ['next.html', 'Next 10', 'next'], ['index.html', 'Forecast', 'home']];
+  // 6 Nov 2026: Next 10 first, the screen the app opens on (index.html sends a fresh launch there)
+  const TABS = [['next.html', 'Next 10', 'next'], ['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'],
+                ['live.html', 'Live', 'live'], ['index.html', 'Forecast', 'home']];
+  try { sessionStorage.setItem('opened', '1'); } catch (e) { /* private mode */ }
   const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite']];
   if (!/[?&]classic\b/.test(location.search)) {
     import('./vendor/glass-ui.js?v=2')
