@@ -3,6 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<script>
+  // 6 Nov 2026 (asked by the user): the home-screen app opens on Next 10, the screen watched all day. Only on a fresh
+  // launch of the installed app (no page of this site opened before in this session); the Forecast tab still shows this page.
+  try {
+    const app = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+    const fromHere = document.referrer && new URL(document.referrer).origin === location.origin;
+    if (app && !fromHere && !sessionStorage.getItem('opened') && !/[?&]home\b/.test(location.search)) {
+      sessionStorage.setItem('opened', '1');
+      location.replace('next.html');
+    }
+  } catch (e) { /* storage blocked: stay here */ }
+</script>
 <title>Kronos Forecast</title>
 <meta name="description" content="Daily forecasts for NIFTY 50, gold, silver and crude oil, with today's NIFTY call.">
 <meta name="theme-color" content="#070a12">
