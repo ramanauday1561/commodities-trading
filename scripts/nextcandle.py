@@ -16,6 +16,7 @@ costs (-Rs87 a lot a trade, 0 of 10 years), so the leans stay information.
 import json
 import os
 import sys
+from datetime import date
 
 import numpy as np
 import pandas as pd
@@ -35,6 +36,17 @@ DAY_RECORD = {"days": 2371, "from": "2017-01-02", "to": "2026-10-29", "profit_sh
 SIZE_RECORD = {"better_than_baseline_pct": 10.4, "years_better": "10 of 10", "top_vs_bottom": "2.7-4.3x",
                "text": "tested 2017-2026: its error was 10% below the usual size at that time of day, in every year"}
 LAST_FULL = "15:15"
+# 9 Nov 2026: since 3 Aug 2026 NSE closes F&O stocks with a closing auction: continuous trading stops at 15:15 and
+# NIFTY stays where it is until the auction sets the close at 15:30 (the stored 15:15 and 15:20 bars are flat on every
+# day since; the 15:25 bar jumps to the close). The 15:15 lean is then about a candle NIFTY cannot move in: a sure
+# loss of the costs (Rs120 a lot on the page's pricing; on real option prices 3 of its 4 days lost). The last lean on
+# those days is for the 15:05 candle.
+CAS_FROM, LAST_FULL_CAS = date(2026, 8, 3), "15:05"
+
+
+def last_full(day):
+    """The start of the last 10-minute candle a lean is made for on that day."""
+    return LAST_FULL_CAS if day >= CAS_FROM else LAST_FULL
 STALE = pd.Timedelta(minutes=6)          # runs come about 40 seconds into each candle; more than 6 minutes in is stale                     # the 15:25 candle is only 5 minutes; it was never in the test, so no lean for it
 
 
@@ -97,7 +109,7 @@ def lean(model_dir, now, get=yahoo_days):
     meta = json.load(open(meta_p))
     p = float(lgb.Booster(model_file=mp).predict(df[ns.FEATS].values[-1:])[0])
     start = pd.Timestamp(today) + pd.Timedelta(hours=9, minutes=15) + pd.Timedelta(minutes=10 * (int(last["k"]) + 1))
-    if start.strftime("%H:%M") > LAST_FULL:
+    if start.strftime("%H:%M") > last_full(today):
         return None
     # the candle the lean is for must be the one starting now: when the feed has paused (the last full candle is older)
     # or the run is late, that candle is already under way and a lean for it would be stale
@@ -110,7 +122,7 @@ def lean(model_dir, now, get=yahoo_days):
         import movesize_study as ms
         z = ms.add_size(df)
         out["size"] = round(float(lgb.Booster(model_file=sp).predict(z[ms.SIZE_FEATS].values[-1:])[0]) * float(last["price"]), 1)
-        t = (meta.get("size_typical") or {}).get(str(int(last["k"]) + 1))
+        t = (meta.get("size_typical") or {}).get(str(int(last["k"])))     # the move from candle k to k+1 (train: by row k)
         out["typical"] = round(t * float(last["price"]), 1) if t else None
     return out
 
@@ -140,7 +152,7 @@ def replay(day, intra_dir, store_dir=None, work=None):
     rows = []
     for j in range(1, len(c)):
         st = starts[j]
-        if st.strftime("%H:%M") > LAST_FULL:
+        if st.strftime("%H:%M") > last_full(day):
             break
         def get(sym, st=st):
             known = {d: x for d, x in full[sym].items() if day - timedelta(days=20) <= d <= day}

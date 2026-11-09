@@ -202,6 +202,7 @@ STUDIES = {
     "movesize": ("movesize_study", "main"),
     "movesizekite": ("movesize_study", "kite_main"),
     "futures": ("futures_study", "main"),
+    "leanfilters": ("leanfilter_study", "main"),
 }
 
 
