@@ -110,7 +110,7 @@ def lean(model_dir, now, get=yahoo_days):
         import movesize_study as ms
         z = ms.add_size(df)
         out["size"] = round(float(lgb.Booster(model_file=sp).predict(z[ms.SIZE_FEATS].values[-1:])[0]) * float(last["price"]), 1)
-        t = (meta.get("size_typical") or {}).get(str(int(last["k"]) + 1))
+        t = (meta.get("size_typical") or {}).get(str(int(last["k"])))     # the move from candle k to k+1 (train: by row k)
         out["typical"] = round(t * float(last["price"]), 1) if t else None
     return out
 
