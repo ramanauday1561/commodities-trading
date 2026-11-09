@@ -348,3 +348,17 @@ independent): +0.097% a trade, 3 of 3 years. Nothing changes.
 
 Paper straddle backfill (5 Nov 2026, options_live.backfill): 4 Nov 2026 from the saved 5-minute option candles: the
 23,750 CALL stopped (149.35 -> +50%), the PUT 228.75 -> 85.60: +Rs4,081 a lot. The record starts there.
+
+Experiment mode "leanfilters" (9 Nov 2026, leanfilter_study.py): (2) how an at-the-money option really moves, from
+256 pairs of Kite quotes 10 minutes apart (4-9 Nov 2026): 0.569x NIFTY's move on its side and -0.08 option points per
+10 minutes besides (the app assumed 0.5 and 0; R2 0.925), so the app's pricing was about right. (1) Three filters on the
+Next 10 leans, 2017-2026 walk-forward, rule fixed before the run (earn after costs overall, both halves, since 2022 and
+7 of 10 years, 300+ trades): * only -Rs72 a lot a trade (53.0% right), expected size >= 1.2x usual -Rs95, with a
+trending day (move since the open >= 40% of the distance travelled, lean on its side) -Rs99; every lean -Rs106. All
+FAIL, in every one of the 10 years. Nothing changes; the paper accounts keep counting.
+
+NSE's closing auction (noticed 9 Nov 2026): since 3 Aug 2026 continuous trading in F&O stocks stops at 15:15 and an
+auction sets the close at 15:30, so NIFTY stands still from 15:15 (every stored 15:15 and 15:20 bar since is flat; the
+15:25 bar jumps to the close; what earlier notes called Yahoo's feed "freezing from about 15:10" was this). The 15:15
+lean was a sure loss of costs; from now on the last lean on those days is for 15:05 (nextcandle.last_full). On real
+option prices the 15:15 lean lost Rs541 over 4-9 Nov (3 of 4 days).

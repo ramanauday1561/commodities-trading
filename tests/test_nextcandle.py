@@ -56,12 +56,21 @@ class NextCandle(unittest.TestCase):
         self.assertIsNone(nc.lean(tempfile.mkdtemp(), datetime(2026, 10, 29, 11, tzinfo=IST), get=lambda s: live))
         self.assertEqual(meta["day_record"]["quantiles"]["50"], -3801)
         at = lambda h, m: datetime.combine(today, datetime.min.time(), IST).replace(hour=h, minute=m)
+        live[today] = days(3, seed=2, start="2026-10-27")[today].iloc[:70]            # to the 15:00 bar: 14:55 finished
+        self.assertEqual(nc.lean(tmp, at(15, 6), get=lambda s: live)["at"], "15:05")
+        # since the closing auction (3 Aug 2026) NIFTY cannot move from 15:15: no lean for the 15:15 candle
         live[today] = days(3, seed=2, start="2026-10-27")[today].iloc[:72]            # to the 15:10 bar: 15:05 finished
-        self.assertEqual(nc.lean(tmp, at(15, 16), get=lambda s: live)["at"], "15:15")
+        self.assertIsNone(nc.lean(tmp, at(15, 16), get=lambda s: live))
         live[today] = days(3, seed=2, start="2026-10-27")[today].iloc[:74]            # 15:15 finished: next is the stub
         self.assertIsNone(nc.lean(tmp, at(15, 26), get=lambda s: live))
         live[today] = days(3, seed=2, start="2026-10-27")[today].iloc[:20]            # the last full candle is 10:45
         self.assertIsNone(nc.lean(tmp, at(11, 2), get=lambda s: live))               # 7 min into 10:55: stale
+
+    def test_last_lean_before_and_after_the_closing_auction(self):
+        from datetime import date
+        self.assertEqual(nc.last_full(date(2026, 7, 31)), "15:15")
+        self.assertEqual(nc.last_full(date(2026, 8, 3)), "15:05")
+        self.assertEqual(nc.last_full(date(2026, 11, 9)), "15:05")
 
     def test_replay_a_day(self):
         import json as js
