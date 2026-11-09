@@ -356,3 +356,9 @@ Next 10 leans, 2017-2026 walk-forward, rule fixed before the run (earn after cos
 7 of 10 years, 300+ trades): * only -Rs72 a lot a trade (53.0% right), expected size >= 1.2x usual -Rs95, with a
 trending day (move since the open >= 40% of the distance travelled, lean on its side) -Rs99; every lean -Rs106. All
 FAIL, in every one of the 10 years. Nothing changes; the paper accounts keep counting.
+
+NSE's closing auction (noticed 9 Nov 2026): since 3 Aug 2026 continuous trading in F&O stocks stops at 15:15 and an
+auction sets the close at 15:30, so NIFTY stands still from 15:15 (every stored 15:15 and 15:20 bar since is flat; the
+15:25 bar jumps to the close; what earlier notes called Yahoo's feed "freezing from about 15:10" was this). The 15:15
+lean was a sure loss of costs; from now on the last lean on those days is for 15:05 (nextcandle.last_full). On real
+option prices the 15:15 lean lost Rs541 over 4-9 Nov (3 of 4 days).

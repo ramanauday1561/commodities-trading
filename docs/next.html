@@ -116,10 +116,12 @@ function draw(d) {
   $('when').innerHTML = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}${d.feed === 'kite' ? ' · Kite prices' : ''}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   const rec = (d.record && d.record.text) || 'not tested';
   const nowIST = Date.now() / 1000 + 19800, late = cur && d.status === 'open' && nowIST >= cur.t + 600 + 120;
-  const over = cur && cur.at >= '15:15';                 // no lean after the 15:15 candle (15:25 is a 5-minute stub)
+  // no lean after the 15:15 candle (15:25 is a 5-minute stub); since NSE's closing auction (3 Aug 2026) NIFTY cannot
+  // move from 15:15, so the last lean is for 15:05 (nextcandle.last_full)
+  const lastAt = d.date >= '2026-08-03' ? '15:05' : '15:15', over = cur && cur.at >= lastAt;
   // 5 Nov 2026: with the leans on, the direction comes first (as before the size forecast), the size one line under it
   $('now').innerHTML = (showLeans ? '' : sizeLine(cur, d, late)) + (!showLeans ? recordHTML(d) : (late && over
-      ? `<div class="big m" style="font-size:16px">No more leans today</div><div class="m">The last 10-minute candle is 15:15 to 15:25.</div>`
+      ? `<div class="big m" style="font-size:16px">No more leans today</div><div class="m">${lastAt === '15:05' ? "NSE's closing auction holds NIFTY still from 15:15 until the close is set at 15:30, so the last lean is for 15:05 to 15:15." : 'The last 10-minute candle is 15:15 to 15:25.'}</div>`
       : late
       ? `<div class="big m" style="font-size:16px">Waiting for the ${addMin(cur.at, 10)} update</div>
          <div class="m">It runs every 10 minutes, but GitHub sometimes starts it a few minutes late. The page refreshes by itself.</div>`
