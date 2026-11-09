@@ -348,3 +348,11 @@ independent): +0.097% a trade, 3 of 3 years. Nothing changes.
 
 Paper straddle backfill (5 Nov 2026, options_live.backfill): 4 Nov 2026 from the saved 5-minute option candles: the
 23,750 CALL stopped (149.35 -> +50%), the PUT 228.75 -> 85.60: +Rs4,081 a lot. The record starts there.
+
+Experiment mode "leanfilters" (9 Nov 2026, leanfilter_study.py): (2) how an at-the-money option really moves, from
+256 pairs of Kite quotes 10 minutes apart (4-9 Nov 2026): 0.569x NIFTY's move on its side and -0.08 option points per
+10 minutes besides (the app assumed 0.5 and 0; R2 0.925), so the app's pricing was about right. (1) Three filters on the
+Next 10 leans, 2017-2026 walk-forward, rule fixed before the run (earn after costs overall, both halves, since 2022 and
+7 of 10 years, 300+ trades): * only -Rs72 a lot a trade (53.0% right), expected size >= 1.2x usual -Rs95, with a
+trending day (move since the open >= 40% of the distance travelled, lean on its side) -Rs99; every lean -Rs106. All
+FAIL, in every one of the 10 years. Nothing changes; the paper accounts keep counting.

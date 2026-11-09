@@ -26,6 +26,22 @@ Rule, fixed before the run (stricter than one test's, as three filters are tried
 on the page only if, priced Part 2's way, its trades earn after costs on average over 2017-2026, in both halves of
 those years, since 2022, and in at least 7 of the 10 years, with at least 300 trades. With fewer than 100 saved quote
 pairs Part 2 is not trusted, and the app's pricing decides.
+Result (run locally 9 Nov 2026 on the intraday-data and options-live branches; 85,014 test candles, 2017-01-02 to
+2026-11-09; Rs a lot after costs):
+  Part 2: 256 quote pairs over 4 days (4-9 Nov 2026): an at-the-money option moved 0.569x NIFTY's move on its side
+    (by day 0.51-0.66; the app assumed 0.5), and -0.08 option points per 10 minutes besides (by day -0.75 to +0.46;
+    the app assumed 0); the fit explains 92.5% of the moves (left over: 4.3 points a pair). The app's pricing was
+    about right, slightly pessimistic on the move and slightly kind on time decay; real pricing changes each result
+    below by 0.05 option points at most.
+  Part 1, real pricing (the app's in brackets):
+    every lean   85,014 trades, right 51.1%, -1.64 pts a trade, -Rs106 (-Rs103), 0 of 10 years up
+    F1 star      16,396 trades, right 53.0%, -1.11 pts, -Rs72 (-Rs74), halves -1.23 / -1.03, since 2022 -0.99, 0 of 10
+    F2 big       17,538 trades, right 51.3%, -1.47 pts, -Rs95 (-Rs94), 0 of 10
+    F3 trend     13,168 trades, right 51.6%, -1.53 pts, -Rs99 (-Rs97), 0 of 10
+  All three FAIL, every year. The * leans are the least bad (best years 2022 -0.60 and 2024 -0.62 pts), but a lean is
+  right 53% at best and a round trip costs 1.85 option points: the right side has to win by more than costs, and it
+  does not. The +Rs5,213 of the * leans over 4-9 Nov 2026 (31 trades) is luck within what four days can show; nothing
+  changes in the app, and the paper accounts keep counting.
 """
 import csv
 import glob
