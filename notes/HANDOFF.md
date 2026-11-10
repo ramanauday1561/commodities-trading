@@ -65,7 +65,8 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
   (Safari 26.1 release note); Today (an ordinary scrolling page) was always fine.
 - **9 Nov:** **lean filters study + no 15:15 lean since the closing auction (#112)**, release #113.
 - **10 Nov:** NSE holiday (Diwali Balipratipada). Installed the "ponytail" skill on the owner's claude.ai account
-  (works in new sessions). This handoff file.
+  (works in new sessions). This handoff file. Live leans record fix (#115). Short straddle
+  since-2022 study (fails).
 
 ## 5. What has been tested (the honest record)
 
@@ -85,6 +86,9 @@ All walk-forward, pass rules written before each run. Full detail in `STUDIES.md
 - **Short options (`short_option_study.py`, 4 Nov):** none of six variants passes. The 50%-stop short straddle made
   +₹229 a lot a day over 2015-2026 (8 of 12 years, since 2022 +6.9 pts a day) but lost every year 2015-2019; it fails
   the rule on the first half. Now paper-traded live. An ATM straddle *bought* from the open lost in all 12 years.
+- **Short straddle since 2022 (`straddle_recent_study.py`, 10 Nov):** FAILS a harder rule. +₹464 a lot a day over
+  1,194 sessions, but 2023 lost (-₹114 a day) and hard costs leave 3 of 5 years up. The bhavcopy model matched the
+  paper trade on the 4 Kite days to within ₹360 a day.
 - **Other failures:** intraday chase/fade/flip rules, midday recovery, trend-day ride, 1-minute inputs, PCR, FII
   positions, hourly forecasts (see `STUDIES.md`).
 
@@ -137,9 +141,9 @@ Notes: 6 Nov was a steady +2.0% trend day (close 25,030.35); 9 Nov a choppy day 
 
 ## 10. Open items and ideas
 
-1. **Short straddle since 2022:** the only idea up on all 4 real-price days. Test it on 2022-2026 only with the
-   bhavcopy option data (`option_data.py` branches `options-data-p0..3`) and the Kite candles, with a rule fixed
-   first. Offered to the owner on 9 Nov; not started.
+1. **Short straddle since 2022:** tested 10 Nov (`straddle_recent_study.py`, mode `straddle2022`): FAILS. 2023 lost,
+   and doubled costs with worse stop fills leave it up in only 3 of 5 years (+0.99 points a day). It stays a paper
+   trade; look again when the paper record has about 60 sessions.
 2. **Next 10 page:** a trend/choppy label during the day; show the 09:15 lean's live record (0 of 4 right so far).
 3. **Remove the temporary "Screen check"** entry from the ⋯ menu (`nav.js` MORE, `?debug` code) once the owner
    confirms the tab bar is right on every page (the fix in #110/#111 is live).
