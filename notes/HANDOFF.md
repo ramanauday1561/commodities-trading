@@ -15,7 +15,7 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
 - **UI:** Liquid Glass look (Glisse 0.5.0 on React 18.3.1, bundled by esbuild from `ui/` into
   `docs/vendor/glass-ui.js`, no CDN). `nav.js` adds the tab bar (Next 10, Today, Status, Live, Forecast) and the ⋯
   "More" menu (History, Kite login, and a temporary "Screen check" = `next.html?debug`). `theme.css` holds the shared
-  styles (currently `theme.css?v=8`, service worker cache `forecast-v17`).
+  styles (currently `theme.css?v=8`, service worker cache `forecast-v20`).
 - **Back end:** GitHub Actions only (see README "What runs when"). Data in branches (README "Where data lives").
 
 ## 2. Branch flow and how releases work
@@ -204,4 +204,7 @@ From 5 Nov (this part of the session):
   the first passcode was shown in a screenshot and the owner was told to change it); how much to fund Kite; "we will
   pick the ★ leans": the ★ hold study (fails) run before that. 11 Nov: ₹20,000 added to Kite; real money on ★
   leans only, through the server; "check brokerage before buying or selling" and "a dashboard with only the money,
-  from the Kite API": Kite's charges API on the Orders page and in the P&L / loss limit, and the Money page.
+  from the Kite API": Kite's charges API on the Orders page and in the P&L / loss limit, and the Money page. Then:
+  Money in the tab bar (a ₹ icon, `ui/src/glass-ui.jsx` rebuilt into `docs/vendor/glass-ui.js?v=3`), Live moved to the
+  ⋯ menu; Orders' "Be out by" time box overflowed on the iPhone and pushed the page sideways (fixed with
+  `appearance:none` on the time input).

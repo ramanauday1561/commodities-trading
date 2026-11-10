@@ -37,6 +37,7 @@ const P = {
   home: "M4 11l8-7 8 7v9h-5v-6H9v6H4z",
   history: "M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4M12 8v4l3 2",
   kite: "M7 11V8a5 5 0 0 1 10 0v3M5 11h14v9H5z",
+  money: "M7 4h10M7 9h10M7 4h3.5a4.5 4.5 0 0 1 0 9H7l7 7",
 };
 const Icon = ({ name }) => (
   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.8"

@@ -30,8 +30,12 @@
   .row { display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-top:1px solid #151b26; }
   .row:first-of-type { border-top:0; } .row span:first-child { color:var(--muted); } .row b { font-weight:600; text-align:right; }
   label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
-  input, select { width:100%; font:inherit; color:var(--text); background:#0a0f19; border:1px solid var(--line); border-radius:10px;
+  input, select { width:100%; min-width:0; max-width:100%; font:inherit; color:var(--text); background:#0a0f19; border:1px solid var(--line); border-radius:10px;
                   padding:10px 12px; min-height:44px; }
+  /* 11 Nov 2026: Safari on iPhone draws a time box wider than its column and ignores width, which pushed the whole
+     page sideways (the header cut off on the left); without its native look it obeys the width like the other fields */
+  input[type=time] { -webkit-appearance:none; appearance:none; display:block; text-align:left; }
+  input[type=time]::-webkit-date-and-time-value { text-align:left; }
   .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .two > div { min-width:0; }
   button { font:inherit; font-weight:600; color:var(--text); background:#1a2233; border:1px solid var(--line); border-radius:12px;
