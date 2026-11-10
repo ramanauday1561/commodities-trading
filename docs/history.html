@@ -31,7 +31,8 @@
   .chips { grid-column:1 / -1; display:flex; flex-wrap:wrap; gap:6px; }
   .chip { font-size:12px; padding:3px 9px; border-radius:999px; background:rgba(255,255,255,.07); color:var(--mute); white-space:nowrap; }
   .chip.ok { background:rgba(52,209,191,.14); color:var(--up); } .chip.no { background:rgba(255,107,107,.13); color:var(--down); }
-  a.chip { text-decoration:none; color:var(--accent); }
+  a.chip { text-decoration:none; color:var(--accent); position:relative; }
+  a.chip::after { content:''; position:absolute; inset:-10px -4px; }   /* a finger-sized tap area (10 Nov 2026) */
   .chip.trade { background:rgba(124,180,255,.15); color:var(--accent); }
   .opt { grid-column:1 / -1; font-size:12px; color:var(--muted); margin-top:6px; }
   .up { color:var(--up); } .down { color:var(--down); }

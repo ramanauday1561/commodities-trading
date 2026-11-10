@@ -38,12 +38,26 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   `update_trigger` / `create_trigger`).
 - NSE holidays come from `scripts/calendars.py` (`is_session(day, "XBOM")`); e.g. 10 Nov and 24 Nov 2026 are holidays.
 - Since 3 Aug 2026 NSE has a **closing auction**: NIFTY stands still from 15:15 and the close is set at 15:30, so the
-  15:15 and 15:20 5-minute bars are flat and the 15:25 bar jumps to the close. Not a data bug. The last lean is 15:05.
+  15:15 and 15:20 5-minute bars are flat and the 15:25 bar jumps to the close. Not a data bug. The last lean is 15:05,
+  and the live leans record does not count older 15:15 leans.
+
+## Running a study or a check in a Claude cloud session
+
+- Yahoo is blocked there and the Kite keys are not available (they stay in GitHub secrets; do not ask for them). Use
+  the repo's data branches instead: `git fetch origin <branch>` then `git archive FETCH_HEAD | tar -x -C <dir>` for
+  `options-data-p0..3` (bhavcopy option prices), `intraday-data` (5-minute NIFTY; Kite's candles since 19 May 2026),
+  `options-live` (Kite quotes, option candles, paper trades), `scoreboard` (the live day files) and `site-data` (what
+  the pages show). Point `OPTIONS_DIRS`, `INTRADAY_DIR` and `OPTLIVE_DIR` at the copies.
+- New studies should read NIFTY's daily open from the stored 5-minute history, not Yahoo, so they run in both places.
+- Commit the study with its pass rule first, run it, then commit the result (see `straddle_recent_study.py`, #116).
+  Confirm on GitHub with **Model experiments** (`experiment.yml`, input `mode`), dispatched from `dev`.
+- The claude branch is reused: after each PR is merged, restart it from `dev` before the next change.
 
 ## Checking UI changes
 
 Use Playwright (pre-installed Chromium) at iPhone 14 size 393x852, simulating the safe areas by replacing
-`env(safe-area-inset-top)` with 59px and `env(safe-area-inset-bottom)` with 34px in a copy of `docs/`. The real iPhone
+`env(safe-area-inset-top)` with 59px and `env(safe-area-inset-bottom)` with 34px in a copy of `docs/` (put the
+`site-data` branch's files in its `data/` folder to see real numbers). The real iPhone
 home-screen app (iOS 26) behaves differently from the simulator for `position: fixed` at the bottom: test claims
 against the owner's screenshots. Bump `theme.css?v=` (in `nav.js` and `sw.js`) and the service-worker cache name
 (`sw.js`) when pages or CSS change.
