@@ -372,3 +372,10 @@ day; 2022 +343, 2024 +684, 2025 +481, 2026 +1,003), and hard costs leave +0.99 p
 Passed the rest: +Rs464 a lot a day overall, non-expiry days +5.12 points, 40 of 59 months up, worst day -Rs19,323,
 drawdown -Rs64,940. On the four Kite days the bhavcopy model was within Rs360 a day of the paper trade; a seller 5
 minutes late differed by Rs1,600 to Rs8,800 a day either way. Nothing changes: it stays a paper trade.
+
+Experiment mode "starhold" (10 Nov 2026, star_hold_study.py, asked before trading * leans with real money): the *
+leans (walk-forward from 2017, as the page makes them) bought as at-the-money options and held 10, 30 or 60 minutes or
+to the day's close, priced from Kite's saved quotes (0.569x NIFTY's move, -0.08 points a 10 minutes), rule fixed
+before the run (earn overall, both halves, since 2022, 7 of 10 years). ALL FAIL: 10 minutes -Rs72 a lot a trade (0 of
+10 years, the lean filters' number again), 30 minutes -Rs53 (1 of 10), 60 minutes -Rs53 (1 of 10), to the close -Rs112
+(2 of 10). Right 53% whatever the hold. Nothing changes.
