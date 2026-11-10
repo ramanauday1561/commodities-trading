@@ -137,7 +137,7 @@ function draw(d) {
   // each lean's ₹ on Kite's real option prices once the close has scored the day (paper_accounts.py), else the estimate
   const pd = paper && paper.days && paper.days.length && paper.days[paper.days.length - 1].d === d.date ? paper.today_leans || [] : [];
   const real = Object.fromEntries(pd.map(x => [x.at + x.lean, x.rs]));
-  $('panel').innerHTML = (done.length
+  $('panel').innerHTML = dayKind(c) + (done.length
       ? `<div><b>Today: ${right} of ${done.length} right (${Math.round(right / done.length * 100)}%)</b>`
         + (conf.length ? ` · ★ more confident: ${cRight} of ${conf.length}` : '')
         + `. Trading every lean with 1 lot of an at-the-money option: <b class="${money >= 0 ? 'up' : 'down'}">${rs(money)}</b> after costs.</div>`
@@ -152,6 +152,18 @@ function draw(d) {
        ₹ per lot: with • on Kite's real option prices (bought at the at-the-money option's price when the lean was made, sold 10 minutes later), added after the close; without •, assuming the option moves half as much as NIFTY. A round trip costs about ₹120.${d.trained_until ? ` Model trained on candles to ${d.trained_until}.` : ''}</div>`);
 }
 
+// The day so far (10 Nov 2026): "trending" when NIFTY's move since the open is 40%+ of the distance it has travelled
+// in 10-minute steps, from 3 candles on (leanfilter_study's F3, here in points). A description of the day, not a
+// signal: leans taken with a trending day still lost in the test (-Rs99 a lot a trade, 0 of 10 years).
+function dayKind(c) {
+  if (c.length < 3) return '';
+  const net = c[c.length - 1].close - c[0].open;
+  const path = c.reduce((a, x, i) => a + Math.abs(x.close - (i ? c[i - 1].close : x.open)), 0);
+  const trend = path > 0 && Math.abs(net) / path >= 0.4;
+  return `<div style="margin-bottom:6px">Day so far: <b class="${!trend ? '' : net > 0 ? 'up' : 'down'}">${!trend ? 'Choppy' : net > 0 ? 'Trending up' : 'Trending down'}</b>
+    <span class="m">· ${net >= 0 ? '+' : ''}${Math.round(net)} pts since the open, out of ${Math.round(path)} pts travelled. Describes the day; it did not make the leans pay in the test.</span></div>`;
+}
+
 // Paper accounts on Kite's real option prices (5 Nov 2026, paper_accounts.py, at the close): each lean bought at its
 // at-the-money option's real price when it was made and sold at the next run's, instead of the half-delta estimate above
 function paperLine(d) {
@@ -159,9 +171,11 @@ function paperLine(d) {
   if (!p || !p.totals || !p.totals.leans) return '';
   const a = p.totals.leans, s = p.totals.leans_star, day = (p.days || []).find(x => x.d === d.date);
   const t = day && day.accounts.leans, ts = day && day.accounts.leans_star;
+  const g = p.totals.signal_lean;       // the 09:15 signal's lean, at-the-money option on its side, open to close
   return `<div class="m" style="margin-top:6px"><b style="color:var(--text)">On real option prices</b> (Kite quotes, ₹2 lakh paper from ${new Date(p.start + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })}):
     every lean <b class="${a.rs >= 0 ? 'up' : 'down'}">${rs(a.rs)}</b> in ${a.days} day${a.days > 1 ? 's' : ''}${s ? `, ★ leans only <b class="${s.rs >= 0 ? 'up' : 'down'}">${rs(s.rs)}</b>` : ''}.
-    ${t ? `Today: every lean <b class="${t.rs >= 0 ? 'up' : 'down'}">${rs(t.rs)}</b> (${t.won} of ${t.trades} made money)${ts && ts.trades ? `, ★ <b class="${ts.rs >= 0 ? 'up' : 'down'}">${rs(ts.rs)}</b> (${ts.won} of ${ts.trades})` : ''}.` : 'Today is added after the close.'}</div>`;
+    ${t ? `Today: every lean <b class="${t.rs >= 0 ? 'up' : 'down'}">${rs(t.rs)}</b> (${t.won} of ${t.trades} made money)${ts && ts.trades ? `, ★ <b class="${ts.rs >= 0 ? 'up' : 'down'}">${rs(ts.rs)}</b> (${ts.won} of ${ts.trades})` : ''}.` : 'Today is added after the close.'}
+    ${g && g.days ? `The 09:15 signal's lean, open to close: right on ${g.won} of ${g.days} day${g.days > 1 ? 's' : ''}, <b style="white-space:nowrap" class="${g.rs >= 0 ? 'up' : 'down'}">${rs(g.rs)}</b>.` : ''}</div>`;
 }
 
 // The expected size of the next move (5 Nov 2026, movesize_study.py): it passed its test (error 10% below the usual

@@ -144,7 +144,8 @@ Notes: 6 Nov was a steady +2.0% trend day (close 25,030.35); 9 Nov a choppy day 
 1. **Short straddle since 2022:** tested 10 Nov (`straddle_recent_study.py`, mode `straddle2022`): FAILS. 2023 lost,
    and doubled costs with worse stop fills leave it up in only 3 of 5 years (+0.99 points a day). It stays a paper
    trade; look again when the paper record has about 60 sessions.
-2. **Next 10 page:** a trend/choppy label during the day; show the 09:15 lean's live record (0 of 4 right so far).
+2. **Next 10 page:** done 10 Nov: a "Day so far: Trending up / Trending down / Choppy" line (the lean filters study's
+   40% rule) and the 09:15 lean's record on real prices. Both are descriptions, not signals.
 3. **Remove the temporary "Screen check"** entry from the ⋯ menu (`nav.js` MORE, `?debug` code) once the owner
    confirms the tab bar is right on every page (the fix in #110/#111 is live).
 4. The page's live leans record (since 29 Oct) still counts the old 15:15 leans (scored as a 0-point move).
