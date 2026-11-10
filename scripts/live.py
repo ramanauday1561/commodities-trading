@@ -184,7 +184,7 @@ def track_record(store_dir, keep=20):
     return rec
 
 
-def next_day(st):
+def next_day(st, last="15:15"):
     """One finished day of next-candle leans, scored like next.html: a lean wins when its candle closes on its side of
     the candle before; 1 lot of an at-the-money option (half NIFTY's move, about Rs120 a round trip)."""
     c = st.get("candles") or []
@@ -193,7 +193,7 @@ def next_day(st):
     rs = 0.0
     for l in st.get("leans") or []:
         i = idx.get(l["at"])
-        if l["at"] > "15:15" or not i or c[i].get("paused"):   # the 15:25 stub was never tested; the first candle has
+        if l["at"] > last or not i or c[i].get("paused"):      # the 15:25 stub was never tested; the first candle has
             continue                                                    # no "before"; a paused feed is not a price
         move, side = c[i]["close"] - c[i - 1]["close"], 1 if l["lean"] == "up" else -1
         n += 1
@@ -207,7 +207,8 @@ def next_record(store_dir, today):
     days = []
     for f in sorted(glob.glob(os.path.join(store_dir, "live", "*.json"))):
         d = os.path.basename(f)[:-5]
-        r = next_day(_load(f, {})) if d < today else None
+        # NIFTY cannot move from 15:15 since the closing auction: old 15:15 leans are not counted (nextcandle.last_full)
+        r = next_day(_load(f, {}), "15:05" if d >= "2026-08-03" else "15:15") if d < today else None
         if r:
             days.append({"d": d, **r})
     if not days:
