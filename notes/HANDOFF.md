@@ -202,4 +202,6 @@ From 5 Nov (this part of the session):
   Ubuntu, no add-ons); the Hostinger connector added on claude.ai; the guide rewritten for Hostinger. Then: firewall set up through the
   connector; release #120; Kite key check passed; `setup.sh` run by the owner on the VPS (daily loss limit ₹20,000;
   the first passcode was shown in a screenshot and the owner was told to change it); how much to fund Kite; "we will
-  pick the ★ leans": the ★ hold study (fails) run before that.
+  pick the ★ leans": the ★ hold study (fails) run before that. 11 Nov: ₹20,000 added to Kite; real money on ★
+  leans only, through the server; "check brokerage before buying or selling" and "a dashboard with only the money,
+  from the Kite API": Kite's charges API on the Orders page and in the P&L / loss limit, and the Money page.
