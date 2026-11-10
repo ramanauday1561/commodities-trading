@@ -77,7 +77,7 @@ in its own PR. **Actions → Model experiments → Run workflow** with a `mode`:
 
 - `variants` (default), `risk`, `events`, `resultsrisk`, `dailyfill`, `commodity`: the forecast models.
 - `longsignal`, `history`, `preopen`, `open`, `vix`, `accuracy`, `improve`, `extreme`, `strategy`, `intrarules`,
-  `nextcandle`, `shortopt`, `movesize`, `movesizekite`, `futures`: the NIFTY studies kept for re-testing.
+  `nextcandle`, `shortopt`, `straddle2022`, `movesize`, `movesizekite`, `futures`: the NIFTY studies kept for re-testing.
 - `intradata` / `dukafetch`: update the stored 5-minute / hourly overnight history.
 - `kitecheck` / `kitecompare` / `kiterepair` / `kitepositions` / `kitefutures` / `kitepaper`: are the Kite secrets accepted; Kite vs Yahoo side by side; Kite's 5-minute
   candles in place of Yahoo's in the stored history (test_days = the first day; all need that day's login).
