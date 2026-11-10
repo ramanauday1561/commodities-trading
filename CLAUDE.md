@@ -12,10 +12,14 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
 
 ## Rules the owner set (always follow)
 
-- **Never place orders.** The app reads market data and positions only. Order placement, an order server and any AWS
-  / Render hosting were built on 5 Nov 2026 and removed the same day at the owner's request (PRs #102, #104). Do not
-  bring them back unless asked again.
-- **Secrets live only in GitHub secrets** (`KITE_API_KEY`, `KITE_API_SECRET`, `FRED_API_KEY`, `XAI_API_KEY`,
+- **Orders only through the order server, only for the owner's own picks.** Order placement (`server/`, the Orders
+  page) was built on 5 Nov 2026 (#102), removed the same day on request (#104), and **brought back on 10 Nov 2026 at
+  the owner's request** to trade real money, on a Hostinger VPS in Mumbai (Zerodha needs a whitelisted
+  static IP for API orders). GitHub Actions and the pages never place orders. Nothing the app suggests (leans, the
+  09:15 signal, the straddle) is turned into orders automatically: none has passed its backtest. Keep the server's
+  limits (lots a pick, open picks, loss a day), the passcode and LIMIT orders only.
+- **Secrets live only in GitHub secrets** (and, for the order server, in `/etc/nifty-orders.env` on the VPS, entered
+  by the owner in `setup.sh`) (`KITE_API_KEY`, `KITE_API_SECRET`, `FRED_API_KEY`, `XAI_API_KEY`,
   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `NTFY_TOPIC`; Kaggle keys, if ever, only as `KAGGLE_USERNAME` / `KAGGLE_KEY`).
   Never ask for them in chat, never print or commit them. Request tokens and access tokens are masked in logs.
 - **Positions are never printed in logs or stored** anywhere; they go to the phone only (`positions.py`, `keeper.py`).
@@ -51,6 +55,9 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
 - New studies should read NIFTY's daily open from the stored 5-minute history, not Yahoo, so they run in both places.
 - Commit the study with its pass rule first, run it, then commit the result (see `straddle_recent_study.py`, #116).
   Confirm on GitHub with **Model experiments** (`experiment.yml`, input `mode`), dispatched from `dev`.
+- The **Hostinger** connector (claude.ai, remote MCP `https://mcp.hostinger.com`, owner's sign-in) can read and
+  change the VPS (id 2147705, KVM 1, Mumbai, IP 189.72.149.115). Read freely; restart, rebuild, firewall or OS
+  changes only when the owner asks. It never sees the Kite keys or the Orders passcode.
 - The claude branch is reused: after each PR is merged, restart it from `dev` before the next change.
 
 ## Checking UI changes

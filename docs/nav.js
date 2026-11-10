@@ -9,6 +9,7 @@
     ['next.html', 'Next 10 min', 'The model\'s lean per candle (information)'],
     ['history.html', 'History', 'Every day\'s calls and trades'],
     ['kite.html', 'Kite login', 'Once each morning: Kite\'s own prices'],
+    ['orders.html', 'Orders', 'Your own picks, real money (order server)'],
   ];
   const here = (location.pathname.split('/').pop() || 'index.html').toLowerCase();
   const css = `
@@ -95,7 +96,7 @@
     addEventListener('load', () => setTimeout(show, 800));
     addEventListener('resize', show);
   }
-  const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite'],
+  const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite'], ['orders.html', 'Orders', 'live'],
                 ['next.html?debug', 'Screen check', 'status']];      // 6 Nov 2026, for a while: the tab bar's gap (?debug below)
   if (!/[?&]classic\b/.test(location.search)) {
     import('./vendor/glass-ui.js?v=2')
