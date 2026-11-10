@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Sets up the order server (orders_server.py) on a fresh Ubuntu 24.04 box with a fixed public IP: a DigitalOcean
-# droplet in Bangalore (BLR1) since 10 Nov 2026 (AWS Lightsail in Mumbai works the same). Run it once, as root or a
-# sudo user, in the droplet's browser console:
+# Sets up the order server (orders_server.py) on a fresh Ubuntu (24.04 or newer) box with a fixed public IP: the
+# Hostinger VPS in Mumbai since 10 Nov 2026. Run it once, as root, in hPanel's Browser terminal for the VPS:
 #   curl -fsSL https://raw.githubusercontent.com/ramanauday1561/commodities-trading/main/server/setup.sh -o setup.sh
 #   bash setup.sh
 # It asks for the Kite API key and secret (typed, not shown, not saved in the shell history), makes a long passcode

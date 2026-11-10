@@ -34,28 +34,23 @@ on the phone does the same at once. The server only buys NIFTY options, intraday
 
 ## One-time setup (about 20 minutes)
 
-### 1. Create the server (DigitalOcean)
+### 1. The server (Hostinger VPS)
 
-On cloud.digitalocean.com:
+The server is a **Hostinger KVM 1 VPS in Mumbai** (bought 10 Nov 2026, Ubuntu 26.04 LTS, plain OS, no Docker manager,
+no malware scanner). For a new one: hpanel.hostinger.com → VPS → the smallest plan, location **India (Mumbai)**,
+OS **Plain OS → Ubuntu** (24.04 or newer).
 
-1. **Create → Droplets**:
-   - Region: **Bangalore (BLR1)**, the closest to NSE.
-   - Image: **Ubuntu 24.04 (LTS) x64**.
-   - Size: **Basic, Regular, the smallest plan** (about US$4-6 a month) is enough.
-   - Authentication: a password or an SSH key, either works.
-   - Create it.
-2. **The IP to whitelist is the droplet's own public IPv4.** It stays the same for as long as the droplet exists,
-   even through restarts and power-offs. Do **not** add a Reserved IP for this: a Reserved IP only receives
-   traffic; orders would still leave from the droplet's own IP, and Kite would refuse them. (`setup.sh` prints the
-   IP orders really leave from.)
-3. **Networking → Firewalls → Create Firewall**: inbound **SSH (22)**, **HTTP (80)** and **HTTPS (443)**, apply it to
-   the droplet. Caddy uses port 80 to get the HTTPS certificate.
-4. **Cost:** a droplet is billed while it exists, even powered off. To stop paying, **destroy** it; its IP is gone
-   then, and a new droplet needs a new whitelist entry in Kite.
+1. **The IP to whitelist** is the VPS's IPv4, shown on its Overview page in hPanel. It stays the same while you keep
+   the VPS in the same location. **Moving it to another data centre changes the IP**, and Kite allows one change a
+   week, so leave it in Mumbai.
+2. **Firewall** (hPanel → the VPS → **Security → Firewall**): create one, add **accept** rules for **SSH (22)**,
+   **HTTP (80)** and **HTTPS (443)** from any source, then activate it on the VPS. Hostinger's firewall drops
+   everything not allowed, so add all three before activating. Caddy uses port 80 to get the HTTPS certificate.
+3. **Cost:** check the renewal price before the term ends; renewing at a sale price is much cheaper.
 
 ### 2. Install
 
-Open the droplet's browser console (droplet page → **Access → Launch Droplet Console**) and run:
+In hPanel, open the VPS and tap **Browser terminal** (you are logged in as root), then run:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/ramanauday1561/commodities-trading/main/server/setup.sh -o setup.sh

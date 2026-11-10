@@ -58,7 +58,7 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
   files (#88), move-size forecast (#89), Today page (#90), Liquid Glass UI (#91), Kite futures study (#92).
 - **5 Nov:** UI fixes (#93 glass, #94 site publishing on docs merges, #96 iOS bar, #97 UI pass, #100 bar lower),
   releases #95/#98/#99; staging branch flow adopted; **paper accounts on real option prices (#101)**; order server +
-  Orders page + AWS setup (#102), **removed on request (#104)**, releases #103/#105.
+  Orders page (#102), **removed on request (#104)**, releases #103/#105.
 - **6 Nov:** app opens on Next 10 + tab order (#106); a 100lvh tab-bar pin hid the bar on the iPhone (#107), reverted
   with a temporary Screen check (#108/#109); **fix: Live and Next 10 scroll as ordinary pages** so the bar reaches the
   bottom (#110/#111). Root cause: iOS 26.0 home-screen apps end "viewport-sized fixed containers" ~60 pt early
@@ -145,14 +145,13 @@ Notes: 6 Nov was a steady +2.0% trend day (close 25,030.35); 9 Nov a choppy day 
 
 ## 9. Things removed, declined or brought back
 
-- **Order placement:** an order server (`server/`), an Orders page and a Lightsail setup script were built on 5 Nov
-  (#102) because Zerodha needs a static IP for API orders, then removed on the owner's request (#104). **On 10 Nov the
-  owner asked for it back** to trade real money, with a **DigitalOcean** droplet in Bangalore instead of Lightsail
-  (the setup guide in `server/README.md` was rewritten for it; the code is the same as #102). It runs only the owner's
-  own picks; nothing the app suggests becomes an order. Claude cannot create the droplet (no DigitalOcean connector in
-  the session; the owner was told how to add one on claude.ai) and never handles the Kite keys or the passcode.
+- **Order placement:** an order server (`server/`) and an Orders page were built on 5 Nov (#102) because Zerodha needs a
+  static IP for API orders, then removed on the owner's request (#104). **On 10 Nov the owner asked for it back** to
+  trade real money (#119; the code is the same as #102). It runs on a **Hostinger KVM 1 VPS in Mumbai** (id 2147705,
+  Ubuntu 26.04, IP 189.72.149.115, whitelisted in Kite by the owner on 10 Nov); the guide is `server/README.md`. It
+  runs only the owner's own picks; nothing the app suggests becomes an order. Claude never handles the Kite keys or
+  the Orders passcode; the Hostinger connector lets it read and manage the VPS.
 - No private repository; the 151-trading-strategies repo is not to be used.
-- An Oracle free server was not possible (needs a credit card); not needed since Kite data needs no static IP.
 
 ## 10. Open items and ideas
 
@@ -169,7 +168,7 @@ Notes: 6 Nov was a steady +2.0% trend day (close 25,030.35); 9 Nov a choppy day 
 ## 11. Everything the owner asked, in order (this session)
 
 Earlier (to 5 Nov, from the session's summaries): fix the UI not updating (price axis squashed); why the status page
-always says NOTHING, improve the app; connect Kite without a static IP (Oracle needed a card); secrets added, check and
+always says NOTHING, improve the app; connect Kite without a static IP; secrets added, check and
 run everything; Kite login errors (invalid api_key, GitHub token) fixed; check Kite prices; make the codebase robust
 with Kite (three PRs, no private repo); fix merge conflicts; improve more: option-selling backtest, position alerts,
 wider chain + paper straddle, move-size forecast, Today page, prune fix; backtest 4 Nov; Glisse Liquid Glass UI; use
@@ -179,10 +178,9 @@ direction, scroll height); "don't make PRs directly update main" → staging bra
 
 From 5 Nov (this part of the session):
 - 5 Nov: improve the app and backtest today (→ paper accounts #101); run today's backtest; where to see the paper
-  straddle (Today → Options card; Live → panel "Paper trade, no money"; Today → Paper accounts card); add the AWS
-  console as a connector (AWS MCP exists in the directory; owner connects it on claude.ai); host the app with a static
-  IP to place bids → order server built (#102); "use real money" → steps given; merge all PRs and make a release; how
-  to create a Lightsail instance (steps given); **remove all the order / AWS / Render code** (#104, release #105).
+  straddle (Today → Options card; Live → panel "Paper trade, no money"; Today → Paper accounts card); place bids
+  from a static IP → order server built (#102); "use real money" → steps given; merge all PRs and make a release;
+  **remove all the order code** (#104, release #105).
 - 6 Nov: "finally made some profit" → review of the day (+₹18,165 on real prices), make Next 10 the home screen, fix the
   bottom navbar (#106/#107 → bar vanished → #108/#109 → #110/#111 fixed); make the release PRs.
 - 9 Nov: make sure everything works before the open (jobs started by hand; Kite login confirmed; prev close 24,986.40
@@ -196,5 +194,6 @@ From 5 Nov (this part of the session):
   use Kite if Yahoo is blocked (not needed: the stored 5-minute history is used; the keys stay in GitHub secrets);
   start the straddle2022 run and improve the app (#117); improve the UI/UX and update these two files. Then: test the
   app on previous Kite data (the paper accounts re-scored from the saved quotes: all 16 day figures match) and how Kite
-  can work for Claude (through GitHub Actions; keys stay in GitHub secrets); install the DigitalOcean MCP (not in the
-  connector search; added on claude.ai); "I want to place real money": the order server brought back for DigitalOcean.
+  can work for Claude (through GitHub Actions; keys stay in GitHub secrets); "I want to place real money": the order
+  server brought back (#119); which server to rent (Hostinger KVM 1 in Mumbai, paid by UPI, bought 10 Nov; plain
+  Ubuntu, no add-ons); the Hostinger connector added on claude.ai; the guide rewritten for Hostinger.

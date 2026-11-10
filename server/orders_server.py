@@ -1,5 +1,5 @@
 """Order server for your own NIFTY option picks (5 Nov 2026, asked by the user). Runs on a small server with a static
-IP (server/setup.sh: a DigitalOcean droplet in Bangalore since 10 Nov 2026), because since 1 April 2026 Zerodha accepts orders through the
+IP (server/setup.sh: a Hostinger VPS in Mumbai since 10 Nov 2026), because since 1 April 2026 Zerodha accepts orders through the
 Kite Connect API only from a static IP whitelisted in the Kite developer console. Market data needs no static IP and
 stays on GitHub Actions; the website stays on GitHub Pages.
 
