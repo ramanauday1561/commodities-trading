@@ -60,6 +60,16 @@ class FakeKite:
         return [{"tradingsymbol": f"NIFTY26N09{k}{t}", "name": "NIFTY", "segment": "NFO-OPT", "expiry": "2026-11-09",
                  "strike": str(k), "instrument_type": t, "lot_size": "65"} for k in (24450, 24500, 24550) for t in ("CE", "PE")]
 
+    def charges(self, legs):                                       # Rs 20 brokerage an order, 0.1% STT on sales
+        tot = sum(20 + (0.001 * q * p if side == "SELL" else 0) for _, side, q, p in legs)
+        return {"total": round(tot, 2), "brokerage": 20.0 * len(legs)}
+
+    def funds(self):
+        return {"net": 15000.0, "available": {"opening_balance": 20000.0, "live_balance": 15000.0}}
+
+    def positions(self):
+        return [{"tradingsymbol": SYM, "pnl": 650.0}]
+
     def fill(self, oid, price, qty=None):
         o = self.book[oid]
         o.update(status="COMPLETE", filled_quantity=qty or o["qty"], average_price=price)
@@ -251,6 +261,59 @@ class Http(unittest.TestCase):
         for _ in range(10):
             self.assertEqual(get("wrong")[0], 401)
         self.assertEqual(get(code)[0], 401)                      # locked for an hour after 10 wrong
+
+
+class Charges(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.c, self.k = Clock(), FakeKite()
+        self.e = osv.Engine(os.path.join(self.tmp.name, "state.json"), dict(LIMITS), now=self.c.now, clock=self.c.clock)
+        self.e.kite = self.k
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_estimate_before_buying(self):
+        est = self.e.estimate(SYM, 1)
+        self.assertEqual((est["qty"], est["price"], est["paid"]), (65, 100.5, round(100.5 * 65)))
+        self.assertEqual(est["charges"]["total"], round(40 + 0.001 * 65 * 100.5, 2))
+        self.assertEqual(est["breakeven_pts"], round(est["charges"]["total"] / 65, 2))
+        with self.assertRaisesRegex(ValueError, "not a NIFTY option"):
+            self.e.estimate("INFY", 1)
+
+    def test_closed_trade_is_counted_after_charges(self):
+        tid = self.e.add({"symbol": SYM, "lots": 1, "stop": 80, "target": 130})
+        t = next(x for x in self.e.state["trades"] if x["id"] == tid)
+        self.assertEqual(t["charges_est"], round(40 + 0.001 * 65 * 80, 2))       # sold at the stop: the worst case
+        self.k.fill("1", 101.0)
+        self.e.tick()
+        self.k.prices[SYM] = (131.0, 130.5, 131.5)
+        self.e.tick()
+        self.k.fill("3", 130.0)
+        self.e.tick()
+        ch = round(40 + 0.001 * 65 * 130.0, 2)
+        self.assertEqual((t["pnl"], t["charges"], t["net"]), (29 * 65, ch, round(29 * 65 - ch)))
+        self.assertAlmostEqual(self.e._pnl_today(), 29 * 65 - ch)                  # the loss limit counts charges
+
+    def test_charges_fall_back_when_kite_cannot_say(self):
+        def broken(legs):
+            raise osv.KiteError("NetworkException")
+        self.k.charges = broken
+        c = self.e._charges([(SYM, "BUY", 65, 100)], 1)
+        self.assertEqual((c["total"], c["source"]), (osv.FALLBACK_CHARGES_LOT, "estimate"))
+
+    def test_money_today_and_history(self):
+        self.k.fill(self.k.place(SYM, "BUY", 65, "LIMIT", 100.0), 100.0)
+        self.k.fill(self.k.place(SYM, "SELL", 65, "LIMIT", 110.0), 110.0)
+        for o in self.k.book.values():                                            # Kite's order fields
+            o.update(tradingsymbol=o["symbol"], transaction_type=o["side"])
+        path = os.path.join(self.tmp.name, "money.json")
+        m = self.e.money(path)
+        ch = round(40 + 0.001 * 65 * 110.0)
+        self.assertEqual(m["today"], {"start": 20000, "pnl": 650, "charges": ch, "net": 650 - ch, "now": 20000 + 650 - ch, "orders": 2})
+        self.assertEqual(m["free_to_trade"], 15000)
+        self.assertEqual([h["d"] for h in m["history"]], ["2026-11-06"])
+        self.assertNotIn(SYM, open(path).read())                                   # totals only, never positions
 
 
 if __name__ == "__main__":

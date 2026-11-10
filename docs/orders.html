@@ -138,12 +138,14 @@ function drawState(s) {
   const L = s.limits || {};
   $('state').innerHTML = `<h2>Server</h2>`
     + `<div class="row"><span>Kite login today</span><b>${s.kite ? '<span class="up">yes</span>' : '<a href="kite.html" class="warn">no: log in first</a>'}</b></div>`
-    + `<div class="row"><span>Today's P&L (before charges)</span><b class="${cls(s.day_pnl)}">${rs(s.day_pnl)}</b></div>`
+    + `<div class="row"><span>Today's P&L (after charges)</span><b class="${cls(s.day_pnl)}">${rs(s.day_pnl)}</b></div>`
     + `<div class="row"><span>Limits</span><b>${L.max_lots} lot${L.max_lots > 1 ? 's' : ''} a pick · ${L.max_open} open · stop at −₹${k0(L.max_loss_day)} a day</b></div>`
     + (s.locked ? `<div class="err">No more picks today: ${esc(s.locked)}</div>` : '');
   $('when').textContent = `Server time ${(s.now || '').slice(11, 19)} IST · real money`;
   $('picks').innerHTML = (s.trades || []).length ? s.trades.slice().reverse().map(t => {
-    const pnl = t.pnl != null ? t.pnl : t.avg_in && t.ltp && t.filled ? (t.ltp - t.avg_in) * t.filled : null;
+    // after charges: Kite's exact charges once closed, the estimate made when it was placed while open
+    const pnl = t.net != null ? t.net : t.pnl != null ? t.pnl - (t.charges_est || 0)
+      : t.avg_in && t.ltp && t.filled ? (t.ltp - t.avg_in) * t.filled - (t.charges_est || 0) : null;
     return `<div class="pick"><div class="top"><b>${esc(t.symbol)}</b>${pnl != null ? `<b class="${cls(pnl)}">${rs(pnl)}</b>` : ''}</div>
       <div class="m" style="font-size:13px">${t.lots} lot${t.lots > 1 ? 's' : ''} · ${STATUS[t.status] || esc(t.status)}${t.why ? ` · ${esc(t.why)}` : ''}</div>
       <div style="font-size:14px">${t.avg_in ? `bought ${t.avg_in}` : `buy ${t.limit ? 'at ' + t.limit : 'now'}`} · now ${t.ltp ?? '—'}${t.avg_out ? ` · sold ${t.avg_out}` : ''}
@@ -169,11 +171,12 @@ async function loadChain(exp) {
     $('opt').innerHTML = chain.options.map(o => `<option value="${esc(o.symbol)}" data-ltp="${o.ltp ?? ''}"${o.strike === atm && o.type === 'CE' ? ' selected' : ''}>`
       + `${k0(o.strike)} ${o.type === 'CE' ? 'CALL' : 'PUT'}${o.strike === atm ? ' (ATM)' : ''} · ₹${o.ltp ?? '—'}</option>`).join('');
     $('newErr').textContent = '';
-    suggest();
+    suggest(); charges();
   } catch (e) { $('newErr').textContent = e.message; }
 }
 $('exp').onchange = () => loadChain($('exp').value);
-$('opt').onchange = suggest;
+$('opt').onchange = () => { suggest(); charges(); };
+$('lots').addEventListener('input', charges);
 
 function price() {
   const o = $('opt').selectedOptions[0];
@@ -184,10 +187,24 @@ function suggest() {                                          // a starting stop
   if (p > 0) $('stop').value = (Math.floor(p * 0.7 / 0.05) * 0.05).toFixed(2);
   risk();
 }
+// Charges before buying (11 Nov 2026): Kite's own calculation for a round trip at today's price (/api/estimate)
+let est = null, estKey = '';
+async function charges() {
+  const o = $('opt').selectedOptions[0], lots = Number($('lots').value) || 1, key = (o && o.value) + '|' + lots;
+  if (!o || key === estKey) return;
+  estKey = key; est = null; risk();
+  try { const e = await api(`/api/estimate?symbol=${encodeURIComponent(o.value)}&lots=${lots}`); if (estKey === key) { est = e; risk(); } }
+  catch (e) { estKey = ''; }
+}
 function risk() {
   const p = price(), s = Number($('stop').value), lots = Number($('lots').value) || 0, lot = chain ? chain.lot : 0;
+  const c = est && est.charges, ch = c ? c.total : null;
   $('risk').innerHTML = p > 0 && s > 0 && s < p && lot
-    ? `${lots * lot} units at about ₹${p}: about <b class="up">₹${k0(p * lots * lot)}</b> paid; if the stop fills, about <b class="down">−₹${k0((p - s) * lots * lot)}</b> plus charges (more in a fast fall).`
+    ? `${lots * lot} units at about ₹${p}: about <b class="up">₹${k0(p * lots * lot)}</b> paid; if the stop fills, about <b class="down">−₹${k0((p - s) * lots * lot + (ch || 0))}</b> including charges (more in a fast fall).`
+      + (c ? `<div style="margin-top:6px"><b>Charges for this round trip: ₹${c.total.toFixed(2)}</b>${c.source === 'estimate' ? ' (estimate: Kite did not answer)' : ' (from Kite)'}.
+          The option must rise <b>${est.breakeven_pts} points</b> just to cover them.`
+          + (c.source === 'kite' ? `<div class="m" style="font-size:12px">Brokerage ₹${c.brokerage.toFixed(2)} · STT ₹${c.stt.toFixed(2)} · exchange ₹${c.exchange.toFixed(2)} · GST ₹${c.gst.toFixed(2)} · stamp ₹${c.stamp.toFixed(2)} · SEBI ₹${c.sebi.toFixed(2)}</div>` : '') + '</div>'
+        : '<div class="m" style="font-size:12px">Checking the charges with Kite…</div>')
     : '';
 }
 ['stop', 'lots', 'limit'].forEach(id => $(id).addEventListener('input', risk));
@@ -202,7 +219,9 @@ $('place').onclick = async () => {
   const body = { symbol: o.value, lots: Number($('lots').value), stop: $('stop').value, target: $('target').value,
                  limit: entryNow ? '' : $('limit').value, exit_by: $('exitBy').value };
   const msg = `REAL ORDER\n\nBuy ${body.lots} lot${body.lots > 1 ? 's' : ''} of ${o.value}\n${entryNow ? 'now (limit a little above the ask)' : 'at ₹' + body.limit}\n`
-    + `stop-loss ₹${body.stop}${body.target ? `, target ₹${body.target}` : ''}, out by ${body.exit_by}\n\nThe server runs it by itself from here. Place it?`;
+    + `stop-loss ₹${body.stop}${body.target ? `, target ₹${body.target}` : ''}, out by ${body.exit_by}\n`
+    + (est && est.charges ? `charges for the round trip about ₹${est.charges.total.toFixed(2)} (needs +${est.breakeven_pts} points to cover)\n` : '')
+    + `\nThe server runs it by itself from here. Place it?`;
   if (!confirm(msg)) return;
   busy = true; $('place').disabled = true; $('newErr').textContent = '';
   try { await api('/api/picks', body); $('target').value = ''; }

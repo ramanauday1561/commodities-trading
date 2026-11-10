@@ -81,6 +81,20 @@ Keep the passcode private. It is like a password for placing orders.
 1. Open **Orders** on the site (⋯ menu).
 2. Enter the server address and the passcode. They are saved in that browser only.
 
+## Charges and the Money page (11 Nov 2026)
+
+- **Before you buy:** the Orders page asks Kite for the exact charges of a round trip (brokerage, STT, exchange and
+  SEBI fees, stamp duty, GST) and shows them with the points the option must rise just to cover them. The REAL ORDER
+  confirmation repeats it.
+- **P&L after charges:** a closed pick's P&L takes off Kite's charges for its real fills; an open pick's takes off
+  the estimate made when it was placed. The daily loss limit counts charges too. If Kite's charges API does not
+  answer, about Rs120 a lot is used and marked as an estimate.
+- **Money** (⋯ menu → Money): only the account's money, from Kite: today's result after charges, how it adds up
+  (started with, trades, charges, now, free to trade), and every trading day since. It uses the Orders page's address
+  and passcode. The server keeps one line of totals a day in `money.json` (never positions).
+- **To get these on the server**, run `bash setup.sh` again in the Web console after the release is in `main`: it
+  pulls the new code and keeps your settings.
+
 ## Every day
 
 1. Log in to Kite on the **Kite login** page before trading, as now. The server picks up the day's token within a

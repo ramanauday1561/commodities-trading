@@ -48,6 +48,7 @@ TICK, TAG = 0.05, "niftyapp"
 OPEN_T, LAST_ENTRY_T, LAST_EXIT_T = "09:15", "15:00", "15:15"
 ENTRY_TRIES, ENTRY_WAIT, EXIT_WAIT, SL_WAIT = 3, 15, 5, 10       # re-prices; seconds between them
 SESSION_URL = "https://raw.githubusercontent.com/ramanauday1561/commodities-trading/kite-session/session.json"
+FALLBACK_CHARGES_LOT = 120      # Rs a lot for a round trip when Kite's charges API cannot be reached (option_study.py)
 
 
 def up(x):
@@ -73,9 +74,11 @@ class Kite:
     def __init__(self, key, token):
         self.key, self.token = key, token
 
-    def _call(self, method, path, data=None, raw=False):
+    def _call(self, method, path, data=None, raw=False, as_json=False):
         h = {"X-Kite-Version": "3", "User-Agent": "nifty-orders", "Authorization": f"token {self.key}:{self.token}"}
         body = urllib.parse.urlencode(data).encode() if data is not None else None
+        if as_json:
+            body, h["Content-Type"] = json.dumps(data).encode(), "application/json"
         try:
             with urllib.request.urlopen(urllib.request.Request(API + path, data=body, headers=h, method=method), timeout=15) as f:
                 return f.read().decode() if raw else json.load(f)["data"]
@@ -106,6 +109,28 @@ class Kite:
     def quote(self, symbols):
         q = "&".join("i=" + urllib.parse.quote(s) for s in symbols)
         return self._call("GET", f"/quote?{q}")
+
+    def charges(self, legs):
+        """Kite's own charges (its virtual contract note) for [(symbol, "BUY"/"SELL", qty, price)]: the total and its
+        parts in rupees (brokerage, STT, exchange and SEBI fees, stamp duty, GST)."""
+        rows = [{"order_id": str(i), "exchange": "NFO", "tradingsymbol": s, "transaction_type": side, "variety": "regular",
+                 "product": "MIS", "order_type": "LIMIT", "quantity": int(q), "average_price": float(p)}
+                for i, (s, side, q, p) in enumerate(legs, 1)]
+        out = {"total": 0.0, "brokerage": 0.0, "stt": 0.0, "exchange": 0.0, "sebi": 0.0, "stamp": 0.0, "gst": 0.0}
+        for r in self._call("POST", "/charges/orders", rows, as_json=True):
+            c = r.get("charges") or {}
+            for k, src in (("total", "total"), ("brokerage", "brokerage"), ("stt", "transaction_tax"),
+                           ("exchange", "exchange_turnover_charge"), ("sebi", "sebi_turnover_charge"), ("stamp", "stamp_duty")):
+                out[k] += float(c.get(src) or 0)
+            out["gst"] += float((c.get("gst") or {}).get("total") or 0)
+        return {k: round(v, 2) for k, v in out.items()}
+
+    def funds(self):
+        """The equity segment of the account: opening balance, live balance, money free to trade."""
+        return self._call("GET", "/user/margins/equity")
+
+    def positions(self):
+        return self._call("GET", "/portfolio/positions").get("net", [])
 
     def instruments(self):
         import csv
@@ -166,6 +191,68 @@ class Engine:
                               if r.get("name") == "NIFTY" and r.get("segment") == "NFO-OPT" and r.get("expiry", "") >= today}
             self.contracts_day = today
 
+    # ------------------------------------------------------------------ charges and money
+    def _charges(self, legs, lots):
+        """Kite's charges for these legs, or about FALLBACK_CHARGES_LOT a lot when Kite cannot say (marked "estimate")."""
+        try:
+            c = self.kite.charges(legs)
+            c["source"] = "kite"
+            return c
+        except Exception as e:                                          # never block an exit on a charges lookup
+            print(f"charges: {type(e).__name__}", flush=True)
+            return {"total": float(FALLBACK_CHARGES_LOT * max(lots, 1)), "source": "estimate"}
+
+    def estimate(self, sym, lots):
+        """Before buying: what one round trip at today's price costs, and the move needed just to cover it."""
+        with self.lock:
+            if not self.kite:
+                raise ValueError("no Kite login today: log in on the Kite page first")
+            self.load_contracts()
+            sym = str(sym or "").strip().upper()
+            if sym not in self.contracts:
+                raise ValueError(f"{sym or 'the option'} is not a NIFTY option trading today")
+            lots = max(1, int(lots or 1))
+            qty = lots * self.lot_size(sym)
+            ltp, bid, ask = best(self.kite.quote([f"NFO:{sym}"]).get(f"NFO:{sym}", {}))
+            ref = ask or ltp
+            if not ref or not qty:
+                raise ValueError("no price for that option right now")
+            c = self._charges([(sym, "BUY", qty, ref), (sym, "SELL", qty, ref)], lots)
+            return {"symbol": sym, "qty": qty, "price": ref, "paid": round(ref * qty), "charges": c,
+                    "breakeven_pts": round(c["total"] / qty, 2)}
+
+    def money(self, history_path=None):
+        """The account's money today from Kite: the day's P&L before and after charges, the balance, and one row a day
+        kept on this server (totals only, never positions)."""
+        k = self.kite                                                   # Kite calls only: not under the trading lock
+        if not k:
+            raise ValueError("no Kite login today: log in on the Kite page first")
+        f = k.funds()
+        av = f.get("available") or {}
+        pnl = sum(float(p.get("pnl") or 0) for p in k.positions())
+        done = [o for o in k.orders().values() if o.get("status") == "COMPLETE" and int(o.get("filled_quantity") or 0)]
+        legs = [(o["tradingsymbol"], o["transaction_type"], int(o["filled_quantity"]), float(o["average_price"])) for o in done]
+        ch = self._charges(legs, len(legs) // 2) if legs else {"total": 0.0, "source": "kite"}
+        start = float(av.get("opening_balance") or 0)
+        day = {"start": round(start), "pnl": round(pnl), "charges": round(ch["total"]), "net": round(pnl - ch["total"]),
+               "now": round(start + pnl - ch["total"]), "orders": len(done)}
+        hist = {}
+        if history_path:
+            with self.lock:                                           # one writer at a time
+                try:
+                    hist = json.load(open(history_path))
+                except (OSError, ValueError):
+                    pass
+                hist[self.state["day"] or self.now().date().isoformat()] = day
+                hist = dict(sorted(hist.items())[-90:])
+                tmp = history_path + ".tmp"
+                with open(tmp, "w") as fh:
+                    json.dump(hist, fh)
+                os.replace(tmp, history_path)
+        return {"day": self.state["day"], "now": self.now().isoformat(timespec="seconds"), "today": day,
+                "charges": ch, "free_to_trade": round(float(f.get("net") or 0)),
+                "history": [{"d": d, **v} for d, v in hist.items()]}
+
     # ------------------------------------------------------------------ the phone's requests
     def view(self):
         with self.lock:
@@ -215,14 +302,15 @@ class Engine:
             qty = lots * self.lot_size(sym)
             if qty <= 0:
                 raise ValueError("no lot size for that option")
-            risk = (ref - stop) * qty
+            est = self._charges([(sym, "BUY", qty, ref), (sym, "SELL", qty, stop)], lots)
+            risk = (ref - stop) * qty + est["total"]
             if risk > L["max_loss_day"] + self._pnl_today():
                 raise ValueError(f"this pick could lose about Rs{risk:,.0f}, more than what is left of today's limit")
             price = up(limit) if limit else up(ask * 1.01 if ask else ltp * 1.02)
             t = {"id": uuid.uuid4().hex[:8], "symbol": sym, "lots": lots, "qty": qty, "limit": limit, "stop": stop,
                  "target": target, "exit_by": exit_by, "status": "entering", "made": now.isoformat(timespec="seconds"),
                  "entry_price": price, "tries": 0, "since": self.clock(), "filled": 0, "avg_in": None, "avg_out": None,
-                 "ltp": ltp, "why": None}
+                 "ltp": ltp, "why": None, "charges_est": round(est["total"], 2)}
             try:
                 t["entry_id"] = self.kite.place(sym, "BUY", qty, "LIMIT", price)
             except KiteError as e:
@@ -376,14 +464,17 @@ class Engine:
     def _closed(self, t, avg_out, why):
         t["status"], t["avg_out"], t["why"] = "closed", avg_out, why
         t["pnl"] = round((avg_out - t["avg_in"]) * t["filled"])
-        self.log(t, f"sold {t['filled']} at {avg_out}: {why}")
+        c = self._charges([(t["symbol"], "BUY", t["filled"], t["avg_in"]), (t["symbol"], "SELL", t["filled"], avg_out)], t["lots"])
+        t["charges"], t["net"] = round(c["total"], 2), round(t["pnl"] - c["total"])
+        self.log(t, f"sold {t['filled']} at {avg_out}: {why}; charges Rs{c['total']:.2f}")
 
     def _pnl(self, t):
-        """Rupees before charges: closed at the sale price, open at the last price."""
+        """Rupees after charges (the daily loss limit counts them): closed at the sale price less Kite's charges, open at
+        the last price less the charges estimated when it was placed."""
         if t.get("pnl") is not None:
-            return t["pnl"]
+            return t["pnl"] - t.get("charges", t.get("charges_est", 0))
         if t["status"] in ("open", "exiting") and t.get("avg_in") and t.get("ltp"):
-            return (t["ltp"] - t["avg_in"]) * t["filled"]
+            return (t["ltp"] - t["avg_in"]) * t["filled"] - t.get("charges_est", 0)
         return 0
 
     def _pnl_today(self):
@@ -451,7 +542,7 @@ class Guard:
         return False
 
 
-def handler(engine, guard, origin):
+def handler(engine, guard, origin, history_path=None):
     class H(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):                          # no request lines (they would show what was asked)
             pass
@@ -485,6 +576,11 @@ def handler(engine, guard, origin):
             try:
                 if u.path == "/api/state":
                     return self._send(200, engine.view())
+                q = urllib.parse.parse_qs(u.query)
+                if u.path == "/api/estimate":
+                    return self._send(200, engine.estimate(q.get("symbol", [""])[0], q.get("lots", ["1"])[0]))
+                if u.path == "/api/money":
+                    return self._send(200, engine.money(history_path))
                 if u.path == "/api/chain":
                     return self._send(200, engine.chain(urllib.parse.parse_qs(u.query).get("expiry", [None])[0]))
             except (ValueError, KiteError) as e:
@@ -526,7 +622,8 @@ def main():
     engine = Engine(os.path.join(data, "state.json"), limits_from_env())
     sess = Session(engine, key, secret, os.path.join(data, "kite"))
     srv = ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("ORDERS_PORT", "8787"))),
-                              handler(engine, Guard(code), os.environ.get("ALLOW_ORIGIN", "https://ramanauday1561.github.io")))
+                              handler(engine, Guard(code), os.environ.get("ALLOW_ORIGIN", "https://ramanauday1561.github.io"),
+                                      os.path.join(data, "money.json")))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     print(f"orders server up; limits {engine.limits}", flush=True)
     while True:
