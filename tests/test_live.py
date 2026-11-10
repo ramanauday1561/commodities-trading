@@ -128,12 +128,14 @@ class NextRecord(unittest.TestCase):
         t0 = int(datetime(2026, 10, 30, 15, 5).replace(tzinfo=None).timestamp()) // 86400 * 86400 + (15 * 60 + 5) * 60
         c = [{"time": t0 + 600 * k, "close": v} for k, v in enumerate([100.0, 110.0, 105.0, 104.0])]   # 15:05 ... 15:35
         leans = [{"at": "15:15", "lean": "up"}, {"at": "15:25", "lean": "down"}, {"at": "15:05", "lean": "up"}]
-        json.dump({"candles": c, "leans": leans}, open(os.path.join(store, "live", "2026-10-30.json"), "w"))
+        json.dump({"candles": c, "leans": leans}, open(os.path.join(store, "live", "2026-07-30.json"), "w"))   # before the closing auction
         json.dump({"candles": c, "leans": leans}, open(os.path.join(store, "live", "2026-11-02.json"), "w"))   # today
         r = live.next_record(store, "2026-11-02")
         self.assertEqual((r["days"], r["leans"], r["right"]), (1, 1, 1))              # 15:25 stub and first candle skipped
         self.assertEqual(r["rs"], round((0.5 * 10 - 1.85) * 65))
         self.assertEqual(r["losing_days"], 0)
+        os.rename(os.path.join(store, "live", "2026-07-30.json"), os.path.join(store, "live", "2026-08-03.json"))
+        self.assertIsNone(live.next_record(store, "2026-11-02"))                      # closing auction: no 15:15 lean counted
 
 
 class Budget(unittest.TestCase):

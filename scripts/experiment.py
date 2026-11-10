@@ -199,6 +199,7 @@ STUDIES = {
     "intrarules": ("intraday_rules_study", "main"), "nextcandle": ("nextcandle_study", "main"),
     "minute": ("minute_study", "main"), "options": ("option_study", "main"),
     "shortopt": ("short_option_study", "main"),
+    "straddle2022": ("straddle_recent_study", "main"),
     "movesize": ("movesize_study", "main"),
     "movesizekite": ("movesize_study", "kite_main"),
     "futures": ("futures_study", "main"),
