@@ -31,7 +31,27 @@ Information, not part of the rule: the four days with Kite's own 5-minute option
 ways: this bhavcopy model, the app's paper trade (Kite's first price), and a seller who is 5 minutes late (sells at
 the 09:20 price, stops from the candles after). Four days say little; they show how much the first price matters.
 
-Result: not run yet when this rule was written (see the commit history).
+Result (run 10 Nov 2026 on the stored data; 1,194 sessions, 3 Jan 2022 - 9 Nov 2026; Rs a lot of 65 after costs):
+FAILS, on rules 1 and 4.
+  Overall +7.13 points (+Rs464) a day, won 62% of days, stops hit on 73% of days, Sharpe 2.08.
+  1. FAIL  by year: 2022 +343, 2023 -114, 2024 +684, 2025 +481, 2026 +1,003 a day. 2023 lost.
+  2. pass  halves +4.22 / +10.05 points.
+  3. pass  expiry days +14.59 points, the other 940 days +5.12.
+  4. FAIL  hard costs: +0.99 points a day overall, but by year 2022 -52, 2023 -529, 2024 +283, 2025 +83, 2026 +614:
+           3 of 5 years. Doubled costs and worse stop fills take away 6 of the 7 points.
+  5. pass  40 of 59 months up (68%).
+  6. pass  worst day -Rs19,323 (7 Apr 2025; margin about Rs2,19,830), largest drawdown -Rs64,940 against
+           +Rs1,15,941 in an average 250 sessions.
+  The Kite days (information; Rs a lot):        bhavcopy model   paper trade   5 minutes late
+    4 Nov                                            +3,908        +4,081         +2,389
+    5 Nov                                            +4,651        +4,833         +1,248
+    6 Nov                                            +8,455        +8,724         +7,093
+    9 Nov                                              +305          +663         +9,480
+  The bhavcopy model is within Rs360 a day of the paper trade on real Kite prices, so the history is priced about
+  right. Selling 5 minutes late changed a day by Rs1,600 to Rs8,800 either way: the result leans on the first price.
+  What it means: the straddle earned since 2022 but not every year, and its edge (7 points a day) is about the size
+  of a realistic worsening in costs and stop fills (6 points). It stays a paper trade on real prices, information
+  only; the paper record (which pays real spreads) is the test that counts.
 """
 import csv
 import json

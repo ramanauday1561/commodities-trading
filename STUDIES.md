@@ -362,3 +362,13 @@ auction sets the close at 15:30, so NIFTY stands still from 15:15 (every stored 
 15:25 bar jumps to the close; what earlier notes called Yahoo's feed "freezing from about 15:10" was this). The 15:15
 lean was a sure loss of costs; from now on the last lean on those days is for 15:05 (nextcandle.last_full). On real
 option prices the 15:15 lean lost Rs541 over 4-9 Nov (3 of 4 days).
+
+Experiment mode "straddle2022" (10 Nov 2026, straddle_recent_study.py): the paper-traded 50%-stop short straddle on
+2022 - 9 Nov 2026 only (1,194 sessions, bhavcopy premiums), with a harder rule fixed before the run; the window was
+chosen after seeing that it earned there, so a pass would not have proved an edge. Rule: up in every year, both
+halves, on non-expiry days alone, with doubled costs and 5-point stop slippage (overall and 4 of 5 years), 60% of
+months, worst day within 25% of the margin and drawdown within a year's earnings. FAILS on two: 2023 lost (-Rs114 a
+day; 2022 +343, 2024 +684, 2025 +481, 2026 +1,003), and hard costs leave +0.99 points a day with only 3 of 5 years up.
+Passed the rest: +Rs464 a lot a day overall, non-expiry days +5.12 points, 40 of 59 months up, worst day -Rs19,323,
+drawdown -Rs64,940. On the four Kite days the bhavcopy model was within Rs360 a day of the paper trade; a seller 5
+minutes late differed by Rs1,600 to Rs8,800 a day either way. Nothing changes: it stays a paper trade.
