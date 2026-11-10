@@ -15,7 +15,7 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
 - **UI:** Liquid Glass look (Glisse 0.5.0 on React 18.3.1, bundled by esbuild from `ui/` into
   `docs/vendor/glass-ui.js`, no CDN). `nav.js` adds the tab bar (Next 10, Today, Status, Live, Forecast) and the ⋯
   "More" menu (History, Kite login, and a temporary "Screen check" = `next.html?debug`). `theme.css` holds the shared
-  styles (currently `theme.css?v=8`, service worker cache `forecast-v14`).
+  styles (currently `theme.css?v=8`, service worker cache `forecast-v17`).
 - **Back end:** GitHub Actions only (see README "What runs when"). Data in branches (README "Where data lives").
 
 ## 2. Branch flow and how releases work
@@ -24,7 +24,7 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
   puts it live. The owner merges releases; on request Claude has merged feature PRs into `dev` after CI passed.
 - `site.yml` publishes on `docs/` changes; `predict.yml` runs also publish (shared `pages-main` concurrency group, so
   one publish can cancel another: that is normal).
-- Tests: `tests.yml` on every PR and on pushes to `main` and `dev` (`python -m unittest discover -s tests`, 237 tests on
+- Tests: `tests.yml` on every PR and on pushes to `main` and `dev` (`python -m unittest discover -s tests`, 240 tests on
   10 Nov). Locally, `pip install lightgbm yfinance exchange_calendars` first.
 
 ## 3. Kite Connect (Zerodha)
@@ -65,8 +65,14 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
   (Safari 26.1 release note); Today (an ordinary scrolling page) was always fine.
 - **9 Nov:** **lean filters study + no 15:15 lean since the closing auction (#112)**, release #113.
 - **10 Nov:** NSE holiday (Diwali Balipratipada). Installed the "ponytail" skill on the owner's claude.ai account
-  (works in new sessions). This handoff file. Live leans record fix (#115). Short straddle
-  since-2022 study (fails).
+  (works in new sessions). This handoff file (#114). Then, in a **new session** (the second one):
+  - **#115** live leans record no longer counts the old 15:15 leans: 252 → 245 leans, -₹18,936 → -₹18,160 over the 8
+    days 29 Oct - 9 Nov (seven 15:15 leans dropped; each had lost ₹72-152).
+  - **#116** short straddle since 2022 (`straddle_recent_study.py`, mode `straddle2022`): FAILS; the same numbers on
+    GitHub Actions (run 42773839158).
+  - **#117** Next 10: "Day so far: Trending up / Trending down / Choppy" and the 09:15 lean's record on real prices.
+  - **UI pass:** Today's paper accounts rows (the gain first, the balance and "up on N of M days" under it); larger
+    tap areas for "details ›", "Replay ▸" and the footer links; Kite page and Live page wording brought up to date.
 
 ## 5. What has been tested (the honest record)
 
@@ -131,6 +137,12 @@ Notes: 6 Nov was a steady +2.0% trend day (close 25,030.35); 9 Nov a choppy day 
 - Layout checker scripts used (in the old session's scratchpad, not in the repo): tab bar position and gap, ⋯ overlap,
   text outside its glass box, at 320/375/390/430 widths. Re-create them with Playwright if needed.
 
+- 10 Nov UI pass, how it was checked: every page screenshotted with Playwright at 393x852 on the latest `site-data`
+  files (copied into `docs/data` of a scratch copy), counting text under 11px, tap targets under 40px and anything
+  wider than the screen. Small links get a finger-sized tap area from an invisible `::after` (Today's "details ›",
+  History's "Replay ▸") or inline padding (footer links), so the layout does not move. In Today's rows a value in a
+  `<span>` is greyed by `.row span:first-child`; use another tag for coloured values.
+
 ## 9. Things removed or declined (do not redo unless asked)
 
 - **Order placement / AWS / Render:** an order server (`server/`), an Orders page and a Lightsail setup script were
@@ -148,7 +160,7 @@ Notes: 6 Nov was a steady +2.0% trend day (close 25,030.35); 9 Nov a choppy day 
    40% rule) and the 09:15 lean's record on real prices. Both are descriptions, not signals.
 3. **Remove the temporary "Screen check"** entry from the ⋯ menu (`nav.js` MORE, `?debug` code) once the owner
    confirms the tab bar is right on every page (the fix in #110/#111 is live).
-4. The page's live leans record (since 29 Oct) still counts the old 15:15 leans (scored as a 0-point move).
+4. Done 10 Nov (#115): the live leans record no longer counts the old 15:15 leans.
 5. The routine "NIFTY pre-open starter" fires into the old session; move it to a new session if wanted.
 
 ## 11. Everything the owner asked, in order (this session)
@@ -175,3 +187,8 @@ From 5 Nov (this part of the session):
   backtesting today's data and checking storage (#113; closing-auction finding); run the tests and check after merge.
 - 10 Nov: are you ready for today (NSE holiday); install the ponytail skill for the whole account (uploaded on
   claude.ai, enabled; works in new sessions); save the whole conversation to a markdown file (this file + `CLAUDE.md`).
+- 10 Nov, new session: read `CLAUDE.md` and this file, improve the app and make a PR (#115); did you backtest and
+  check the latest data (checked on the stored live days); would changing the model help (no: every lean model
+  tested loses after costs; the Claude model is not the limit); do the short straddle backtest and a new PR (#116);
+  use Kite if Yahoo is blocked (not needed: the stored 5-minute history is used; the keys stay in GitHub secrets);
+  start the straddle2022 run and improve the app (#117); improve the UI/UX and update these two files.

@@ -182,7 +182,7 @@ function chainPaper(day) {
     h += `<div style="margin-top:6px"><b>Paper trade, no money</b>: sold the ${k(t.strike)} CALL and PUT at the open, 50% stop each
       (${legs}): ${t.final ? 'closed' : 'so far'} <b class="${cls(t.rs)}">${rs(t.rs)}</b> a lot.
       ${r.days ? `Record since ${r.since}: ${r.won} of ${r.days} days up, <b class="${cls(r.total_rs)}">${rs(r.total_rs)}</b>, worst day ${rs(r.worst_rs)}.` : ''}
-      <span class="m">In 2015-2026 this made +₹229 a day but lost every year 2015-2019; it did not pass the test, so it is tracked, not traded.</span></div>`;
+      <span class="m">In 2015-2026 this made +₹229 a day but lost every year 2015-2019. A harder test on 2022-2026 also failed: +₹464 a day, but 2023 lost and doubled costs take most of it away. So it is tracked, not traded.</span></div>`;
   }
   return h;
 }

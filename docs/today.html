@@ -25,7 +25,9 @@
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:10px 0; }
   .card h2 { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; font-weight:600;
              display:flex; justify-content:space-between; }
-  .card h2 a { color:var(--muted); text-transform:none; letter-spacing:0; font-weight:500; }
+  .card h2 a { color:var(--muted); text-transform:none; letter-spacing:0; font-weight:500; position:relative; }
+  .card h2 a::after { content:''; position:absolute; inset:-14px -12px; }   /* a finger-sized tap area (10 Nov 2026) */
+  .row small { display:block; font-size:12px; font-weight:400; color:var(--muted); }
   .price { font-size:30px; font-weight:700; letter-spacing:-.01em; }
   .up { color:var(--up); } .down { color:var(--down); } .m { color:var(--muted); } .warn { color:var(--warn); }
   .word { font-size:34px; font-weight:800; letter-spacing:-.02em; }
@@ -123,7 +125,9 @@ function paperCard(p) {
   const order = ['straddle', 'leans_star', 'leans', 'signal_lean'], short = { leans: 'Every Next 10 lean', leans_star: '★ leans only',
     straddle: 'Short straddle (50% stops)', signal_lean: "09:15 signal's lean" };
   const b = order.filter(k => p.totals[k]).map(k => { const t = p.totals[k];
-    return row(short[k], `₹${k0(t.balance)} <span class="${cls(t.rs)}">${rs(t.rs)}</span> <span class="m">· ${t.up_days}/${t.days}d up</span>`); }).join('');
+    // 10 Nov 2026: the gain first, the balance and the days under it (one long line wrapped badly on a phone)
+    return row(`${short[k]}<small>up on ${t.up_days} of ${t.days} day${t.days > 1 ? 's' : ''}</small>`,
+               `<em class="${cls(t.rs)}" style="font-style:normal; white-space:nowrap">${rs(t.rs)}</em><small>₹${k0(t.balance)}</small>`); }).join('');
   return card(`Paper accounts · since ${new Date(p.start + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })}`, 'next.html', b && b + '<div class="note">₹2,00,000 each, 1 lot a trade on Kite\'s real option prices, after costs; updated at the close. No money is traded.</div>');
 }
 
