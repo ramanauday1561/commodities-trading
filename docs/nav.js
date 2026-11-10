@@ -75,8 +75,9 @@
   theme.href = 'theme.css?v=8';
   document.head.appendChild(theme);
   // 6 Nov 2026: Next 10 first, the screen the app opens on (index.html sends a fresh launch there)
+  // 11 Nov 2026 (asked by the owner): Money in the bar, Live moved to the ⋯ menu
   const TABS = [['next.html', 'Next 10', 'next'], ['today.html', 'Today', 'today'], ['status.html', 'Status', 'status'],
-                ['live.html', 'Live', 'live'], ['index.html', 'Forecast', 'home']];
+                ['money.html', 'Money', 'money'], ['index.html', 'Forecast', 'home']];
   try { sessionStorage.setItem('opened', '1'); } catch (e) { /* private mode */ }
   // ?debug (6 Nov 2026): the viewport sizes the phone reports, to find the gap under the tab bar in the home-screen app
   if (/[?&]debug\b/.test(location.search)) {
@@ -97,10 +98,10 @@
     addEventListener('load', () => setTimeout(show, 800));
     addEventListener('resize', show);
   }
-  const MORE = [['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite'], ['orders.html', 'Orders', 'live'], ['money.html', 'Money', 'today'],
+  const MORE = [['live.html', 'Live', 'live'], ['orders.html', 'Orders', 'next'], ['history.html', 'History', 'history'], ['kite.html', 'Kite login', 'kite'],
                 ['next.html?debug', 'Screen check', 'status']];      // 6 Nov 2026, for a while: the tab bar's gap (?debug below)
   if (!/[?&]classic\b/.test(location.search)) {
-    import('./vendor/glass-ui.js?v=2')
+    import('./vendor/glass-ui.js?v=3')
       .then(m => m.start({ nav: { here: here === '' ? 'index.html' : here,
                                   tabs: TABS.map(([href, label, icon]) => ({ href, label, icon })),
                                   more: MORE.map(([href, label, icon]) => ({ href, label, icon })) } }))
