@@ -92,6 +92,9 @@ All walk-forward, pass rules written before each run. Full detail in `STUDIES.md
 - **Short options (`short_option_study.py`, 4 Nov):** none of six variants passes. The 50%-stop short straddle made
   +₹229 a lot a day over 2015-2026 (8 of 12 years, since 2022 +6.9 pts a day) but lost every year 2015-2019; it fails
   the rule on the first half. Now paper-traded live. An ATM straddle *bought* from the open lost in all 12 years.
+- **★ leans held longer (`star_hold_study.py`, 10 Nov, before the owner trades ★ leans with real money):** held 10,
+  30, 60 minutes or to the close, on real option pricing: -₹72, -₹53, -₹53, -₹112 a lot a trade; 0, 1, 1, 2 of 10 years
+  up. ALL FAIL. Right 53% whatever the hold.
 - **Short straddle since 2022 (`straddle_recent_study.py`, 10 Nov):** FAILS a harder rule. +₹464 a lot a day over
   1,194 sessions, but 2023 lost (-₹114 a day) and hard costs leave 3 of 5 years up. The bhavcopy model matched the
   paper trade on the 4 Kite days to within ₹360 a day.
@@ -196,4 +199,7 @@ From 5 Nov (this part of the session):
   app on previous Kite data (the paper accounts re-scored from the saved quotes: all 16 day figures match) and how Kite
   can work for Claude (through GitHub Actions; keys stay in GitHub secrets); "I want to place real money": the order
   server brought back (#119); which server to rent (Hostinger KVM 1 in Mumbai, paid by UPI, bought 10 Nov; plain
-  Ubuntu, no add-ons); the Hostinger connector added on claude.ai; the guide rewritten for Hostinger.
+  Ubuntu, no add-ons); the Hostinger connector added on claude.ai; the guide rewritten for Hostinger. Then: firewall set up through the
+  connector; release #120; Kite key check passed; `setup.sh` run by the owner on the VPS (daily loss limit ₹20,000;
+  the first passcode was shown in a screenshot and the owner was told to change it); how much to fund Kite; "we will
+  pick the ★ leans": the ★ hold study (fails) run before that.

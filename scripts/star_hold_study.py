@@ -25,7 +25,17 @@ paper account only if its * trades earn after costs on average over 2017-2026, i
 2022, and in at least 7 of the 10 years, with at least 300 trades. Passing would not make it a trade signal: it would
 go to the paper accounts first, as information.
 
-Result: not run yet when this rule was written (see the commit history).
+Result (run 10 Nov 2026 on the intraday-data and options-live branches; * leans 2017-01-02 to 2026-11-09; pricing
+b 0.569, a -0.08 from 256 Kite quote pairs; Rs a lot after costs): ALL FOUR FAIL.
+  H1  10 minutes   16,374 trades, right 53.0%, -1.11 pts, -Rs72, halves -1.23 / -1.03, since 2022 -0.99, 0 of 10 years
+                   (the same numbers as leanfilter_study's F1: the code reproduces it)
+  H3  30 minutes   14,393 trades, right 52.7%, -0.81 pts, -Rs53, halves -1.04 / -0.84, since 2022 -0.65, 1 of 10
+  H6  60 minutes   12,162 trades, right 53.0%, -0.82 pts, -Rs53, halves -1.14 / -0.67, since 2022 -0.50, 1 of 10
+  END to the close 16,374 trades, right 52.7%, -1.72 pts, -Rs112, halves -1.50 / -1.88, since 2022 -1.64, 2 of 10
+  Holding 30 or 60 minutes loses less a trade than 10 (the cost is paid once over a longer move) but still loses in 9
+  of 10 years; the one up year is 2024 (+Rs111 and +Rs232). Holding to the close loses most, -Rs518 a trade in 2026.
+  A * lean is right about 53% of the time however long it is held, and that is not enough to pay for an option's
+  costs and time decay. Nothing changes in the app; the * leans stay information, and the paper account keeps counting.
 """
 import json
 import os
