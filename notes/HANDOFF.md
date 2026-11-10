@@ -143,11 +143,14 @@ Notes: 6 Nov was a steady +2.0% trend day (close 25,030.35); 9 Nov a choppy day 
   History's "Replay ▸") or inline padding (footer links), so the layout does not move. In Today's rows a value in a
   `<span>` is greyed by `.row span:first-child`; use another tag for coloured values.
 
-## 9. Things removed or declined (do not redo unless asked)
+## 9. Things removed, declined or brought back
 
-- **Order placement / AWS / Render:** an order server (`server/`), an Orders page and a Lightsail setup script were
-  built on 5 Nov because Zerodha needs a static IP for API orders, then removed on the owner's request (#104). If the
-  owner created a Lightsail instance or static IP, they were told to delete both to avoid charges.
+- **Order placement:** an order server (`server/`), an Orders page and a Lightsail setup script were built on 5 Nov
+  (#102) because Zerodha needs a static IP for API orders, then removed on the owner's request (#104). **On 10 Nov the
+  owner asked for it back** to trade real money, with a **DigitalOcean** droplet in Bangalore instead of Lightsail
+  (the setup guide in `server/README.md` was rewritten for it; the code is the same as #102). It runs only the owner's
+  own picks; nothing the app suggests becomes an order. Claude cannot create the droplet (no DigitalOcean connector in
+  the session; the owner was told how to add one on claude.ai) and never handles the Kite keys or the passcode.
 - No private repository; the 151-trading-strategies repo is not to be used.
 - An Oracle free server was not possible (needs a credit card); not needed since Kite data needs no static IP.
 
@@ -191,4 +194,7 @@ From 5 Nov (this part of the session):
   check the latest data (checked on the stored live days); would changing the model help (no: every lean model
   tested loses after costs; the Claude model is not the limit); do the short straddle backtest and a new PR (#116);
   use Kite if Yahoo is blocked (not needed: the stored 5-minute history is used; the keys stay in GitHub secrets);
-  start the straddle2022 run and improve the app (#117); improve the UI/UX and update these two files.
+  start the straddle2022 run and improve the app (#117); improve the UI/UX and update these two files. Then: test the
+  app on previous Kite data (the paper accounts re-scored from the saved quotes: all 16 day figures match) and how Kite
+  can work for Claude (through GitHub Actions; keys stay in GitHub secrets); install the DigitalOcean MCP (not in the
+  connector search; added on claude.ai); "I want to place real money": the order server brought back for DigitalOcean.
