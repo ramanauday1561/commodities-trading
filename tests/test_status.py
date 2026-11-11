@@ -128,8 +128,8 @@ class Stop(unittest.TestCase):
         self.assertIsNone(status.trade_box(status.decide(today(trade=False), at(8, 58)), today(trade=False)))
         with tempfile.TemporaryDirectory() as dd, tempfile.TemporaryDirectory() as store:
             json.dump(self.put_day(high=22600.0), open(os.path.join(dd, "today-nifty.json"), "w"))
-            with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "1"}), \
-                    mock.patch.object(status, "notify", return_value={"telegram": "sent"}):
+            with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}), \
+                    mock.patch.object(status, "notify", return_value={"ntfy": "sent"}):
                 status.main(dd, at(9, 50), store)
             self.assertEqual(json.load(open(os.path.join(dd, "status.json")))["trade"]["stop"], 22637.02)
             t = json.load(open(os.path.join(dd, "status-today.json")))
@@ -203,8 +203,8 @@ class Updates(unittest.TestCase):
                 json.dump(news, open(os.path.join(dd, "news-nifty.json"), "w"))
             if prev:
                 json.dump(prev, open(os.path.join(dd, "status.json"), "w"))
-            with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "1"}), \
-                    mock.patch.object(status, "notify", return_value={"telegram": "sent"}) as n:
+            with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}), \
+                    mock.patch.object(status, "notify", return_value={"ntfy": "sent"}) as n:
                 out = status.main(dd, now)
             return out, n.call_args_list
 
@@ -283,8 +283,8 @@ class GrokLines(unittest.TestCase):
                                 "call_miss_pct": 0.06, "runs": 30, "avg_miss_pct": 0.21,
                                 "right_side_since": "2026-10-22T11:05+05:30", "note": "Banks fell after results."}},
                       open(os.path.join(dd, "live-nifty.json"), "w"))
-            with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "t", "TELEGRAM_CHAT_ID": "1"}), \
-                    mock.patch.object(status, "notify", return_value={"telegram": "sent"}) as n:
+            with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}), \
+                    mock.patch.object(status, "notify", return_value={"ntfy": "sent"}) as n:
                 s1 = status.main(dd, at(8, 58))
                 self.assertIn("Grok's morning read (info only, not part of the signal): -1 bearish. oil up; weak Asia",
                               n.call_args.args[0]["reason"])
@@ -319,33 +319,23 @@ class HonestLines(unittest.TestCase):
 
 
 class Channels(unittest.TestCase):
-    def test_telegram_and_ntfy_each_get_the_alert_and_one_failing_does_not_stop_the_other(self):
+    def test_ntfy_gets_the_alert_and_a_failure_is_reported(self):
         sent = []
 
         def fake(req, timeout=15):
-            sent.append(req.full_url)
-            if "ntfy" in req.full_url:
+            sent.append(req)
+            if len(sent) > 1:
                 raise OSError("down")
-            return mock.Mock(read=lambda: b'{"ok": true}')
-        env = {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "42", "NTFY_TOPIC": "t"}
-        with mock.patch.dict(os.environ, env), mock.patch("urllib.request.urlopen", fake):
-            res = status.notify({"kind": "put", "side": "PUT", "headline": "Buy a NIFTY PUT at the open", "reason": "x"})
-        self.assertEqual(res["telegram"], "sent")
-        self.assertTrue(res["ntfy"].startswith("failed"))
-        self.assertTrue(any("api.telegram.org/bottok/sendMessage" in u for u in sent))
+            return mock.Mock(read=lambda: b"")
+        with mock.patch.dict(os.environ, {"NTFY_TOPIC": "t"}, clear=True), mock.patch("urllib.request.urlopen", fake):
+            self.assertEqual(status.notify({"kind": "info", "body": "b"}, silent=True), {"ntfy": "sent"})
+            self.assertTrue(status.notify({"kind": "put", "side": "PUT", "headline": "h", "reason": "r"})["ntfy"].startswith("failed"))
+        self.assertEqual(sent[0].full_url, "https://ntfy.sh/t")
+        self.assertEqual([r.get_header("Priority") for r in sent], ["low", "urgent"])
 
-    def test_silent_messages_are_sent_without_sound(self):
-        bodies = []
-
-        def fake(req, timeout=15):
-            bodies.append(json.loads(req.data))
-            return mock.Mock(read=lambda: b'{"ok": true}')
-        with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "42"}, clear=True), \
-                mock.patch("urllib.request.urlopen", fake):
-            status.notify({"kind": "info", "body": "line 1\nline 2"}, silent=True)
-            status.notify({"kind": "put", "side": "PUT", "headline": "Buy", "reason": "x"})
-        self.assertEqual([b["disable_notification"] for b in bodies], [True, False])
-        self.assertTrue(bodies[0]["text"].endswith("(info, not a trade signal)\nline 1\nline 2"))
+    def test_telegram_is_gone(self):
+        with mock.patch.dict(os.environ, {"TELEGRAM_BOT_TOKEN": "tok", "TELEGRAM_CHAT_ID": "42"}, clear=True):
+            self.assertEqual(status.channels(), [])
 
     def test_no_channel_no_alert(self):
         with mock.patch.dict(os.environ, {}, clear=True):

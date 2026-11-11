@@ -59,7 +59,7 @@ The workflows write to branches; do not delete them.
 | `overnight-es`, `-nq`, `-nikkei`, `-hangseng`, `-india*` | Hourly overnight markets (Dukascopy) for the long backtests |
 
 Secrets (GitHub → Settings → Secrets, never in the repo): `FRED_API_KEY`, `XAI_API_KEY` (an xAI or Groq key),
-`TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` and/or `NTFY_TOPIC` for alerts, `KITE_API_KEY` + `KITE_API_SECRET` for Kite
+`NTFY_TOPIC` for phone alerts (optional), `KITE_API_KEY` + `KITE_API_SECRET` for Kite
 Connect's market data (no static IP needed: that covers order placement, which the app never does; the Kite app's
 redirect URL is the site's `kite.html`). The page's Rerun and Recheck buttons need a
 fine-grained token with only **Actions: Read and write** on this repository; the page keeps it in that browser only.

@@ -55,8 +55,8 @@ class Weekly(unittest.TestCase):
 
     def test_once_a_week_on_the_weekend_with_a_channel(self):
         store = tempfile.mkdtemp()
-        with mock.patch("status.channels", return_value=[("telegram", None)]), \
-                mock.patch("status.notify", return_value={"telegram": "sent"}) as n, \
+        with mock.patch("status.channels", return_value=[("ntfy", None)]), \
+                mock.patch("status.notify", return_value={"ntfy": "sent"}) as n, \
                 mock.patch("weekly.body", return_value="text"):
             self.assertIsNone(weekly.main("d", store, datetime(2026, 10, 30, 9, tzinfo=IST), results=[]))   # Friday
             self.assertEqual(weekly.main("d", store, datetime(2026, 10, 31, 7, tzinfo=IST), results=[]), "text")

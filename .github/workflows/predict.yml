@@ -213,8 +213,6 @@ jobs:
         continue-on-error: true
         env:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
-          TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
-          TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
           XAI_API_KEY: ${{ github.ref == 'refs/heads/main' && secrets.XAI_API_KEY || '' }}
           PYTHONPATH: scripts
         run: |                       # after the close: the live chart's scorecard and Grok's why, then the summary
@@ -262,8 +260,6 @@ jobs:
         timeout-minutes: 4
         env:
           NTFY_TOPIC: ${{ github.ref == 'refs/heads/main' && secrets.NTFY_TOPIC || '' }}
-          TELEGRAM_BOT_TOKEN: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_BOT_TOKEN || '' }}
-          TELEGRAM_CHAT_ID: ${{ github.ref == 'refs/heads/main' && secrets.TELEGRAM_CHAT_ID || '' }}
           PYTHONPATH: scripts
         run: python -u scripts/weekly.py docs/data store
       - name: News (GDELT headlines; history kept for later evaluation, not a model input)

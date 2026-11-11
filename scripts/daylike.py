@@ -1,7 +1,7 @@
 """'Days like today': what NIFTY did from this time to the close on past days that looked like today so far.
 
 Asked for on 28 Oct 2026, after a day of "should I buy a CALL or a PUT now?". The answers were worked out by hand from the
-5-minute history; this puts the same lookup in the app (Live page, the hourly Telegram update). It is information, not a
+5-minute history; this puts the same lookup in the app (Live page, the hourly phone update). It is information, not a
 signal: the "midday recovery" CALL it suggested on 28 Oct (61% of similar days rose into the close) was then tested as
 a rule (midday_study.py) and failed, and no intraday rule has passed on 11 years (intraday_rules_study.py).
 

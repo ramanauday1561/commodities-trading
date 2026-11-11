@@ -1,7 +1,6 @@
 name: Status alert test
 
-# Sends one test notification through every configured channel (Telegram: TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID;
-# ntfy.sh: NTFY_TOPIC) so alerts can be checked any time. Fails if no channel is set up or none delivered.
+# Sends one test notification through ntfy.sh (NTFY_TOPIC) so alerts can be checked any time. Fails if no channel is set up or none delivered.
 on:
   workflow_dispatch:
     inputs:
@@ -22,7 +21,5 @@ jobs:
       - name: Send
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MESSAGE: ${{ github.event.inputs.message }}
         run: python3 scripts/status.py test "$MESSAGE"

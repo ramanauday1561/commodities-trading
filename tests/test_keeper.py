@@ -21,7 +21,7 @@ class Watchdog(unittest.TestCase):
         today = keeper.datetime.now(keeper.IST).date().isoformat()
         seq = [dict(s, date=today) if s else None for s in statuses]
         with mock.patch.object(keeper, "live_status", side_effect=seq), mock.patch.object(keeper, "dispatch") as d, \
-                mock.patch("status.notify", return_value={"telegram": "sent"}) as n, mock.patch.object(keeper.time, "sleep"):
+                mock.patch("status.notify", return_value={"ntfy": "sent"}) as n, mock.patch.object(keeper.time, "sleep"):
             ok = keeper.watchdog()
         return ok, d.call_count, n.call_args_list
 

@@ -10,7 +10,7 @@
 # Not done here: publishing the website (GitHub Pages; the pages read data from site-data or this box), the 15:50
 # post-close forecast and the training (GitHub's predict.yml), position alerts and the stop watcher (keeper.yml).
 # Keys: the Kite key and secret from /etc/nifty-orders.env; GH_TOKEN (contents read/write on this repo), the
-# Telegram, xAI, FRED and ntfy keys from /etc/nifty-market.env, typed in by the owner in setup.sh. None is printed.
+# xAI, FRED and ntfy keys from /etc/nifty-market.env, typed in by the owner in setup.sh. None is printed.
 set -uo pipefail
 APP=${APP:-/opt/nifty-orders}
 DATA=${ORDERS_DATA:-/var/lib/nifty-orders}

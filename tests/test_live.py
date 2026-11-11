@@ -194,7 +194,7 @@ class Main(unittest.TestCase):
 
     def run_at(self, mode, h, m, closes=None, grok_answer="Oil fell on reports of a ceasefire."):
         with mock.patch.object(grok, "ask", return_value=grok_answer) as a, \
-                mock.patch("status.notify", return_value={"telegram": "sent"}) as n:
+                mock.patch("status.notify", return_value={"ntfy": "sent"}) as n:
             out = live.main(self.dd, self.store, mode, datetime(2026, 10, 27, h, m, tzinfo=IST),
                             get_bars=lambda: bars(closes or [22760.0, 22750.0]))
         return out, a, n

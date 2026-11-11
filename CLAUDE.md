@@ -26,8 +26,8 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   orders only.
 - **Secrets live only in GitHub secrets** (and, for the order server, in `/etc/nifty-orders.env` on the VPS; since
   11 Nov 2026 with the owner's OK also the market-update keys in `/etc/nifty-market.env`: a fine-grained GitHub token
-  with Contents read/write on this repo, Telegram, xAI, FRED, ntfy; all entered by the owner in `setup.sh`) (`KITE_API_KEY`, `KITE_API_SECRET`, `FRED_API_KEY`, `XAI_API_KEY`,
-  `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `NTFY_TOPIC`; Kaggle keys, if ever, only as `KAGGLE_USERNAME` / `KAGGLE_KEY`).
+  with Contents read/write on this repo, xAI, FRED, ntfy; all entered by the owner in `setup.sh`) (`KITE_API_KEY`, `KITE_API_SECRET`, `FRED_API_KEY`, `XAI_API_KEY`,
+  `NTFY_TOPIC`; Kaggle keys, if ever, only as `KAGGLE_USERNAME` / `KAGGLE_KEY`).
   Never ask for them in chat, never print or commit them. Request tokens and access tokens are masked in logs.
 - **Positions are never printed in logs or stored** anywhere; they go to the phone only (`positions.py`, `keeper.py`).
 - **Raw broker data stays out of `main`**: it lives in this repo's data branches (`options-live`, `futures-data`,
