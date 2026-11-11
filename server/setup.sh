@@ -65,6 +65,9 @@ $HOST {
 }
 EOF
 
+# 11 Nov 2026: the VPS also has an IPv6 address, and orders went out from it; Kite only knows the whitelisted IPv4
+# address and refused them ("IP 2a02:... is not allowed"). Prefer IPv4 for every connection from this box.
+grep -q '^precedence ::ffff:0:0/96' /etc/gai.conf 2>/dev/null || echo 'precedence ::ffff:0:0/96  100' | sudo tee -a /etc/gai.conf >/dev/null
 sudo timedatectl set-timezone Asia/Kolkata
 sudo systemctl daemon-reload
 sudo systemctl enable -q --now nifty-orders

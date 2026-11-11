@@ -316,6 +316,29 @@ class Charges(unittest.TestCase):
         self.assertNotIn(SYM, open(path).read())                                   # totals only, never positions
 
 
+class KiteCharges(unittest.TestCase):
+    def test_charges_are_sent_as_json(self):
+        """11 Nov 2026: the real call failed with TypeError (urlencode cannot take a list of orders)."""
+        seen = {}
+        class Resp:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return b""
+        def fake(req, timeout):
+            seen["type"], seen["body"] = req.get_header("Content-type"), json.loads(req.data)
+            import io
+            return io.BytesIO(json.dumps({"data": [{"charges": {"total": 30.5, "brokerage": 20, "transaction_tax": 5,
+                                                                "gst": {"total": 3.6}}}]}).encode())
+        orig, osv.urllib.request.urlopen = osv.urllib.request.urlopen, fake
+        try:
+            c = osv.Kite("k", "t").charges([(SYM, "BUY", 65, 100.0)])
+        finally:
+            osv.urllib.request.urlopen = orig
+        self.assertEqual(seen["type"], "application/json")
+        self.assertEqual(seen["body"][0]["tradingsymbol"], SYM)
+        self.assertEqual((c["total"], c["stt"], c["gst"]), (30.5, 5.0, 3.6))
+
+
 class AutoStar(unittest.TestCase):
     """AUTO_STAR=1: each new * lean becomes a pick by itself, once."""
 
