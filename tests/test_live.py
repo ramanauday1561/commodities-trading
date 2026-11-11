@@ -138,6 +138,22 @@ class NextRecord(unittest.TestCase):
         self.assertIsNone(live.next_record(store, "2026-11-02"))                      # closing auction: no 15:15 lean counted
 
 
+class StarReportCard(unittest.TestCase):
+    def test_stars_counted_per_day_and_in_total(self):
+        store = tempfile.mkdtemp()
+        os.makedirs(os.path.join(store, "live"))
+        t0 = int(datetime(2026, 11, 11, 10, 5).replace(tzinfo=None).timestamp()) // 86400 * 86400 + (10 * 60 + 5) * 60
+        c = [{"time": t0 + 600 * k, "close": v} for k, v in enumerate([100.0, 110.0, 105.0, 104.0])]   # 10:05 ... 10:35
+        leans = [{"at": "10:15", "lean": "up", "confident": True},      # +10: right
+                 {"at": "10:25", "lean": "up", "confident": True},      # -5: wrong
+                 {"at": "10:35", "lean": "down", "confident": False}]   # -1: right, not a star
+        json.dump({"candles": c, "leans": leans}, open(os.path.join(store, "live", "2026-11-11.json"), "w"))
+        r = live.next_record(store, "2026-11-12")
+        self.assertEqual(r["by_day"][0]["star"], {"leans": 2, "right": 1, "pts": 5.0})
+        self.assertEqual(r["star"], {"days": 1, "leans": 2, "right": 1, "pts": 5.0, "up_days": 1})
+        self.assertEqual((r["leans"], r["right"]), (3, 2))
+
+
 class StarAlert(unittest.TestCase):
     def test_only_star_leans_alert_with_side_and_strike(self):
         now = datetime(2026, 11, 11, 10, 25, 40, tzinfo=IST)

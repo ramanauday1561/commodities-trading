@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Next 10 minutes</title>
-<meta name="theme-color" content="#070a12">
+<meta name="theme-color" content="#EDC9AF">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
-  :root { --bg:#070a12; --text:#eef1f6; --mute:#9aa6b8; --edge:rgba(255,255,255,.10); --up:#34d1bf; --down:#ff6b6b;
-          --warn:#f2c14e; }
+  :root { --bg:#EDC9AF; --text:#2B2F14; --mute:#57532F; --edge:rgba(75,83,32,0.16); --up:#185C3B; --down:#A3261F;
+          --warn:#7A4E00; }
   * { box-sizing:border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden;
                font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
@@ -16,8 +16,8 @@
           padding:calc(env(safe-area-inset-top) + 32px) calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 10px); }
   .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .top b { font-size:19px; letter-spacing:-.01em; } .top small { display:block; color:var(--mute); font-size:12px; }
-  .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(255,255,255,.06); }
-  .now { margin:8px 0 6px; padding:10px 12px; border:1px solid var(--edge); border-radius:12px; background:rgba(255,255,255,.04); }
+  .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(75,83,32,0.1); }
+  .now { margin:8px 0 6px; padding:10px 12px; border:1px solid var(--edge); border-radius:12px; background:rgba(75,83,32,0.06); }
   .now .big { font-size:22px; font-weight:700; letter-spacing:-.01em; }
   .warn { color:var(--mute); font-size:12px; margin-top:4px; }
   .warn b { color:var(--warn); font-weight:600; }
@@ -30,7 +30,7 @@
   .n { text-align:right; white-space:nowrap; } .m { color:var(--mute); }
   .up { color:var(--up); } .down { color:var(--down); }
   button.show { margin-left:4px; border:1px solid var(--edge); border-radius:999px; padding:3px 10px; font-size:12px;
-                color:var(--text); background:rgba(255,255,255,.06); cursor:pointer; }
+                color:var(--text); background:rgba(75,83,32,0.1); cursor:pointer; }
 </style>
 </head>
 <body>
@@ -54,18 +54,18 @@ const $ = id => document.getElementById(id);
 const f = x => x == null ? '' : x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(Math.round(x)).toLocaleString('en-IN')}`;
 const chart = LightweightCharts.createChart($('chart'), {
-  autoSize: true, layout: { background: { color: 'transparent' }, textColor: '#9aa6b8', fontSize: 11 },
-  grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.05)' } },
-  rightPriceScale: { borderColor: 'rgba(255,255,255,.1)' },
-  timeScale: { borderColor: 'rgba(255,255,255,.1)', timeVisible: true, secondsVisible: false, rightOffset: 4 },
+  autoSize: true, layout: { background: { color: 'transparent' }, textColor: '#57532F', fontSize: 11 },
+  grid: { vertLines: { color: 'rgba(75,83,32,0.06)' }, horzLines: { color: 'rgba(75,83,32,0.08)' } },
+  rightPriceScale: { borderColor: 'rgba(75,83,32,0.16)' },
+  timeScale: { borderColor: 'rgba(75,83,32,0.16)', timeVisible: true, secondsVisible: false, rightOffset: 4 },
   crosshair: { mode: 0 },
   // 3 Nov 2026: a vertical drag on a phone switched the price axis to a manual zoom (23,000-25,000 for a 200-point day)
   // and it stayed there; the price axis now cannot be dragged, and it re-fits to the candles on every update
   handleScale: { axisPressedMouseMove: { time: true, price: false }, pinch: true, mouseWheel: true },
   handleScroll: { vertTouchDrag: false, pressedMouseMove: true, horzTouchDrag: true, mouseWheel: true },
 });
-const candles = chart.addCandlestickSeries({ upColor: '#34d1bf', downColor: '#ff6b6b', borderVisible: false,
-  wickUpColor: '#34d1bf', wickDownColor: '#ff6b6b' });
+const candles = chart.addCandlestickSeries({ upColor: '#185C3B', downColor: '#A3261F', borderVisible: false,
+  wickUpColor: '#185C3B', wickDownColor: '#A3261F' });
 let last = '', first = true, data = null;
 // The leans are hidden by default (2 Nov 2026): every test says trading them loses after option costs, and an arrow on
 // screen invites a trade. The page leads with their live record; "Show today's leans anyway" reveals them for the visit.
@@ -101,7 +101,7 @@ function recordHTML(d) {
        <div>Lost money on ${r.losing_days} of ${r.days} day${r.days > 1 ? 's' : ''}; ${r.right} of ${r.leans} leans right (${Math.round(r.right / r.leans * 100)}%).</div>`
     : '<div class="big m" style="font-size:16px">No finished day yet</div>';
   const test = t ? `<div class="m">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
-  return live + test + paperLine(d) + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
+  return live + test + paperLine(d) + starCard(d) + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
     <button class="show" data-show="1" data-switch="off">Show today's leans anyway</button></div>`;
 }
 
@@ -113,7 +113,7 @@ function draw(d) {
   candles.setData(c);
   chart.priceScale('right').applyOptions({ autoScale: true });
   candles.setMarkers(!showLeans ? [] : s.map(x => ({ time: x.t, position: x.lean === 'up' ? 'belowBar' : 'aboveBar',
-    shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending || x.paused ? '#9aa6b8' : x.right ? '#34d1bf' : '#ff6b6b',
+    shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending || x.paused ? '#57532F' : x.right ? '#185C3B' : '#A3261F',
     text: x.confident ? '★' : '' })).sort((a, b) => a.time - b.time));
   if (first && c.length) { chart.timeScale().fitContent(); first = false; }
   $('when').innerHTML = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}${d.feed === 'kite' ? ' · Kite prices' : ''}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;
@@ -141,7 +141,7 @@ function draw(d) {
       ? `<div><b>Today: ${right} of ${done.length} right (${Math.round(right / done.length * 100)}%)</b>`
         + (conf.length ? ` · ★ more confident: ${cRight} of ${conf.length}` : '')
         + `. Trading every lean with 1 lot of an at-the-money option: <b class="${money >= 0 ? 'up' : 'down'}">${rs(money)}</b> after costs.</div>`
-        + dayLine(money, d) + (showLeans ? paperLine(d) : '')
+        + dayLine(money, d) + (showLeans ? paperLine(d) + starCard(d) : '')
       : '<div class="m">No lean scored yet today.</div>')
     + (showLeans && s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
         + s.slice().reverse().map(x => `<tr><td>${x.at}${x.confident ? ' ★' : ''}</td><td class="${x.lean === 'up' ? 'up' : 'down'}">${x.lean} ${x.pts >= 0 ? '+' : ''}${x.pts}${x.size != null ? ` <span class="m">±${x.size}</span>` : ''}</td>`
@@ -176,6 +176,26 @@ function paperLine(d) {
     every lean <b class="${a.rs >= 0 ? 'up' : 'down'}">${rs(a.rs)}</b> in ${a.days} day${a.days > 1 ? 's' : ''}${s ? `, ★ leans only <b class="${s.rs >= 0 ? 'up' : 'down'}">${rs(s.rs)}</b>` : ''}.
     ${t ? `Today: every lean <b class="${t.rs >= 0 ? 'up' : 'down'}">${rs(t.rs)}</b> (${t.won} of ${t.trades} made money)${ts && ts.trades ? `, ★ <b class="${ts.rs >= 0 ? 'up' : 'down'}">${rs(ts.rs)}</b> (${ts.won} of ${ts.trades})` : ''}.` : 'Today is added after the close.'}
     ${g && g.days ? `The 09:15 signal's lean, open to close: right on ${g.won} of ${g.days} day${g.days > 1 ? 's' : ''}, <b style="white-space:nowrap" class="${g.rs >= 0 ? 'up' : 'down'}">${rs(g.rs)}</b>.` : ''}</div>`;
+}
+
+// The ★ report card (11 Nov 2026): the ★ leans alone, day by day, the leans the owner trades. Right / total and
+// NIFTY points caught the right way (live.next_record), and ₹ a lot on Kite's real option prices where the paper
+// account scored that day (paper_accounts.py). Beside the 9-year test, so a good run reads against it.
+function starCard(d) {
+  const r = d.live_record, s = r && r.star;
+  if (!s) return '';
+  const paid = Object.fromEntries(((paper && paper.days) || []).map(x => [x.d, x.accounts.leans_star]));
+  const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const rows = (r.by_day || []).filter(x => x.star).slice(-7).reverse().map(x => {
+    const p = paid[x.d];
+    return `<tr><td>${day(x.d)}</td><td class="n">${x.star.right} of ${x.star.leans}</td><td class="n ${x.star.pts >= 0 ? 'up' : 'down'}">${x.star.pts >= 0 ? '+' : ''}${x.star.pts}</td>`
+      + `<td class="n ${p ? (p.rs >= 0 ? 'up' : 'down') : 'm'}">${p ? rs(p.rs) : '—'}</td></tr>`;
+  }).join('');
+  return `<div style="margin-top:10px"><b style="color:var(--text)">★ report card</b> <span class="m">(the leans traded for real)</span>
+    <div>Since ${day(r.since)}: <b>${s.right} of ${s.leans} right (${Math.round(s.right / s.leans * 100)}%)</b>,
+      <b class="${s.pts >= 0 ? 'up' : 'down'}">${s.pts >= 0 ? '+' : ''}${s.pts} pts</b> the right way, up on ${s.up_days} of ${s.days} days.
+      <span class="m">The 9-year test: right 53%, −₹72 a lot a trade after costs.</span></div>
+    <table><tr><th>Day</th><th class="n">★ right</th><th class="n">pts</th><th class="n">₹ real prices</th></tr>${rows}</table></div>`;
 }
 
 // The expected size of the next move (5 Nov 2026, movesize_study.py): it passed its test (error 10% below the usual

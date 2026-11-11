@@ -18,7 +18,9 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   static IP for API orders). GitHub Actions and the pages never place orders. **On 11 Nov 2026 the owner asked for
   the ★ leans to be traded automatically** ("make it place orders automatically, don't wait for me"): with
   `AUTO_STAR=1` in `/etc/nifty-orders.env` the server buys each new ★ lean by itself (`Auto`: ATM option of the next
-  expiry, 1 lot, stop 10% under, out after 30 minutes, each lean once). It is off unless the owner turns it on; nothing
+  expiry, 1 lot, stop 10% under, out after 30 minutes, each lean once). `AUTO_STAR=practice` does the same on paper at
+  Kite's live prices with no orders. The server makes the lean itself too (`LocalLeans`: 15 s after each 10-minute
+  candle, same code and morning model; replayed 33 of 33 on 11 Nov), as well as reading GitHub's. It is off unless the owner turns it on; nothing
   else the app suggests (plain leans, the 09:15 signal, the straddle) becomes an order. ★ leans failed every backtest
   (-₹53 to -₹72 a lot a trade). Keep the server's limits (lots a pick, open picks, loss a day), the passcode and LIMIT
   orders only.
@@ -63,6 +65,18 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   change the VPS (id 2147705, KVM 1, Mumbai, IP 189.72.149.115). Read freely; restart, rebuild, firewall or OS
   changes only when the owner asks. It never sees the Kite keys or the Orders passcode.
 - The claude branch is reused: after each PR is merged, restart it from `dev` before the next change.
+
+## Design rule: 60-30-10 colours (owner, 11 Nov 2026)
+
+- **60% Desert Sand** `#EDC9AF`: the page; cards `#F7E8D8`, inputs `#FBF3EA`.
+- **30% Olive Drab** `#4B5320`: the tab bar and the status-bar strip (`#434A1C`), headings, text (`#2B2F14`, muted
+  `#57532F`), borders (olive at low alpha).
+- **10% Signal Yellow** `#F9A900`: the active tab, the main (filled) buttons, switches when on, a selected chip. Never
+  as text on sand (too light); dark text on it.
+- Gains and losses keep their own colours (up `#185C3B`, down `#A3261F`); chart lines blue `#24529C`, purple
+  `#6A3D9A`, amber `#7A4E00`. Every text colour is 4.5:1 or more on sand and on cards: check new ones.
+- The tokens live in `docs/theme.css` (`--sand`, `--olive`, `--yellow`, and Glisse's `--lg-*` in light mode, set by
+  `nav.js` with `data-theme="light"`); the pages' own `--bg / --text / --muted ...` use the same values.
 
 ## Checking UI changes
 

@@ -17,7 +17,7 @@
 </script>
 <title>Kronos Forecast</title>
 <meta name="description" content="Daily forecasts for NIFTY 50, gold, silver and crude oil, with today's NIFTY call.">
-<meta name="theme-color" content="#070a12">
+<meta name="theme-color" content="#EDC9AF">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -27,18 +27,18 @@
 <meta name="apple-mobile-web-app-title" content="Forecast">
 <style>
   /* Glass on a dark ground: translucent panels over soft colour glows. Phone sizes first, desktop scales up. */
-  :root { --bg:#070a12; --text:#eef1f6; --mute:#9aa6b8; --line:rgba(255,255,255,.08);
-          --glass:rgba(255,255,255,.055); --glass2:rgba(255,255,255,.08); --edge:rgba(255,255,255,.10);
-          --up:#34d1bf; --down:#ff6b6b; --pred:#f5a623; --accent:#7cb4ff; --warn:#f2c14e;
+  :root { --bg:#EDC9AF; --text:#2B2F14; --mute:#57532F; --line:rgba(75,83,32,0.13);
+          --glass:rgba(75,83,32,0.09); --glass2:rgba(75,83,32,0.13); --edge:rgba(75,83,32,0.16);
+          --up:#185C3B; --down:#A3261F; --pred:#7A4E00; --accent:#24529C; --warn:#7A4E00;
           --s-display:36px; --s-title:17px; --s-body:15px; --s-small:13px; --r:20px; }
   @media (min-width:720px) { :root { --s-display:64px; --s-title:20px; --s-body:16px; --s-small:14px; } }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
   body { margin:0; background:var(--bg); color:var(--text); font:var(--s-body)/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; min-height:100svh; }
   .glow { position:fixed; inset:0; z-index:-1; overflow:hidden; pointer-events:none; }
   .glow i { position:absolute; border-radius:50%; filter:blur(80px); opacity:.55; }
-  .glow i:nth-child(1) { width:70vw; height:70vw; max-width:620px; max-height:620px; background:#1d4ed8; top:-20vw; left:-25vw; }
-  .glow i:nth-child(2) { width:60vw; height:60vw; max-width:520px; max-height:520px; background:#0f766e; top:35vh; right:-25vw; }
-  .glow i:nth-child(3) { width:55vw; height:55vw; max-width:480px; max-height:480px; background:#0e5a8a; bottom:-20vw; left:10vw; opacity:.35; }
+  .glow i:nth-child(1) { width:70vw; height:70vw; max-width:620px; max-height:620px; background:#4B5320; top:-20vw; left:-25vw; }
+  .glow i:nth-child(2) { width:60vw; height:60vw; max-width:520px; max-height:520px; background:#F9A900; top:35vh; right:-25vw; }
+  .glow i:nth-child(3) { width:55vw; height:55vw; max-width:480px; max-height:480px; background:#C9A97E; bottom:-20vw; left:10vw; opacity:.35; }
   .glass { background:var(--glass); border:1px solid var(--edge); border-radius:var(--r);
            -webkit-backdrop-filter:blur(22px) saturate(160%); backdrop-filter:blur(22px) saturate(160%); }  /* glass edge: taste-skill-ignore */
   main { max-width:980px; margin:0 auto; padding:calc(10px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(48px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left)); }
@@ -66,8 +66,8 @@
   }
   button { background:var(--glass2); color:var(--text); border:1px solid var(--edge);  /* glass edge: taste-skill-ignore */
            border-radius:999px; padding:7px 12px; font:inherit; font-size:var(--s-small); cursor:pointer; }
-  button:hover { background:rgba(255,255,255,.14); } button:disabled { opacity:.5; cursor:default; }
-  button.on { background:var(--text); color:#0b0f18; border-color:transparent; font-weight:600; }
+  button:hover { background:rgba(75,83,32,0.22); } button:disabled { opacity:.5; cursor:default; }
+  button.on { background:var(--text); color:#FBF3EA; border-color:transparent; font-weight:600; }
   button:focus-visible, summary:focus-visible, .tip:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .lg { display:none; } @media (min-width:720px) { .lg { display:inline; } .sm { display:none; } }
 
@@ -75,7 +75,7 @@
   nav { display:grid; grid-template-columns:repeat(4, 1fr); gap:6px; margin-bottom:12px; }
   .chip { display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:9px 10px; border-radius:14px; font-size:var(--s-small); font-weight:600; min-width:0; text-align:left; }
   .chip small { font-size:12px; font-weight:500; font-variant-numeric:tabular-nums; }
-  .chip.on small { color:#0b0f18; }
+  .chip.on small { color:#FBF3EA; }
   @media (min-width:720px) { .chip { flex-direction:row; align-items:baseline; gap:8px; padding:10px 16px; font-size:var(--s-body); } }
 
   /* Today's decision (Status) */
@@ -95,7 +95,7 @@
   .pricerow { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:2px; }
   .display { font-size:var(--s-display); line-height:1.05; letter-spacing:-.03em; font-weight:700; margin:0; font-variant-numeric:tabular-nums; }
   .pill { font-size:var(--s-small); font-weight:700; padding:3px 10px; border-radius:999px; background:var(--glass2); font-variant-numeric:tabular-nums; }
-  .pill.up { background:rgba(52,209,191,.16); } .pill.down { background:rgba(255,107,107,.16); }
+  .pill.up { background:rgba(24,92,59,.16); } .pill.down { background:rgba(163,38,31,.16); }
   .statement { font-size:var(--s-body); color:var(--mute); margin:6px 0 0; }
   .statement b { color:var(--text); font-weight:600; }
   .callline { display:flex; gap:10px; align-items:flex-start; font-size:var(--s-body); margin:14px 0 0; padding-top:12px; border-top:1px solid var(--line); }  /* divider inside the card: taste-skill-ignore */
@@ -104,7 +104,7 @@
   .fact { padding:11px 12px; border-radius:16px; min-width:0; }
   .fact b { display:block; font-size:var(--s-title); font-variant-numeric:tabular-nums; }
   .fact span { display:block; color:var(--mute); font-size:12px; line-height:1.35; margin-top:2px; }
-  .notice { background:rgba(242,193,78,.10); border-radius:12px; padding:9px 12px; margin-top:12px; font-size:var(--s-small); }
+  .notice { background:rgba(249,169,0,.10); border-radius:12px; padding:9px 12px; margin-top:12px; font-size:var(--s-small); }
 
   /* Cards and sections */
   .card { background:var(--glass); border-radius:16px; padding:14px 16px; margin-bottom:10px; }
@@ -140,7 +140,7 @@
   .legend { display:flex; gap:14px; flex-wrap:wrap; color:var(--mute); font-size:12px; padding:8px 6px 0; }
   .legend i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; vertical-align:-1px; }
   .legend i.dash { height:3px; width:14px; background:var(--pred); vertical-align:3px; }
-  .legend i.dot { height:3px; width:14px; background:#6b778a; vertical-align:3px; }
+  .legend i.dot { height:3px; width:14px; background:#57532F; vertical-align:3px; }
 
   /* Tables */
   table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:var(--s-small); }
@@ -167,7 +167,7 @@
   .tip { display:inline-flex; align-items:center; justify-content:center; width:17px; height:17px; margin-left:5px; border-radius:50%; background:var(--glass2);
          color:var(--mute); font:italic 700 12px/1 Georgia,serif; cursor:help; vertical-align:1px; }
   .tip:hover, .tip:focus { color:var(--text); outline:none; }
-  #tooltip { position:fixed; z-index:30; max-width:280px; background:rgba(22,28,40,.92); color:var(--text); border-radius:12px; padding:10px 12px;
+  #tooltip { position:fixed; z-index:30; max-width:280px; background:rgba(247,232,216,.97); color:var(--text); border-radius:12px; padding:10px 12px;
              font-size:var(--s-small); line-height:1.45; box-shadow:0 8px 28px rgba(0,0,0,.55); display:none; pointer-events:none;  /* overlay: taste-skill-ignore */
              -webkit-backdrop-filter:blur(16px); backdrop-filter:blur(16px); }  /* floats: taste-skill-ignore */
   .foot { color:var(--mute); font-size:12px; margin-top:18px; line-height:1.6; max-width:66ch; }
@@ -177,7 +177,7 @@
   .runstatus a { color:var(--mute); }
   .modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:14px; z-index:50; }
   .modal[hidden], .runstatus[hidden], .installhint[hidden] { display:none; }
-  .modalcard { max-width:520px; width:100%; background:rgba(20,26,38,.85); max-height:90vh; overflow:auto; }
+  .modalcard { max-width:520px; width:100%; background:rgba(247,232,216,.97); max-height:90vh; overflow:auto; }
   .installhint { display:flex; gap:10px; align-items:center; padding:10px 10px 10px 14px; margin-bottom:10px; border-radius:14px; font-size:var(--s-small); }
   .installhint span { flex:1; }
   .installhint svg { vertical-align:-3px; }
@@ -312,7 +312,7 @@ function blendSentence(d) {
   if (!parts) return '';
   return 'It is built from ' + parts.map(p => `${Math.round(p.w * 100)}% ${p.label}`).join(', ') + ', weighted by how each did in past tests.';
 }
-const COLORS = ['#5b9dff', '#f5a623', '#26a69a', '#b388ff', '#8791a0'];
+const COLORS = ['#24529C', '#7A4E00', '#185C3B', '#6A3D9A', '#57532F'];
 function blendCard(d) {
   const parts = blendParts(d);
   if (!parts) return '';
@@ -541,12 +541,12 @@ function agreeHTML(d) {
 }
 
 const CANDLE_SVG = `<svg viewBox="0 0 330 146" width="330" role="img" aria-label="Candlestick anatomy">
-  <g font-size="11" fill="#8791a0" font-family="system-ui,sans-serif">
-    <line x1="60" y1="12" x2="60" y2="118" stroke="#26a69a" stroke-width="2"/><rect x="45" y="40" width="30" height="48" fill="#26a69a"/>
+  <g font-size="11" fill="#57532F" font-family="system-ui,sans-serif">
+    <line x1="60" y1="12" x2="60" y2="118" stroke="#185C3B" stroke-width="2"/><rect x="45" y="40" width="30" height="48" fill="#185C3B"/>
     <text x="84" y="16">high</text><text x="84" y="44">close (top of body)</text><text x="84" y="92">open (bottom of body)</text><text x="84" y="122">low</text>
-    <text x="22" y="140" fill="#26a69a">Green: price rose</text>
-    <line x1="250" y1="12" x2="250" y2="118" stroke="#ef5350" stroke-width="2"/><rect x="235" y="40" width="30" height="48" fill="#ef5350"/>
-    <text x="272" y="44">open</text><text x="272" y="92">close</text><text x="214" y="140" fill="#ef5350">Red: price fell</text>
+    <text x="22" y="140" fill="#185C3B">Green: price rose</text>
+    <line x1="250" y1="12" x2="250" y2="118" stroke="#A3261F" stroke-width="2"/><rect x="235" y="40" width="30" height="48" fill="#A3261F"/>
+    <text x="272" y="44">open</text><text x="272" y="92">close</text><text x="214" y="140" fill="#A3261F">Red: price fell</text>
   </g></svg>`;
 
 function guideHTML(d) {
@@ -957,32 +957,32 @@ function render(d) {
   const hourMode = chartMode === 'hour' && hourly.length > 0;
   chart = LightweightCharts.createChart($('chart'), {
     autoSize: true,
-    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#9aa6b8', fontSize: 11 },
-    grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.05)' } },
-    rightPriceScale: { borderColor: 'rgba(255,255,255,.08)' },
-    timeScale: { borderColor: 'rgba(255,255,255,.08)', rightOffset: 3, timeVisible: hourMode, secondsVisible: false },
+    layout: { background: { type: 'solid', color: 'transparent' }, textColor: '#57532F', fontSize: 11 },
+    grid: { vertLines: { color: 'rgba(75,83,32,0.06)' }, horzLines: { color: 'rgba(75,83,32,0.08)' } },
+    rightPriceScale: { borderColor: 'rgba(75,83,32,0.13)' },
+    timeScale: { borderColor: 'rgba(75,83,32,0.13)', rightOffset: 3, timeVisible: hourMode, secondsVisible: false },
     crosshair: { mode: 0 },
   });
   const hist = chart.addCandlestickSeries({
-    upColor: '#26a69a', downColor: '#ef5350', wickUpColor: '#26a69a', wickDownColor: '#ef5350', borderVisible: false,
+    upColor: '#185C3B', downColor: '#A3261F', wickUpColor: '#185C3B', wickDownColor: '#A3261F', borderVisible: false,
   });
   hist.setData(hourMode ? hourly : d.candles);
   const byTime = new Map((hourMode ? hourly : d.candles).map(c => [c.time, c]));
   if (!hourMode) {
     const pred = chart.addCandlestickSeries({
-      upColor: '#f5a623', downColor: '#f5a623', wickUpColor: '#f5a623', wickDownColor: '#f5a623',
-      borderColor: '#f5a623', priceLineVisible: false, lastValueVisible: false,
+      upColor: '#7A4E00', downColor: '#7A4E00', wickUpColor: '#7A4E00', wickDownColor: '#7A4E00',
+      borderColor: '#7A4E00', priceLineVisible: false, lastValueVisible: false,
     });
     pred.setData(fc.map(r => ({ time: r.time, open: r.open, high: r.high, low: r.low, close: r.close })));
     const band = (key) => {
-      const s = chart.addLineSeries({ color: 'rgba(245,166,35,.7)', lineWidth: 1, lineStyle: 2,
+      const s = chart.addLineSeries({ color: 'rgba(249,169,0,.7)', lineWidth: 1, lineStyle: 2,
         priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
       s.setData([{ time: d.last_date, value: last }, ...fc.map(r => ({ time: r.time, value: r[key] }))]);
     };
     band(cal ? 'cal_p10' : 'close_p10'); band(cal ? 'cal_p90' : 'close_p90');
     fc.forEach(r => byTime.set(r.time, { ...r, forecast: true }));
   }
-  hist.createPriceLine({ price: last, color: '#5c6675', lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
+  hist.createPriceLine({ price: last, color: '#57532F', lineStyle: 2, lineWidth: 1, axisLabelVisible: false });
 
   const hourLabel = t => { const x = new Date(t * 1000); return `${x.toISOString().slice(0, 10)} ${x.toISOString().slice(11, 16)} IST`; };
   chart.subscribeCrosshairMove(p => {

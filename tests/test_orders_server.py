@@ -409,5 +409,95 @@ class AutoStar(unittest.TestCase):
         self.assertEqual(self.e.state["auto_done"], ["2026-11-06 10:05"])
 
 
+class Practice(unittest.TestCase):
+    """AUTO_STAR=practice: an automatic pick with no order; scored at the stop or the exit time; not in the real P&L."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.c, self.k = Clock(), FakeKite()
+        self.e = osv.Engine(os.path.join(self.tmp.name, "state.json"), dict(LIMITS), now=self.c.now, clock=self.c.clock)
+        self.e.kite, self.e.auto_mode = self.k, "practice"
+        self.k.prices["NIFTY26N0924500PE"] = (80.0, 79.5, 80.5)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_no_order_and_out_at_the_exit_time(self):
+        tid = self.e.auto_pick({"at": "10:05", "lean": "down"})
+        self.assertEqual(self.k.calls, [])                                       # nothing sent to Kite
+        t = self.e.state["trades"][0]
+        self.assertEqual((t["status"], t["avg_in"], t["exit_by"], t["practice"]), ("practice", 80.5, "10:30", True))
+        self.k.prices["NIFTY26N0924500PE"] = (90.0, 89.5, 90.5)
+        self.e.tick()
+        self.assertEqual(t["status"], "practice")
+        self.c.dt = self.c.dt.replace(minute=30)
+        self.e.tick()
+        self.assertEqual((t["status"], t["avg_out"], t["why"], t["pnl"]), ("closed", 89.5, "exit time (practice)", round(9 * 65)))
+        self.assertIn("charges", t)
+        self.assertEqual(self.e._pnl_today(), 0)                                 # never in the real P&L or the limit
+        self.assertEqual(self.e.view()["practice_pnl"], round(9 * 65 - t["charges"]))
+        self.assertEqual(self.k.calls, [])
+        self.assertEqual(tid, t["id"])
+
+    def test_stop(self):
+        self.e.auto_pick({"at": "10:05", "lean": "down"})
+        t = self.e.state["trades"][0]
+        self.k.prices["NIFTY26N0924500PE"] = (70.0, 69.5, 70.5)                  # under the 10% stop (72.45)
+        self.e.tick()
+        self.assertEqual((t["status"], t["avg_out"], t["why"]), ("closed", t["stop"], "stop (practice)"))
+
+
+class Local(unittest.TestCase):
+    """The lean made on the server, 15-120 s after each 10-minute boundary."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.c, self.k = Clock(), FakeKite()
+        self.e = osv.Engine(os.path.join(self.tmp.name, "state.json"), dict(LIMITS), now=self.c.now, clock=self.c.clock)
+        self.e.kite = self.k
+        self.files = {"nextcandle-model.txt": b"m", "nextcandle-size.txt": b"s",
+                      "nextcandle-meta.json": json.dumps({"trained_until": "2026-11-05"}).encode()}
+        self.seen = []
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def lean(self, model_dir, now, get):
+        self.seen.append(get("^NSEI"))
+        return {"at": now.strftime("%H:%M"), "lean": "down", "confident": True, "pts": -2.0}
+
+    def test_boundaries(self):
+        b = osv.LocalLeans.boundary
+        t = self.c.dt                                                            # 10:00:00 is not a boundary (09:15 + 10n)
+        self.assertIsNone(b(t))
+        self.assertIsNone(b(t.replace(minute=5, second=10)))                     # too soon: the bar may not be final
+        self.assertEqual(b(t.replace(minute=5, second=20)), "10:05")
+        self.assertIsNone(b(t.replace(minute=7, second=5)))                      # too late
+        self.assertIsNone(b(t.replace(hour=9, minute=15, second=30)))            # 09:15: nothing finished yet
+        self.assertIsNone(b(t.replace(hour=15, minute=15, second=30)))           # the closing auction: no 15:15 lean
+
+    def test_a_local_star_is_bought_once(self):
+        self.k.history5 = lambda tok, a, b: [["2026-11-06T09:55:00+0530", 1, 2, 0.5, 1.5, 0],
+                                             ["2026-11-06T10:00:00+0530", 1, 2, 0.5, 1.6, 0],
+                                             ["2026-11-06T10:05:00+0530", 1, 2, 0.5, 1.7, 0]]   # still forming
+        self.k.prices["NIFTY26N0924500PE"] = (80.0, 79.5, 80.5)
+        loc = osv.LocalLeans(self.e, os.path.join(self.tmp.name, "model"), download=self.files.__getitem__, lean=self.lean)
+        a = osv.Auto(self.e, fetch=lambda: None, clock=self.c.clock, local=loc)
+        self.c.dt = self.c.dt.replace(minute=5, second=20)
+        a.tick()
+        a.tick()                                                                 # same boundary again: nothing new
+        self.assertEqual(len(self.e.state["trades"]), 1)
+        self.assertEqual(self.e.state["trades"][0]["auto"], "\u2605 10:05 down")
+        bars = self.seen[0][self.c.dt.date()]
+        self.assertEqual([str(i)[11:16] for i in bars.index], ["09:55", "10:00"])     # the forming 10:05 bar is left out
+
+    def test_a_model_trained_on_today_is_not_used(self):
+        self.files["nextcandle-meta.json"] = json.dumps({"trained_until": "2026-11-06"}).encode()
+        loc = osv.LocalLeans(self.e, os.path.join(self.tmp.name, "model"), download=self.files.__getitem__, lean=self.lean)
+        self.c.dt = self.c.dt.replace(minute=5, second=20)
+        self.assertIsNone(loc.check())
+        self.assertEqual(self.seen, [])
+
+
 if __name__ == "__main__":
     unittest.main()

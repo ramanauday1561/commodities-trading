@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Status</title>
-<meta name="theme-color" content="#070a12">
+<meta name="theme-color" content="#EDC9AF">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Status">
 <style>
-  :root { --bg:#070a12; --text:#e8edf5; --muted:#8a96a8; --up:#26a69a; --down:#ef5350; --warn:#f5a623; }
+  :root { --bg:#EDC9AF; --text:#2B2F14; --muted:#57532F; --up:#185C3B; --down:#A3261F; --warn:#7A4E00; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
          min-height:100svh; display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -19,23 +19,23 @@
          padding:calc(env(safe-area-inset-top) + 32px) 16px calc(env(safe-area-inset-bottom) + 24px); text-align:center; }
   h1 { font-size:14px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
   #word { font-size:clamp(72px, 28vw, 168px); font-weight:800; line-height:1; letter-spacing:-.02em; margin:8px 0 16px; }
-  #word.CALL { color:var(--up); } #word.PUT { color:var(--down); } #word.STAY { color:var(--warn); } #word.SELL { color:#5aa9ff; }
+  #word.CALL { color:var(--up); } #word.PUT { color:var(--down); } #word.STAY { color:var(--warn); } #word.SELL { color:#24529C; }
   #word.NOTHING { color:var(--muted); font-size:clamp(56px, 20vw, 120px); }
   #headline { font-size:20px; font-weight:600; margin:0 0 8px; }
   #reason { color:var(--muted); max-width:34ch; margin:0 auto; }
   #next { color:var(--text); font-size:14px; max-width:34ch; margin:12px auto 0; padding:8px 12px; border-radius:12px;
-          background:rgba(255,255,255,.05); border:1px solid #1f2735; }
+          background:rgba(75,83,32,0.08); border:1px solid rgba(75,83,32,.25); }
   #next b { color:var(--muted); font-weight:500; margin-right:4px; }
-  #optnote { color:var(--muted); font-size:13px; max-width:36ch; margin:12px auto 0; padding-top:10px; border-top:1px solid #1f2735; }
+  #optnote { color:var(--muted); font-size:13px; max-width:36ch; margin:12px auto 0; padding-top:10px; border-top:1px solid rgba(75,83,32,.25); }
   #meta { color:var(--muted); font-size:13px; margin-top:24px; }
   #feed { color:var(--muted); font-size:13px; margin:6px auto 0; max-width:36ch; } #feed .bad { color:var(--warn); }
-  .box { margin:20px auto 0; max-width:360px; width:100%; border:1px solid #1f2735; border-radius:12px; padding:12px 16px; text-align:left; }
+  .box { margin:20px auto 0; max-width:360px; width:100%; border:1px solid rgba(75,83,32,.25); border-radius:12px; padding:12px 16px; text-align:left; }
   .box div { display:flex; justify-content:space-between; gap:12px; padding:3px 0; }
   .box span { color:var(--muted); }
-  #warn { display:none; margin:20px auto 0; max-width:360px; background:#3a1214; border:1px solid var(--down); border-radius:12px; padding:12px 16px; }
+  #warn { display:none; margin:20px auto 0; max-width:360px; background:#F6D9D3; border:1px solid var(--down); border-radius:12px; padding:12px 16px; }
   #today { margin:24px auto 0; max-width:360px; width:100%; text-align:left; font-size:14px; }
   #today h2 { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; }
-  #today li { display:flex; gap:10px; padding:4px 0; border-top:1px solid #151b26; }
+  #today li { display:flex; gap:10px; padding:4px 0; border-top:1px solid rgba(75,83,32,.15); }
   #today ol { list-style:none; margin:0; padding:0; }
   #today b { min-width:64px; } #today time { color:var(--muted); min-width:42px; }
   .up { color:var(--up); } .down { color:var(--down); }
@@ -45,7 +45,7 @@
   #why h2 { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; }
   #why p { margin:6px 0; color:var(--muted); } #why p b { color:var(--text); font-weight:600; }
   #why table { width:100%; border-collapse:collapse; margin-top:6px; font-size:13px; font-variant-numeric:tabular-nums; }
-  #why td { padding:4px 0; border-top:1px solid #151b26; } #why td.n { text-align:right; }
+  #why td { padding:4px 0; border-top:1px solid rgba(75,83,32,.15); } #why td.n { text-align:right; }
   #why td.m { color:var(--muted); }
 </style>
 <script src="fresh.js"></script>

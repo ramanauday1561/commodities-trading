@@ -1,15 +1,23 @@
 /* Liquid Glass theme (5 Nov 2026): the shared background and the glass layer's rules; nav.js loads it on every page.
    The glass itself (Glisse, in vendor/glass-ui.js) needs something behind it to bend and blur, hence the soft colour
    fields behind the page. Without the module the pages keep their own look on this background. */
-html { background:#05070d; color-scheme:dark; }
+/* 11 Nov 2026 (asked by the owner): the 60-30-10 colour rule. 60% Desert Sand (the page and the cards), 30% Olive
+   Drab (the tab bar, the status-bar strip, headings, text, borders), 10% Signal Yellow (the active tab, the main
+   buttons, switches). Gains and losses keep their own green and red. Every text colour is 4.5:1 or more on the sand. */
+:root { --sand:#EDC9AF; --sand-card:#F7E8D8; --olive:#4B5320; --olive-bar:#434A1C; --olive-ink:#2B2F14; --yellow:#F9A900;
+  /* the glass library (Glisse) in its light mode, in these colours */
+  --lg-foreground:#2B2F14; --lg-muted:#57532F; --lg-glass:rgb(247 232 216 / .72); --lg-glass-active:rgb(235 214 186 / .85);
+  --lg-edge:rgb(75 83 32 / .22); --lg-surface:rgb(247 232 216 / .97); --lg-surface-edge:rgb(75 83 32 / .25);
+  --lg-separator:rgb(75 83 32 / .18); --lg-fill:#F9A900; --lg-on:#F9A900; --lg-ring:rgb(75 83 32 / .5);
+  --lg-selection:rgb(249 169 0 / .25); --lg-destructive:#A3261F; --lg-track:rgb(75 83 32 / .35); --lg-rail:rgb(75 83 32 / .18); }
+html { background:var(--sand); color-scheme:light; }
 body { background:transparent !important; }
 html::before { content:""; position:fixed; inset:-10vmax; z-index:-2; pointer-events:none;
   background:
-    radial-gradient(38vmax 30vmax at 12% 8%, rgba(52,209,191,.20), transparent 70%),
-    radial-gradient(34vmax 28vmax at 92% 18%, rgba(90,169,255,.20), transparent 70%),
-    radial-gradient(40vmax 32vmax at 70% 92%, rgba(167,112,255,.14), transparent 70%),
-    radial-gradient(30vmax 24vmax at 8% 78%, rgba(242,193,78,.10), transparent 70%),
-    #05070d; }
+    radial-gradient(40vmax 30vmax at 12% 8%, rgb(255 244 228 / .55), transparent 70%),
+    radial-gradient(36vmax 28vmax at 90% 85%, rgb(75 83 32 / .10), transparent 70%),
+    radial-gradient(28vmax 22vmax at 85% 10%, rgb(249 169 0 / .10), transparent 70%),
+    var(--sand); }
 
 /* glass behind cards: the page's content stays on top of the layer */
 .gui-rel { position:relative; }
@@ -20,9 +28,10 @@ html::before { content:""; position:fixed; inset:-10vmax; z-index:-2; pointer-ev
 .gui-layer > .lg-glass { width:100%; height:100%; border-radius:inherit; --lg-blur:18px; }
 
 /* a pinned header must stay readable over the text scrolling under it; and nothing runs under the phone's status bar */
-header.gui-host .gui-layer > .lg-glass { --lg-blur:28px; background-color:rgb(16 19 28 / .78); }
-body.gui-on::after { content:""; position:fixed; left:0; right:0; top:0; height:calc(env(safe-area-inset-top) + 10px); z-index:800;
-  pointer-events:none; background:linear-gradient(#05070d, rgb(5 7 13 / .85) 70%, transparent); }
+header.gui-host .gui-layer > .lg-glass { --lg-blur:28px; background-color:rgb(247 232 216 / .88); }
+/* the phone's status bar (white text in the home-screen app) sits on an olive strip */
+body.gui-on::after { content:""; position:fixed; left:0; right:0; top:0; height:calc(env(safe-area-inset-top) + 4px); z-index:800;
+  pointer-events:none; background:var(--olive-bar); }
 
 /* glass buttons stand in for the page's own (hidden) buttons */
 .gui-hidden { display:none !important; }
@@ -34,8 +43,8 @@ body.gui-on::after { content:""; position:fixed; left:0; right:0; top:0; height:
 button.gui-native { color:var(--lg-foreground); font-weight:600; border:0; }
 button.gui-native:not(.chip) { height:34px; padding:0 14px; font-size:14px; }
 button.gui-native.chip { height:auto; min-height:46px; border-radius:14px; justify-content:center; align-items:flex-start; }
-button.gui-native[data-variant="filled"] { color:#fff; }
-button.gui-native[data-variant="filled"] small { color:rgba(255,255,255,.9) !important; }
+button.gui-native[data-variant="filled"] { color:var(--olive-ink); }
+button.gui-native[data-variant="filled"] small { color:var(--olive-ink) !important; }
 button.gui-native:disabled { opacity:.5; }
 /* the Home chart's Day / Hour and 1M ... All buttons: compact, and they wrap on the smallest phones (iPhone SE) */
 #ranges { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
@@ -48,12 +57,14 @@ button.gui-native:disabled { opacity:.5; }
   /* 5 Nov 2026: the full home-bar inset plus 6px left the bar ~40 points above the screen's edge on an iPhone; it now
      overlaps the home-bar area as iOS's own tab bars do, 20 points from the edge there and 6 on a phone without one */
   padding:16px 8px max(6px, calc(env(safe-area-inset-bottom) - 14px)); pointer-events:none;
-  background:linear-gradient(to bottom, rgb(5 7 13 / 0), rgb(5 7 13 / .92) 34%, #05070d 62%); }
+  background:linear-gradient(to bottom, rgb(237 201 175 / 0), rgb(237 201 175 / .92) 34%, var(--sand) 62%); }
 /* 6 Nov 2026: pinning the bar to 100lvh in the home-screen app (to close a ~60-point gap under it on iOS 26.0) put it
    below what the app can draw there, so it vanished; it is back on "bottom: 0", the bottom of what the app can draw.
    nav.js ?debug shows the phone's viewport sizes to find where that gap comes from. */
 .gui-tabbar > * { pointer-events:auto; }
-.gui-tabbar .lg-tab-bar { --lg-tab-width:min(76px, calc((100vw - 32px) / 5)); }
+.gui-tabbar .lg-tab-bar { --lg-tab-width:min(76px, calc((100vw - 32px) / 5)); --lg-glass:var(--olive-bar);
+  --lg-glass-active:rgb(249 169 0 / .18); --lg-foreground:#EDC9AF; --lg-edge:rgb(0 0 0 / .2); color:#EDC9AF; }
+.gui-tabbar [aria-current="page"], .gui-tabbar [aria-current="page"] * { color:var(--yellow) !important; }   /* the 10% */
 .gui-tabbar a { color:inherit; text-decoration:none; }
 /* the bar and the menu keep their own look whatever a page styles for its own icons, buttons and links */
 .gui-tabbar svg, .gui-more svg { width:22px !important; height:22px !important; margin:0 !important; display:block; max-width:none; }
@@ -84,4 +95,4 @@ body.gui-on .wrap > * { flex-shrink:0; }          /* the title row and the legen
 body.gui-more-fixed [data-nav] { padding-right:52px; min-height:40px; }
 body.gui-more-fixed [data-nav].gui-centered { padding-left:52px; }      /* a centred title stays centred */
 body.gui-on .nav-btn { display:none !important; }
-@media (prefers-reduced-transparency: reduce) { html::before { background:#05070d; } }
+@media (prefers-reduced-transparency: reduce) { html::before { background:var(--sand); } }
