@@ -109,6 +109,18 @@ Turn it **on** (Web console, after `bash setup.sh` has the new code):
 ```
 echo AUTO_STAR=1 >> /etc/nifty-orders.env && systemctl restart nifty-orders
 ```
+**Practice mode** (no real orders): the same picks, bought and sold on paper at Kite's live prices (the ask in, the
+stop or the bid at the exit time out, Kite's charges), shown on the Orders page as "practice" and never counted in the
+real P&L or the daily loss limit. Use it while F&O is not active, or to check the whole path on a new day:
+```
+sed -i 's/^AUTO_STAR=.*/AUTO_STAR=practice/' /etc/nifty-orders.env && systemctl restart nifty-orders
+```
+**Leans made on the server** (11 Nov 2026): with the switch on (or practice), the server also makes the Next 10 lean
+itself, 15 seconds after each 10-minute candle, from Kite's 5-minute candles and the same model (downloaded from
+`site-data` each morning). It no longer waits for GitHub's run (sometimes minutes late). `setup.sh` installs numpy,
+pandas and lightgbm for it; if that fails, or with `AUTO_LOCAL=0`, only GitHub's leans are used. The log shows
+`local lean 10:05 down (star)` for each one.
+
 Turn it **off**:
 ```
 sed -i 's/^AUTO_STAR=.*/AUTO_STAR=0/' /etc/nifty-orders.env && systemctl restart nifty-orders

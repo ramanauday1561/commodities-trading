@@ -189,8 +189,8 @@ def next_day(st, last="15:15"):
     the candle before; 1 lot of an at-the-money option (half NIFTY's move, about Rs120 a round trip)."""
     c = st.get("candles") or []
     idx = {datetime.fromtimestamp(x["time"], timezone.utc).strftime("%H:%M"): i for i, x in enumerate(c)}
-    right = n = 0
-    rs = 0.0
+    right = n = sn = sright = 0
+    rs = spts = 0.0
     for l in st.get("leans") or []:
         i = idx.get(l["at"])
         if l["at"] > last or not i or c[i].get("paused"):      # the 15:25 stub was never tested; the first candle has
@@ -199,7 +199,14 @@ def next_day(st, last="15:15"):
         n += 1
         right += move * side > 0
         rs += (0.5 * side * move - 1.85) * 65
-    return {"leans": n, "right": right, "rs": int(round(rs))} if n else None
+        if l.get("confident"):                              # 11 Nov 2026: the * report card (the leans traded for real)
+            sn += 1
+            sright += move * side > 0
+            spts += side * move
+    out = {"leans": n, "right": right, "rs": int(round(rs))}
+    if sn:
+        out["star"] = {"leans": sn, "right": sright, "pts": round(spts, 1)}
+    return out if n else None
 
 
 def next_record(store_dir, today):
@@ -213,9 +220,12 @@ def next_record(store_dir, today):
             days.append({"d": d, **r})
     if not days:
         return None
+    stars = [x["star"] for x in days if x.get("star")]
     return {"since": days[0]["d"], "days": len(days), "leans": sum(x["leans"] for x in days),
             "right": sum(x["right"] for x in days), "rs": sum(x["rs"] for x in days),
-            "losing_days": sum(x["rs"] < 0 for x in days), "by_day": days[-10:]}
+            "losing_days": sum(x["rs"] < 0 for x in days), "by_day": days[-10:],
+            "star": {"days": len(stars), "leans": sum(s["leans"] for s in stars), "right": sum(s["right"] for s in stars),
+                     "pts": round(sum(s["pts"] for s in stars), 1), "up_days": sum(s["pts"] > 0 for s in stars)} if stars else None}
 
 
 def morning_prompt(today, news, record):

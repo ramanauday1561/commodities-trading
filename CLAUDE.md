@@ -18,7 +18,9 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   static IP for API orders). GitHub Actions and the pages never place orders. **On 11 Nov 2026 the owner asked for
   the ★ leans to be traded automatically** ("make it place orders automatically, don't wait for me"): with
   `AUTO_STAR=1` in `/etc/nifty-orders.env` the server buys each new ★ lean by itself (`Auto`: ATM option of the next
-  expiry, 1 lot, stop 10% under, out after 30 minutes, each lean once). It is off unless the owner turns it on; nothing
+  expiry, 1 lot, stop 10% under, out after 30 minutes, each lean once). `AUTO_STAR=practice` does the same on paper at
+  Kite's live prices with no orders. The server makes the lean itself too (`LocalLeans`: 15 s after each 10-minute
+  candle, same code and morning model; replayed 33 of 33 on 11 Nov), as well as reading GitHub's. It is off unless the owner turns it on; nothing
   else the app suggests (plain leans, the 09:15 signal, the straddle) becomes an order. ★ leans failed every backtest
   (-₹53 to -₹72 a lot a trade). Keep the server's limits (lots a pick, open picks, loss a day), the passcode and LIMIT
   orders only.

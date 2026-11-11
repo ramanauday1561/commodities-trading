@@ -15,7 +15,7 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
 - **UI:** Liquid Glass look (Glisse 0.5.0 on React 18.3.1, bundled by esbuild from `ui/` into
   `docs/vendor/glass-ui.js`, no CDN). `nav.js` adds the tab bar (Next 10, Today, Status, Live, Forecast) and the ⋯
   "More" menu (History, Kite login, and a temporary "Screen check" = `next.html?debug`). `theme.css` holds the shared
-  styles (currently `theme.css?v=9`, service worker cache `forecast-v22`).
+  styles (currently `theme.css?v=9`, service worker cache `forecast-v23`).
 - **Back end:** GitHub Actions only (see README "What runs when"). Data in branches (README "Where data lives").
 
 ## 2. Branch flow and how releases work
@@ -220,4 +220,11 @@ From 5 Nov (this part of the session):
   `setup.sh`). The charges lookup also failed (urlencode on a JSON list): fixed; until then the ₹120 estimate was used. 14:39:
   the server's orders reached Kite and were refused: **"NFO is disabled for your account"**; the owner must activate
   the F&O segment on Zerodha Console. Later: the 60-30-10 colour rule (Desert Sand, Olive Drab, Signal Yellow) applied
-  to every page; see `CLAUDE.md`.
+  to every page; see `CLAUDE.md`. Evening: (1) practice mode `AUTO_STAR=practice`, (2) the ★ report card on Next 10 (★
+  right / points per day, and ₹ on real prices from the paper account; since 29 Oct: 41 of 61 right, +594.7 pts, 8 of 9
+  days up), (3) the lean made on the VPS (`LocalLeans`): today replayed with the morning model (rebuilt with
+  `nextcandle.train(before=11 Nov)`, 101,982 candles as live) matched all 33 published leans and all 14 ★, through the
+  server's own code path, and made the 09:35 lean GitHub missed. The model on site-data is retrained every evening on
+  that day, so a check must use a model trained before the day. The automatic ★ rules on saved real option candles,
+  4-11 Nov: 43 trades, 49% won, +₹15,272 (+₹355 a trade), almost all on the trend days 6 and 11 Nov; the 9-year test
+  is still negative.
