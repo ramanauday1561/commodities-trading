@@ -316,5 +316,53 @@ class Charges(unittest.TestCase):
         self.assertNotIn(SYM, open(path).read())                                   # totals only, never positions
 
 
+class AutoStar(unittest.TestCase):
+    """AUTO_STAR=1: each new * lean becomes a pick by itself, once."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.c, self.k = Clock(), FakeKite()                                   # Friday 10:00, NIFTY 24,510
+        self.e = osv.Engine(os.path.join(self.tmp.name, "state.json"), dict(LIMITS), now=self.c.now, clock=self.c.clock)
+        self.e.kite = self.k
+        self.k.prices["NIFTY26N0924500PE"] = (80.0, 79.5, 80.5)
+        self.doc = {"date": "2026-11-06", "leans": [
+            {"at": "09:45", "lean": "up", "confident": True, "made": "09:45"},      # 15 minutes old: too late
+            {"at": "09:55", "lean": "up", "confident": False, "made": "09:59"},     # not a star
+            {"at": "10:05", "lean": "down", "confident": True, "made": "09:59"}]}   # fresh star
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_which_leans(self):
+        got = osv.auto_leans(self.doc, self.c.now(), set())
+        self.assertEqual([x["id"] for x in got], ["2026-11-06 10:05"])
+        self.assertEqual(osv.auto_leans(self.doc, self.c.now(), {"2026-11-06 10:05"}), [])
+        self.assertEqual(osv.auto_leans({**self.doc, "date": "2026-11-05"}, self.c.now(), set()), [])
+
+    def test_a_star_becomes_one_pick(self):
+        docs = [self.doc, None, self.doc]                                      # then unchanged, then the same again
+        a = osv.Auto(self.e, fetch=lambda: docs.pop(0), clock=self.c.clock)
+        a.tick()
+        self.assertEqual(self.k.calls[0][:4], ("place", "BUY", "LIMIT", 65))     # 1 lot, limit order
+        t = self.e.state["trades"][0]
+        self.assertEqual((t["symbol"], t["lots"], t["exit_by"]), ("NIFTY26N0924500PE", 1, "10:30"))   # ATM PUT, next expiry
+        self.assertEqual(t["stop"], osv.down(80.5 * 0.9))
+        self.assertIn("10:05 down", t["auto"])
+        for _ in range(2):
+            self.c.t += osv.AUTO_EVERY
+            a.tick()
+        self.assertEqual(len(self.e.state["trades"]), 1)                        # never twice
+
+    def test_a_refused_star_is_not_retried(self):
+        self.e.state["locked"] = "stop everything from the phone"
+        a = osv.Auto(self.e, fetch=lambda: self.doc, clock=self.c.clock)
+        a.tick()
+        self.c.t += osv.AUTO_EVERY
+        self.e.state["locked"] = None
+        a.tick()
+        self.assertEqual((self.e.state["trades"], self.k.calls), ([], []))
+        self.assertEqual(self.e.state["auto_done"], ["2026-11-06 10:05"])
+
+
 if __name__ == "__main__":
     unittest.main()

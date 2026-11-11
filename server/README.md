@@ -95,6 +95,28 @@ Keep the passcode private. It is like a password for placing orders.
 - **To get these on the server**, run `bash setup.sh` again in the Web console after the release is in `main`: it
   pulls the new code and keeps your settings.
 
+## Automatic ★ picks (11 Nov 2026, asked by the owner)
+
+With the switch on, the server buys every new ★ lean by itself, without the phone:
+
+- every 20 seconds it reads the Next 10 page's leans (the `site-data` branch, through GitHub's API);
+- for a ★ lean made at most about 3 minutes ago: the at-the-money option of the next expiry after today (CALL when
+  it leans up, PUT when down), **1 lot**, entry now, **stop 10% under** the price, **out after 30 minutes**;
+- each lean is tried **once** (also when Kite or a limit refuses it), and every pick goes through the same checks as a
+  phone pick: the lots, open-pick and daily-loss limits, the Kite login, 09:15-15:00.
+
+Turn it **on** (Web console, after `bash setup.sh` has the new code):
+```
+echo AUTO_STAR=1 >> /etc/nifty-orders.env && systemctl restart nifty-orders
+```
+Turn it **off**:
+```
+sed -i 's/^AUTO_STAR=.*/AUTO_STAR=0/' /etc/nifty-orders.env && systemctl restart nifty-orders
+```
+**Stop everything** on the Orders page also stops it for the rest of the day. The Orders page shows "Automatic ★ picks:
+ON" and marks each automatic pick. The ★ leans lost ₹53-72 a lot a trade in every backtest; this trades them anyway,
+at the owner's request.
+
 ## Every day
 
 1. Log in to Kite on the **Kite login** page before trading, as now. The server picks up the day's token within a

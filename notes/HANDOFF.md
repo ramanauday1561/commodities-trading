@@ -15,7 +15,7 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
 - **UI:** Liquid Glass look (Glisse 0.5.0 on React 18.3.1, bundled by esbuild from `ui/` into
   `docs/vendor/glass-ui.js`, no CDN). `nav.js` adds the tab bar (Next 10, Today, Status, Live, Forecast) and the ⋯
   "More" menu (History, Kite login, and a temporary "Screen check" = `next.html?debug`). `theme.css` holds the shared
-  styles (currently `theme.css?v=8`, service worker cache `forecast-v20`).
+  styles (currently `theme.css?v=8`, service worker cache `forecast-v21`).
 - **Back end:** GitHub Actions only (see README "What runs when"). Data in branches (README "Where data lives").
 
 ## 2. Branch flow and how releases work
@@ -209,4 +209,6 @@ From 5 Nov (this part of the session):
   ⋯ menu; Orders' "Be out by" time box overflowed on the iPhone and pushed the page sideways (fixed with
   `appearance:none` on the time input). 11 Nov morning: a phone alert (ntfy / Telegram, urgent) for each new ★
   lean: side, at-the-money strike, the time made (`live.star_alert`); the ★ rule itself was checked against the tested
-  one (top 20% of training confidence, model trained to 9 Nov) and not changed.
+  one (top 20% of training confidence, model trained to 9 Nov) and not changed. 11 Nov ~10:15: the first three ★ leans came and
+  nothing was bought (the server only ran phone picks); the owner asked "make it place orders automatically, don't
+  wait for me": automatic ★ picks behind `AUTO_STAR=1` (`server/orders_server.py` `Auto`), `CLAUDE.md` rule updated.
