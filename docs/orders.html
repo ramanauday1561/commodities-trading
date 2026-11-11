@@ -136,13 +136,15 @@ $('save').onclick = async () => {
 $('forget').onclick = e => { e.preventDefault(); if (!confirm('Forget the server address and passcode on this phone?')) return;
   store.set('ordersUrl', null); store.set('ordersCode', null); srv = code = null; show(); };
 
-const STATUS = { entering: 'buying', open: 'open · stop at the exchange', exiting: 'selling', closed: 'closed', 'not entered': 'not bought' };
+const STATUS = { entering: 'buying', open: 'open · stop at the exchange', exiting: 'selling', closed: 'closed', 'not entered': 'not bought',
+                 practice: 'practice · no real order' };
 function drawState(s) {
   state = s;
   const L = s.limits || {};
   $('state').innerHTML = `<h2>Server</h2>`
     + `<div class="row"><span>Kite login today</span><b>${s.kite ? '<span class="up">yes</span>' : '<a href="kite.html" class="warn">no: log in first</a>'}</b></div>`
-    + `<div class="row"><span>Automatic ★ picks</span><b>${s.auto ? '<span class="warn">ON: every new ★ lean is bought by itself</span>' : 'off'}</b></div>`
+    + `<div class="row"><span>Automatic ★ picks</span><b>${s.auto === 'on' ? '<span class="warn">ON: every new ★ lean is bought by itself</span>'
+      : s.auto === 'practice' ? `PRACTICE: no real orders · today ${rs(s.practice_pnl || 0)}` : 'off'}</b></div>`
     + `<div class="row"><span>Today's P&L (after charges)</span><b class="${cls(s.day_pnl)}">${rs(s.day_pnl)}</b></div>`
     + `<div class="row"><span>Limits</span><b>${L.max_lots} lot${L.max_lots > 1 ? 's' : ''} a pick · ${L.max_open} open · stop at −₹${k0(L.max_loss_day)} a day</b></div>`
     + (s.locked ? `<div class="err">No more picks today: ${esc(s.locked)}</div>` : '');
@@ -152,7 +154,7 @@ function drawState(s) {
     const pnl = t.net != null ? t.net : t.pnl != null ? t.pnl - (t.charges_est || 0)
       : t.avg_in && t.ltp && t.filled ? (t.ltp - t.avg_in) * t.filled - (t.charges_est || 0) : null;
     return `<div class="pick"><div class="top"><b>${esc(t.symbol)}</b>${pnl != null ? `<b class="${cls(pnl)}">${rs(pnl)}</b>` : ''}</div>
-      <div class="m" style="font-size:13px">${t.auto ? `<span class="warn">auto ${esc(t.auto)}</span> · ` : ''}${t.lots} lot${t.lots > 1 ? 's' : ''} · ${STATUS[t.status] || esc(t.status)}${t.why ? ` · ${esc(t.why)}` : ''}</div>
+      <div class="m" style="font-size:13px">${t.auto ? `<span class="warn">${t.practice ? 'practice' : 'auto'} ${esc(t.auto)}</span> · ` : ''}${t.lots} lot${t.lots > 1 ? 's' : ''} · ${STATUS[t.status] || esc(t.status)}${t.why ? ` · ${esc(t.why)}` : ''}</div>
       <div style="font-size:14px">${t.avg_in ? `bought ${t.avg_in}` : `buy ${t.limit ? 'at ' + t.limit : 'now'}`} · now ${t.ltp ?? '—'}${t.avg_out ? ` · sold ${t.avg_out}` : ''}
         · stop ${t.stop}${t.target ? ` · target ${t.target}` : ''} · out by ${esc(t.exit_by)}</div>
       ${['entering', 'open'].includes(t.status) ? `<button type="button" data-exit="${esc(t.id)}" style="margin-top:6px">${t.status === 'entering' ? 'Cancel' : 'Sell now'}</button>` : ''}

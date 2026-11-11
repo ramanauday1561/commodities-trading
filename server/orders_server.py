@@ -137,6 +137,11 @@ class Kite:
     def positions(self):
         return self._call("GET", "/portfolio/positions").get("net", [])
 
+    def history5(self, instrument, start, end):
+        """5-minute candles [[time, o, h, l, c, volume], ...] (market data: any IP)."""
+        q = urllib.parse.urlencode({"from": f"{start:%Y-%m-%d %H:%M:%S}", "to": f"{end:%Y-%m-%d %H:%M:%S}"})
+        return self._call("GET", f"/instruments/historical/{instrument}/5minute?{q}").get("candles", [])
+
     def instruments(self):
         import csv
         import io
@@ -160,7 +165,7 @@ class Engine:
         self.clock = clock
         self.lock = threading.RLock()
         self.kite, self.contracts, self.contracts_day = None, {}, None
-        self.auto_on = False
+        self.auto_mode = ""                     # "on": real orders, "practice": no orders, "": off (AUTO_STAR)
         self.state = {"day": None, "locked": None, "trades": []}
         try:
             self.state.update(json.load(open(state_path)))
@@ -279,20 +284,54 @@ class Engine:
             ref = ask or ltp
             if not ref:
                 raise ValueError(f"no price for {sym}")
-            out = (self.now() + timedelta(minutes=AUTO_HOLD)).strftime("%H:%M")
-            tid = self.add({"symbol": sym, "lots": 1, "stop": down(ref * (1 - AUTO_STOP)), "exit_by": min(out, LAST_EXIT_T)})
+            out = min((self.now() + timedelta(minutes=AUTO_HOLD)).strftime("%H:%M"), LAST_EXIT_T)
+            if self.auto_mode == "practice":
+                return self._practice(sym, ref, ltp, down(ref * (1 - AUTO_STOP)), out, lean)
+            tid = self.add({"symbol": sym, "lots": 1, "stop": down(ref * (1 - AUTO_STOP)), "exit_by": out})
             t = next(x for x in self.state["trades"] if x["id"] == tid)
             t["auto"] = f"\u2605 {lean['at']} {lean['lean']}"
             self.log(t, f"placed by itself for the \u2605 lean {lean['at']} {lean['lean']}")
             self.save()
             return tid
 
+    def _practice(self, sym, ref, ltp, stop, exit_by, lean):
+        """AUTO_STAR=practice (11 Nov 2026): everything a real automatic pick does, except sending the order. Bought at
+        the ask then, sold at the stop (when the last price reaches it) or at the bid at the exit time; Kite's charges.
+        Kept with the day's picks, marked practice, and never counted in the real P&L or the daily loss limit."""
+        now = self.now()
+        if not (OPEN_T <= hm(now) < LAST_ENTRY_T) or now.weekday() >= 5:
+            raise ValueError(f"picks are taken from {OPEN_T} to {LAST_ENTRY_T} on market days")
+        qty = self.lot_size(sym)
+        t = {"id": uuid.uuid4().hex[:8], "symbol": sym, "lots": 1, "qty": qty, "limit": None, "stop": stop, "target": None,
+             "exit_by": exit_by, "status": "practice", "made": now.isoformat(timespec="seconds"), "filled": qty,
+             "avg_in": ref, "avg_out": None, "ltp": ltp, "why": None, "practice": True,
+             "auto": f"\u2605 {lean['at']} {lean['lean']}"}
+        self.log(t, f"practice: would buy {qty} at {ref} for the \u2605 lean {lean['at']} {lean['lean']} (no order sent)")
+        self.state["trades"].append(t)
+        self.save()
+        return t["id"]
+
+    def _practice_tick(self, now):
+        open_ = [t for t in self.state["trades"] if t["status"] == "practice"]
+        if not open_ or not self.kite:
+            return
+        quotes = self.kite.quote([f"NFO:{s}" for s in {t["symbol"] for t in open_}])
+        for t in open_:
+            ltp, bid, _ = best(quotes.get(f"NFO:{t['symbol']}", {}))
+            t["ltp"] = ltp
+            if ltp and ltp <= t["stop"]:
+                self._closed(t, t["stop"], "stop (practice)")
+            elif hm(now) >= t["exit_by"]:
+                self._closed(t, bid or ltp or t["avg_in"], "exit time (practice)")
+
     # ------------------------------------------------------------------ the phone's requests
     def view(self):
         with self.lock:
-            open_loss = sum(self._pnl(t) for t in self.state["trades"])
+            open_loss = sum(self._pnl(t) for t in self.state["trades"] if not t.get("practice"))
+            practice = sum(self._pnl(t) for t in self.state["trades"] if t.get("practice"))
             return {"day": self.state["day"], "now": self.now().isoformat(timespec="seconds"), "kite": bool(self.kite),
-                    "locked": self.state["locked"], "limits": self.limits, "auto": self.auto_on, "day_pnl": round(open_loss),
+                    "locked": self.state["locked"], "limits": self.limits, "auto": self.auto_mode, "day_pnl": round(open_loss),
+                    "practice_pnl": round(practice),
                     "trades": [{k: v for k, v in t.items() if k not in ("entry_id", "sl_id", "exit_id")} for t in self.state["trades"]]}
 
     def add(self, req):
@@ -374,8 +413,11 @@ class Engine:
     def tick(self):
         with self.lock:
             self._new_day()
+            if self.kite:
+                self._practice_tick(self.now())
             live = [t for t in self.state["trades"] if t["status"] in ("entering", "open", "exiting")]
             if not live or not self.kite:
+                self.save()
                 return
             orders = self.kite.orders()
             quotes = self.kite.quote([f"NFO:{s}" for s in {t["symbol"] for t in live}])
@@ -507,12 +549,12 @@ class Engine:
         the last price less the charges estimated when it was placed."""
         if t.get("pnl") is not None:
             return t["pnl"] - t.get("charges", t.get("charges_est", 0))
-        if t["status"] in ("open", "exiting") and t.get("avg_in") and t.get("ltp"):
+        if t["status"] in ("open", "exiting", "practice") and t.get("avg_in") and t.get("ltp"):
             return (t["ltp"] - t["avg_in"]) * t["filled"] - t.get("charges_est", 0)
         return 0
 
     def _pnl_today(self):
-        return sum(self._pnl(t) for t in self.state["trades"] if t["made"][:10] == self.state["day"])
+        return sum(self._pnl(t) for t in self.state["trades"] if t["made"][:10] == self.state["day"] and not t.get("practice"))
 
     # ------------------------------------------------------------------ the option list for the phone
     def chain(self, expiry=None, width=8):
@@ -559,9 +601,10 @@ class Auto:
     limits, the Kite login, the hours), and each lean is tried once only, even if the order is refused. The * leans
     lost Rs53-72 a lot a trade in the 2017-2026 tests (star_hold_study.py)."""
 
-    def __init__(self, engine, fetch=None, clock=time.time):
+    def __init__(self, engine, fetch=None, clock=time.time, local=None):
         self.engine, self.clock, self.etag, self.checked = engine, clock, None, 0.0
         self.fetch = fetch or self._fetch
+        self.local = local                                   # LocalLeans: the lean made here, seconds after each candle
 
     def _fetch(self):
         """next-nifty.json from the site-data branch through GitHub's API (no CDN delay); None when unchanged
@@ -587,12 +630,23 @@ class Auto:
             raise
 
     def tick(self):
-        if self.clock() - self.checked < AUTO_EVERY:
-            return
-        self.checked = self.clock()
-        doc = self.fetch()
-        if doc is None:
-            return
+        docs = []
+        if self.local:
+            try:
+                d = self.local.check()
+                if d:
+                    docs.append(d)
+            except Exception as err:                          # the GitHub path below still runs
+                print(f"auto: local lean failed: {type(err).__name__}: {err}", flush=True)
+        if self.clock() - self.checked >= AUTO_EVERY:
+            self.checked = self.clock()
+            d = self.fetch()
+            if d is not None:
+                docs.append(d)
+        for doc in docs:
+            self._act(doc)
+
+    def _act(self, doc):
         e = self.engine
         with e.lock:
             e._new_day()
@@ -604,9 +658,90 @@ class Auto:
         for l in todo:
             try:
                 tid = e.auto_pick(l)
-                print(f"auto: star {l['at']} {l['lean']}: pick {tid}", flush=True)
+                print(f"auto: star {l['at']} {l['lean']}: {'practice ' if e.auto_mode == 'practice' else ''}pick {tid}", flush=True)
             except (ValueError, KiteError) as err:
                 print(f"auto: star {l['at']} {l['lean']} not placed: {err}", flush=True)
+
+
+MODEL_URL = "https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/"
+MODEL_FILES = ("nextcandle-model.txt", "nextcandle-size.txt", "nextcandle-meta.json")
+LEAN_TOKENS = {"^NSEI": 256265, "^NSEBANK": 260105, "^INDIAVIX": 264969}
+LOCAL_FROM, LOCAL_UNTIL = 15, 120                # seconds after a 10-minute boundary: Kite's 5-minute bar has closed
+
+
+class LocalLeans:
+    """The Next 10 lean made on this server (11 Nov 2026): GitHub's runs start up to minutes late and its API limits
+    polling, so the lean is also computed here, 15 seconds after each 10-minute candle, from Kite's 5-minute candles
+    (NIFTY, Bank NIFTY, India VIX) with the same code (nextcandle.lean) and the same model, downloaded from site-data
+    once each morning. Replayed on 11 Nov 2026: 33 of 33 published leans matched (side, star and points), and it
+    also made the 09:35 lean that the late GitHub run missed. The model is retrained each evening on that day, so a
+    model trained on today is never used (it would know the day's own candles)."""
+
+    def __init__(self, engine, model_dir, download=None, lean=None):
+        self.engine, self.dir, self.done, self.model_day = engine, model_dir, set(), None
+        self.download = download or (lambda name: urllib.request.urlopen(MODEL_URL + name, timeout=20).read())
+        self.lean = lean
+
+    @staticmethod
+    def boundary(now):
+        """'HH:MM' of the 10-minute boundary just passed (09:25 ... 15:05) when now is 15-120 s after it, else None."""
+        m = (now.hour * 60 + now.minute - (9 * 60 + 15)) * 60 + now.second
+        n, into = divmod(m, 600)
+        if n < 1 or not LOCAL_FROM <= into < LOCAL_UNTIL:
+            return None
+        b = 9 * 60 + 15 + 10 * n
+        hm_ = f"{b // 60:02d}:{b % 60:02d}"
+        return hm_ if hm_ <= "15:05" else None
+
+    def _model(self, today):
+        if self.model_day == today:
+            return True
+        os.makedirs(self.dir, exist_ok=True)
+        for name in MODEL_FILES:
+            tmp = os.path.join(self.dir, name + ".tmp")
+            with open(tmp, "wb") as f:
+                f.write(self.download(name))
+            os.replace(tmp, os.path.join(self.dir, name))
+        with open(os.path.join(self.dir, "nextcandle-meta.json")) as f:
+            trained = json.load(f).get("trained_until", "")
+        if trained >= today:
+            print(f"local lean: the model is trained on {trained}, not before today; skipped", flush=True)
+            return False
+        self.model_day = today
+        return True
+
+    def _get(self, now):
+        import pandas as pd
+        k = self.engine.kite
+
+        def get(sym):
+            rows = k.history5(LEAN_TOKENS[sym], (now - timedelta(days=9)).replace(tzinfo=None), now.replace(tzinfo=None))
+            if not rows:
+                return {}
+            df = pd.DataFrame([r[1:5] for r in rows], columns=["Open", "High", "Low", "Close"],
+                              index=pd.DatetimeIndex([pd.Timestamp(r[0]).tz_convert("Asia/Kolkata").tz_localize(None) for r in rows]))
+            df = df[df.index <= pd.Timestamp(now.replace(tzinfo=None)) - pd.Timedelta(minutes=5)]    # finished bars only
+            return {d: g for d, g in df.groupby(df.index.date)}
+        return get
+
+    def check(self):
+        e = self.engine
+        now = e.now()
+        b = self.boundary(now)
+        today = now.date().isoformat()
+        if not b or (today, b) in self.done or not e.kite or now.weekday() >= 5:
+            return None
+        self.done.add((today, b))
+        if not self._model(today):
+            return None
+        if self.lean is None:
+            import nextcandle
+            self.lean = nextcandle.lean
+        out = self.lean(self.dir, now, get=self._get(now))
+        if not out:
+            return None
+        print(f"local lean {out['at']} {out['lean']}{' (star)' if out.get('confident') else ''}", flush=True)
+        return {"date": today, "leans": [{**{x: out[x] for x in ("at", "lean", "confident") if x in out}, "made": now.strftime("%H:%M")}]}
 
 
 class Session:
@@ -732,13 +867,25 @@ def main():
     os.makedirs(data, exist_ok=True)
     engine = Engine(os.path.join(data, "state.json"), limits_from_env())
     sess = Session(engine, key, secret, os.path.join(data, "kite"))
-    engine.auto_on = os.environ.get("AUTO_STAR", "0").strip() == "1"
-    auto = Auto(engine) if engine.auto_on else None
+    mode = os.environ.get("AUTO_STAR", "0").strip().lower()
+    engine.auto_mode = "on" if mode == "1" else "practice" if mode in ("practice", "paper") else ""
+    auto = None
+    if engine.auto_mode:
+        local = None
+        if os.environ.get("AUTO_LOCAL", "1").strip() != "0":
+            try:
+                import lightgbm, numpy, pandas  # noqa: F401  (setup.sh installs them; without them only GitHub's leans)
+                local = LocalLeans(engine, os.path.join(data, "model"))
+            except ImportError as err:
+                print(f"local leans off: {err}", flush=True)
+        auto = Auto(engine, local=local)
     srv = ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("ORDERS_PORT", "8787"))),
                               handler(engine, Guard(code), os.environ.get("ALLOW_ORIGIN", "https://ramanauday1561.github.io"),
                                       os.path.join(data, "money.json")))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    print(f"orders server up; limits {engine.limits}; automatic star picks {'ON' if engine.auto_on else 'off'}", flush=True)
+    print(f"orders server up; limits {engine.limits}; automatic star picks "
+          f"{ {'on': 'ON', 'practice': 'PRACTICE (no orders)'}.get(engine.auto_mode, 'off') }"
+          f"{'; leans made here too' if auto and auto.local else ''}", flush=True)
     while True:
         try:
             sess.refresh()

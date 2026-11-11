@@ -101,7 +101,7 @@ function recordHTML(d) {
        <div>Lost money on ${r.losing_days} of ${r.days} day${r.days > 1 ? 's' : ''}; ${r.right} of ${r.leans} leans right (${Math.round(r.right / r.leans * 100)}%).</div>`
     : '<div class="big m" style="font-size:16px">No finished day yet</div>';
   const test = t ? `<div class="m">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
-  return live + test + paperLine(d) + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
+  return live + test + paperLine(d) + starCard(d) + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
     <button class="show" data-show="1" data-switch="off">Show today's leans anyway</button></div>`;
 }
 
@@ -141,7 +141,7 @@ function draw(d) {
       ? `<div><b>Today: ${right} of ${done.length} right (${Math.round(right / done.length * 100)}%)</b>`
         + (conf.length ? ` · ★ more confident: ${cRight} of ${conf.length}` : '')
         + `. Trading every lean with 1 lot of an at-the-money option: <b class="${money >= 0 ? 'up' : 'down'}">${rs(money)}</b> after costs.</div>`
-        + dayLine(money, d) + (showLeans ? paperLine(d) : '')
+        + dayLine(money, d) + (showLeans ? paperLine(d) + starCard(d) : '')
       : '<div class="m">No lean scored yet today.</div>')
     + (showLeans && s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
         + s.slice().reverse().map(x => `<tr><td>${x.at}${x.confident ? ' ★' : ''}</td><td class="${x.lean === 'up' ? 'up' : 'down'}">${x.lean} ${x.pts >= 0 ? '+' : ''}${x.pts}${x.size != null ? ` <span class="m">±${x.size}</span>` : ''}</td>`
@@ -176,6 +176,26 @@ function paperLine(d) {
     every lean <b class="${a.rs >= 0 ? 'up' : 'down'}">${rs(a.rs)}</b> in ${a.days} day${a.days > 1 ? 's' : ''}${s ? `, ★ leans only <b class="${s.rs >= 0 ? 'up' : 'down'}">${rs(s.rs)}</b>` : ''}.
     ${t ? `Today: every lean <b class="${t.rs >= 0 ? 'up' : 'down'}">${rs(t.rs)}</b> (${t.won} of ${t.trades} made money)${ts && ts.trades ? `, ★ <b class="${ts.rs >= 0 ? 'up' : 'down'}">${rs(ts.rs)}</b> (${ts.won} of ${ts.trades})` : ''}.` : 'Today is added after the close.'}
     ${g && g.days ? `The 09:15 signal's lean, open to close: right on ${g.won} of ${g.days} day${g.days > 1 ? 's' : ''}, <b style="white-space:nowrap" class="${g.rs >= 0 ? 'up' : 'down'}">${rs(g.rs)}</b>.` : ''}</div>`;
+}
+
+// The ★ report card (11 Nov 2026): the ★ leans alone, day by day, the leans the owner trades. Right / total and
+// NIFTY points caught the right way (live.next_record), and ₹ a lot on Kite's real option prices where the paper
+// account scored that day (paper_accounts.py). Beside the 9-year test, so a good run reads against it.
+function starCard(d) {
+  const r = d.live_record, s = r && r.star;
+  if (!s) return '';
+  const paid = Object.fromEntries(((paper && paper.days) || []).map(x => [x.d, x.accounts.leans_star]));
+  const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const rows = (r.by_day || []).filter(x => x.star).slice(-7).reverse().map(x => {
+    const p = paid[x.d];
+    return `<tr><td>${day(x.d)}</td><td class="n">${x.star.right} of ${x.star.leans}</td><td class="n ${x.star.pts >= 0 ? 'up' : 'down'}">${x.star.pts >= 0 ? '+' : ''}${x.star.pts}</td>`
+      + `<td class="n ${p ? (p.rs >= 0 ? 'up' : 'down') : 'm'}">${p ? rs(p.rs) : '—'}</td></tr>`;
+  }).join('');
+  return `<div style="margin-top:10px"><b style="color:var(--text)">★ report card</b> <span class="m">(the leans traded for real)</span>
+    <div>Since ${day(r.since)}: <b>${s.right} of ${s.leans} right (${Math.round(s.right / s.leans * 100)}%)</b>,
+      <b class="${s.pts >= 0 ? 'up' : 'down'}">${s.pts >= 0 ? '+' : ''}${s.pts} pts</b> the right way, up on ${s.up_days} of ${s.days} days.
+      <span class="m">The 9-year test: right 53%, −₹72 a lot a trade after costs.</span></div>
+    <table><tr><th>Day</th><th class="n">★ right</th><th class="n">pts</th><th class="n">₹ real prices</th></tr>${rows}</table></div>`;
 }
 
 // The expected size of the next move (5 Nov 2026, movesize_study.py): it passed its test (error 10% below the usual

@@ -13,7 +13,7 @@ APP=/opt/nifty-orders
 ENV=/etc/nifty-orders.env
 
 sudo apt-get update -qq
-sudo apt-get install -y -qq python3 python3-cryptography git caddy >/dev/null
+sudo apt-get install -y -qq python3 python3-cryptography python3-venv libgomp1 git caddy >/dev/null
 
 if [ -d "$APP/.git" ]; then sudo git -C "$APP" pull -q --ff-only; else sudo git clone -q --depth 1 "$REPO" "$APP"; fi
 id orders >/dev/null 2>&1 || sudo useradd --system --home /var/lib/nifty-orders --create-home --shell /usr/sbin/nologin orders
@@ -36,6 +36,16 @@ if ! sudo test -f "$ENV"; then
   NEW=1
 fi
 
+# 11 Nov 2026: the server also makes the Next 10 lean itself (LocalLeans), which needs numpy, pandas and lightgbm;
+# they go in a private Python environment. If that fails the server still runs, on GitHub's leans only.
+PY=/usr/bin/python3
+if sudo python3 -m venv --system-site-packages "$APP/venv" >/dev/null 2>&1 && \
+   sudo "$APP/venv/bin/pip" install -q --upgrade numpy pandas lightgbm >/dev/null 2>&1; then
+  PY="$APP/venv/bin/python"
+else
+  echo "note: numpy / pandas / lightgbm not installed; the server will use GitHub's leans only"
+fi
+
 sudo tee /etc/systemd/system/nifty-orders.service >/dev/null <<EOF
 [Unit]
 Description=NIFTY order server for your own picks
@@ -46,7 +56,7 @@ Wants=network-online.target
 User=orders
 EnvironmentFile=$ENV
 Environment=ORDERS_DATA=/var/lib/nifty-orders
-ExecStart=/usr/bin/python3 $APP/server/orders_server.py
+ExecStart=$PY $APP/server/orders_server.py
 Restart=always
 RestartSec=3
 NoNewPrivileges=true
