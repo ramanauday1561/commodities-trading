@@ -214,4 +214,7 @@ From 5 Nov (this part of the session):
   wait for me": automatic ★ picks behind `AUTO_STAR=1` (`server/orders_server.py` `Auto`), `CLAUDE.md` rule updated. The
   first version polled GitHub's API every 20 s; without a login GitHub allows 60 requests an hour (304s included), so
   from about 12:20 every check was refused and the 12:35 and 12:45 ★ were missed. Now every 75 s (48 an hour) and it
-  waits for the reset when refused. raw.githubusercontent.com was not an option: it caches for 5 minutes.
+  waits for the reset when refused. raw.githubusercontent.com was not an option: it caches for 5 minutes. Then
+  from 13:25 the ★ orders reached Kite but were refused: the VPS sent them from its IPv6 address (2a02:4780:...),
+  and only the IPv4 one is whitelisted. Fix: prefer IPv4 (`precedence ::ffff:0:0/96 100` in /etc/gai.conf, now in
+  `setup.sh`). The charges lookup also failed (urlencode on a JSON list): fixed; until then the ₹120 estimate was used.
