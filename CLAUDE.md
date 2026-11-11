@@ -15,9 +15,13 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
 - **Orders only through the order server, only for the owner's own picks.** Order placement (`server/`, the Orders
   page) was built on 5 Nov 2026 (#102), removed the same day on request (#104), and **brought back on 10 Nov 2026 at
   the owner's request** to trade real money, on a Hostinger VPS in Mumbai (Zerodha needs a whitelisted
-  static IP for API orders). GitHub Actions and the pages never place orders. Nothing the app suggests (leans, the
-  09:15 signal, the straddle) is turned into orders automatically: none has passed its backtest. Keep the server's
-  limits (lots a pick, open picks, loss a day), the passcode and LIMIT orders only.
+  static IP for API orders). GitHub Actions and the pages never place orders. **On 11 Nov 2026 the owner asked for
+  the ★ leans to be traded automatically** ("make it place orders automatically, don't wait for me"): with
+  `AUTO_STAR=1` in `/etc/nifty-orders.env` the server buys each new ★ lean by itself (`Auto`: ATM option of the next
+  expiry, 1 lot, stop 10% under, out after 30 minutes, each lean once). It is off unless the owner turns it on; nothing
+  else the app suggests (plain leans, the 09:15 signal, the straddle) becomes an order. ★ leans failed every backtest
+  (-₹53 to -₹72 a lot a trade). Keep the server's limits (lots a pick, open picks, loss a day), the passcode and LIMIT
+  orders only.
 - **Secrets live only in GitHub secrets** (and, for the order server, in `/etc/nifty-orders.env` on the VPS, entered
   by the owner in `setup.sh`) (`KITE_API_KEY`, `KITE_API_SECRET`, `FRED_API_KEY`, `XAI_API_KEY`,
   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `NTFY_TOPIC`; Kaggle keys, if ever, only as `KAGGLE_USERNAME` / `KAGGLE_KEY`).
