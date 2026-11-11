@@ -35,9 +35,9 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
 - **Backtest before any model change**, walk-forward on history only, with the pass rule written in the script's
   docstring *before* the run. The leans and the AI notes are information only, never trade signals.
 - **Do not use the 151-trading-strategies repo.**
-- **Branch flow:** every change is a PR into **`dev`**; a release PR takes `dev` into `main`; `main` is what the app
-  runs. The owner merges releases (they have also asked Claude to merge PRs into `dev` after CI passes; ask if unsure).
-- Every change goes in its own PR. Reply to the owner in plain, short language; they read on a phone.
+- **Branch flow (owner, 11 Nov 2026):** no PRs. Commit each change straight to **`main`** (what the app runs) and push,
+  after the tests pass; keep `dev` level with `main`. (Before that: PRs into `dev`, release PRs into `main`.)
+- One change per commit, with a clear message. Reply to the owner in plain, short language; they read on a phone.
 
 ## Daily operations
 
@@ -70,7 +70,7 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   under 15 minutes old, and take over when it stops. The pages read data from the VPS (`/data/`) while it is fresh
   (`fresh.js`), else GitHub. The Kite page logs in on the VPS first (`/api/kite-login`), else GitHub's job.
   GitHub keeps the website, the 15:50 run and training, studies, the keeper's position alerts and stop watcher.
-- The claude branch is reused: after each PR is merged, restart it from `dev` before the next change.
+- Work on a local branch if you like, but what goes to GitHub is a push to `main` (and `dev` moved to match).
 
 ## Design rule: 60-30-10 colours (owner, 11 Nov 2026)
 
