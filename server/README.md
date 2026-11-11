@@ -99,7 +99,7 @@ Keep the passcode private. It is like a password for placing orders.
 
 With the switch on, the server buys every new ★ lean by itself, without the phone:
 
-- every 20 seconds it reads the Next 10 page's leans (the `site-data` branch, through GitHub's API);
+- every 75 seconds it reads the Next 10 page's leans (the `site-data` branch, through GitHub's API);
 - for a ★ lean made at most about 3 minutes ago: the at-the-money option of the next expiry after today (CALL when
   it leans up, PUT when down), **1 lot**, entry now, **stop 10% under** the price, **out after 30 minutes**;
 - each lean is tried **once** (also when Kite or a limit refuses it), and every pick goes through the same checks as a

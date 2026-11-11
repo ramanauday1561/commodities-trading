@@ -49,7 +49,9 @@ OPEN_T, LAST_ENTRY_T, LAST_EXIT_T = "09:15", "15:00", "15:15"
 ENTRY_TRIES, ENTRY_WAIT, EXIT_WAIT, SL_WAIT = 3, 15, 5, 10       # re-prices; seconds between them
 SESSION_URL = "https://raw.githubusercontent.com/ramanauday1561/commodities-trading/kite-session/session.json"
 LEANS_URL = "https://api.github.com/repos/ramanauday1561/commodities-trading/contents/next-nifty.json?ref=site-data"
-AUTO_EVERY, AUTO_MAX_AGE, AUTO_STOP, AUTO_HOLD = 20, 180, 0.10, 30   # poll s; a lean older than this is skipped; stop; minutes
+# 11 Nov 2026: GitHub allows 60 API requests an hour per address without a login, 304 answers included, so polling
+# every 20 seconds was refused from 12:2x on and the 12:35 and 12:45 stars were missed; every 75 s is 48 an hour
+AUTO_EVERY, AUTO_MAX_AGE, AUTO_STOP, AUTO_HOLD = 75, 180, 0.10, 30   # poll s; a lean older than this is skipped; stop; minutes
 FALLBACK_CHARGES_LOT = 120      # Rs a lot for a round trip when Kite's charges API cannot be reached (option_study.py)
 
 
@@ -572,6 +574,14 @@ class Auto:
                 return json.load(f)
         except urllib.error.HTTPError as e:
             if e.code == 304:
+                return None
+            if e.code in (403, 429):                                   # rate limited: wait for GitHub's reset time
+                try:
+                    reset = float(e.headers.get("X-RateLimit-Reset") or 0)
+                except (TypeError, ValueError):
+                    reset = 0
+                self.checked = max(self.checked, min(reset, self.clock() + 3600) - AUTO_EVERY)
+                print(f"auto: GitHub rate limit; next check in {max(0, int(self.checked + AUTO_EVERY - self.clock()))} s", flush=True)
                 return None
             raise
 
