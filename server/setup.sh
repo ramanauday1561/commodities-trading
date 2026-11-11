@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Sets up the order server (orders_server.py) on a fresh Ubuntu (24.04 or newer) box with a fixed public IP: the
-# Hostinger VPS in Mumbai since 10 Nov 2026. Run it once, as root, in hPanel's Browser terminal for the VPS:
+# Hostinger VPS in Mumbai since 10 Nov 2026. Run it once, as root, in hPanel's Web console for the VPS:
 #   curl -fsSL https://raw.githubusercontent.com/ramanauday1561/commodities-trading/main/server/setup.sh -o setup.sh
 #   bash setup.sh
 # It asks for the Kite API key and secret (typed, not shown, not saved in the shell history), makes a long passcode
-# for the phone, and prints the server's address and the passcode once. Run it again later to update the code; the
+# for the phone, and prints the server's address and the passcode once. To update later run the copy in the code,
+# bash /opt/nifty-orders/server/setup.sh (the first day's ~/setup.sh is an old copy of these steps); the
 # settings are kept (delete /etc/nifty-orders.env first to change them).
 set -euo pipefail
 
@@ -91,3 +92,4 @@ if [ "${NEW:-}" = 1 ]; then
   echo "  $(sudo grep ^ORDERS_PASSCODE= "$ENV" | cut -d= -f2-)"
 fi
 echo "Logs: sudo journalctl -u nifty-orders -f"
+echo "To update later: bash $APP/server/setup.sh"
