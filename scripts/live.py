@@ -310,6 +310,21 @@ def _daylike(data_dir, today, now):
         return None
 
 
+def star_alert(nx, spot, now):
+    """11 Nov 2026 (the owner trades the * leans with real money): a phone alert the moment a * lean is made, since
+    it is about a 10-minute window. The side, the at-the-money strike near NIFTY now, and when it was made. The
+    lean is information: * leans lost Rs53-72 a lot a trade in the 2017-2026 tests (star_hold_study.py)."""
+    if not nx or not nx.get("confident"):
+        return None
+    side = "CALL" if nx["lean"] == "up" else "PUT"
+    strike = f"{int(round(spot / 50) * 50):,}" if spot else "the at-the-money"
+    size = f", expected size \u00b1{nx['size']} pts" if nx.get("size") is not None else ""
+    return {"kind": "star", "side": side,
+            "body": f"{nx['at']}-{(datetime.strptime(nx['at'], '%H:%M') + timedelta(minutes=10)).strftime('%H:%M')}: leans "
+                    f"{nx['lean'].upper()} ({nx['pts']:+} pts{size}). At-the-money {strike} {side}. Made {now.strftime('%H:%M:%S')}; "
+                    f"skip it if more than 3 minutes have passed. Tested: \u2605 leans lost about Rs53-72 a lot a trade."}
+
+
 def _next(data_dir, today, now):
     """The model's lean for the next 10-minute candle (nextcandle.py), information only, or None."""
     if (today or {}).get("status") != "open":
@@ -419,6 +434,14 @@ def main(data_dir, store_dir, mode, now=None, get_bars=bars5):
 
     if mode == "run":                                       # the next-candle page (next.html), separate from Live
         nx = _next(data_dir, today, now)
+        if nx and not any(x["at"] == nx["at"] for x in st.get("leans", [])):      # a new lean: alert once if it is a *
+            try:                                                                  # never let an alert stop the run
+                c = st.get("candles") or []
+                alert = star_alert(nx, c[-1]["close"] if c else None, now)
+                if alert:
+                    print(f"live: star lean alert {status.notify(alert)}", flush=True)
+            except Exception as e:
+                print(f"live: star lean alert failed: {e!r}", flush=True)
         if nx:
             st["leans"] = [x for x in st.get("leans", []) if x["at"] != nx["at"]] + [
                 {"made": now.strftime("%H:%M"), **{k: nx[k] for k in ("at", "lean", "pts", "confident")},

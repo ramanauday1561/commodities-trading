@@ -228,11 +228,12 @@ TITLES = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": "NIFTY: ST
           "summary": "NIFTY: today's summary", "warning": "NIFTY: NO SIGNAL TODAY",
           "stop": "NIFTY: STOP HIT, SELL the {side} now", "move": "NIFTY: big move (info, not a trade signal)",
           "weekly": "Markets: the week (info, not a trade signal)", "kite": "Log in to Kite for today's prices",
-          "position": "Your position", "position_stop": "Your position: ACTION"}
+          "position": "Your position", "position_stop": "Your position: ACTION",
+          "star": "NIFTY \u2605 lean: {side} (information)"}
 ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514",
          "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8", "stop": "\U0001F6A8",
          "move": "\u26A1", "weekly": "\U0001F5D3\uFE0F", "kite": "\U0001F511",
-         "position": "\U0001F4BC", "position_stop": "\U0001F6A8"}
+         "position": "\U0001F4BC", "position_stop": "\U0001F6A8", "star": "\u2B50"}
 
 
 def _title(status):
@@ -250,7 +251,7 @@ def send_ntfy(status, topic, silent=False):
     req = urllib.request.Request(f"https://ntfy.sh/{topic}", data=_body(status).encode(),
                                  headers={**link, "Title": _title(status),
                                           "Priority": "low" if silent else
-                                          "urgent" if kind in ("call", "put", "sell", "stop", "test", "warning", "position_stop") else "default",
+                                          "urgent" if kind in ("call", "put", "sell", "stop", "test", "warning", "position_stop", "star") else "default",
                                           "Tags": {"call": "green_circle", "put": "red_circle", "sell": "warning", "stop": "rotating_light",
                                                    "hold": "hourglass", "test": "bell"}.get(kind, "white_circle")})
     urllib.request.urlopen(req, timeout=15).read()
