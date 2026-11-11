@@ -211,4 +211,7 @@ From 5 Nov (this part of the session):
   lean: side, at-the-money strike, the time made (`live.star_alert`); the ★ rule itself was checked against the tested
   one (top 20% of training confidence, model trained to 9 Nov) and not changed. 11 Nov ~10:15: the first three ★ leans came and
   nothing was bought (the server only ran phone picks); the owner asked "make it place orders automatically, don't
-  wait for me": automatic ★ picks behind `AUTO_STAR=1` (`server/orders_server.py` `Auto`), `CLAUDE.md` rule updated.
+  wait for me": automatic ★ picks behind `AUTO_STAR=1` (`server/orders_server.py` `Auto`), `CLAUDE.md` rule updated. The
+  first version polled GitHub's API every 20 s; without a login GitHub allows 60 requests an hour (304s included), so
+  from about 12:20 every check was refused and the 12:35 and 12:45 ★ were missed. Now every 75 s (48 an hour) and it
+  waits for the reset when refused. raw.githubusercontent.com was not an option: it caches for 5 minutes.

@@ -353,6 +353,28 @@ class AutoStar(unittest.TestCase):
             a.tick()
         self.assertEqual(len(self.e.state["trades"]), 1)                        # never twice
 
+    def test_rate_limit_waits_for_the_reset(self):
+        import email.message
+        a = osv.Auto(self.e, clock=self.c.clock)
+        h = email.message.Message()
+        h["X-RateLimit-Reset"] = str(self.c.t + 900)
+        calls = []
+        def refused(req, timeout):
+            calls.append(1)
+            raise urllib.error.HTTPError(osv.LEANS_URL, 403, "rate limit exceeded", h, None)
+        orig, osv.urllib.request.urlopen = osv.urllib.request.urlopen, refused
+        try:
+            a.tick()
+            self.c.t += osv.AUTO_EVERY * 3                                       # still before the reset: no request
+            a.tick()
+            self.assertEqual(len(calls), 1)
+            self.c.t += 900
+            a.tick()
+            self.assertEqual(len(calls), 2)
+        finally:
+            osv.urllib.request.urlopen = orig
+        self.assertLessEqual(3600 / osv.AUTO_EVERY, 50)                          # under GitHub's 60 an hour
+
     def test_a_refused_star_is_not_retried(self):
         self.e.state["locked"] = "stop everything from the phone"
         a = osv.Auto(self.e, fetch=lambda: self.doc, clock=self.c.clock)
