@@ -207,4 +207,6 @@ From 5 Nov (this part of the session):
   from the Kite API": Kite's charges API on the Orders page and in the P&L / loss limit, and the Money page. Then:
   Money in the tab bar (a ₹ icon, `ui/src/glass-ui.jsx` rebuilt into `docs/vendor/glass-ui.js?v=3`), Live moved to the
   ⋯ menu; Orders' "Be out by" time box overflowed on the iPhone and pushed the page sideways (fixed with
-  `appearance:none` on the time input).
+  `appearance:none` on the time input). 11 Nov morning: a phone alert (ntfy / Telegram, urgent) for each new ★
+  lean: side, at-the-money strike, the time made (`live.star_alert`); the ★ rule itself was checked against the tested
+  one (top 20% of training confidence, model trained to 9 Nov) and not changed.
