@@ -14,7 +14,7 @@ APP=/opt/nifty-orders
 ENV=/etc/nifty-orders.env
 
 sudo apt-get update -qq
-sudo apt-get install -y -qq python3 python3-cryptography python3-venv libgomp1 git caddy >/dev/null
+sudo apt-get install -y -qq python3 python3-cryptography python3-venv libgomp1 git caddy jq >/dev/null
 
 if [ -d "$APP/.git" ]; then sudo git -C "$APP" pull -q --ff-only; else sudo git clone -q --depth 1 "$REPO" "$APP"; fi
 id orders >/dev/null 2>&1 || sudo useradd --system --home /var/lib/nifty-orders --create-home --shell /usr/sbin/nologin orders
@@ -37,15 +37,36 @@ if ! sudo test -f "$ENV"; then
   NEW=1
 fi
 
+# 11 Nov 2026: the 10-minute market updates can run here instead of on GitHub (server/market_run.sh). Their keys go in
+# a second file, asked once: a GitHub token (fine-grained, this repository only, Contents: Read and write) to save the
+# data, and the phone-alert and AI keys GitHub's jobs use. Typed, not shown, readable only by root.
+MENV=/etc/nifty-market.env
+if ! sudo test -f "$MENV"; then
+  read -rp "Run the 10-minute market updates on this server too? [y/N]: " YN
+  if [ "${YN,,}" = "y" ]; then
+    read -rsp "GitHub token (Contents: Read and write on commodities-trading): " GHT; echo
+    read -rsp "Telegram bot token (Enter to skip): " TGT; echo
+    read -rsp "Telegram chat id (Enter to skip): " TGC; echo
+    read -rsp "xAI API key for the AI notes (Enter to skip): " XAI; echo
+    read -rsp "FRED API key (Enter to skip): " FRED; echo
+    read -rsp "ntfy topic (Enter to skip): " NTFY; echo
+    sudo install -m 600 -o root -g root /dev/null "$MENV"
+    printf 'GH_TOKEN=%s\nTELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=%s\nXAI_API_KEY=%s\nFRED_API_KEY=%s\nNTFY_TOPIC=%s\n' \
+      "$GHT" "$TGT" "$TGC" "$XAI" "$FRED" "$NTFY" | sudo tee "$MENV" >/dev/null
+    unset GHT TGT TGC XAI FRED NTFY
+  fi
+fi
+
 # 11 Nov 2026: the server also makes the Next 10 lean itself (LocalLeans), which needs numpy, pandas and lightgbm;
 # they go in a private Python environment. If that fails the server still runs, on GitHub's leans only.
 PY=/usr/bin/python3
 if sudo python3 -m venv --system-site-packages "$APP/venv" >/dev/null 2>&1 && \
-   sudo "$APP/venv/bin/pip" install -q --upgrade numpy pandas lightgbm >/dev/null 2>&1; then
+   sudo "$APP/venv/bin/pip" install -q --upgrade numpy pandas lightgbm yfinance exchange_calendars requests >/dev/null 2>&1; then
   PY="$APP/venv/bin/python"
 else
   echo "note: numpy / pandas / lightgbm not installed; the server will use GitHub's leans only"
 fi
+sudo install -d -m 755 -o orders -g orders /var/lib/nifty-public        # the page files Caddy serves at /data/
 
 sudo tee /etc/systemd/system/nifty-orders.service >/dev/null <<EOF
 [Unit]
@@ -56,6 +77,7 @@ Wants=network-online.target
 [Service]
 User=orders
 EnvironmentFile=$ENV
+EnvironmentFile=-$MENV
 Environment=ORDERS_DATA=/var/lib/nifty-orders
 ExecStart=$PY $APP/server/orders_server.py
 Restart=always
@@ -70,9 +92,51 @@ PrivateTmp=true
 WantedBy=multi-user.target
 EOF
 
+sudo tee /etc/systemd/system/nifty-market.service >/dev/null <<EOF
+[Unit]
+Description=NIFTY 10-minute market update (server/market_run.sh)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=orders
+EnvironmentFile=$ENV
+EnvironmentFile=-$MENV
+Environment=ORDERS_DATA=/var/lib/nifty-orders APP=$APP
+ExecStart=/bin/bash $APP/server/market_run.sh
+TimeoutStartSec=540
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/nifty-orders /var/lib/nifty-public
+ProtectHome=true
+PrivateTmp=true
+EOF
+
+sudo tee /etc/systemd/system/nifty-market.timer >/dev/null <<EOF
+[Unit]
+Description=NIFTY market updates: 08:57 and every 10 minutes 09:05-15:55 IST on weekdays (the script skips the rest)
+
+[Timer]
+OnCalendar=Mon..Fri 08:57:10
+OnCalendar=Mon..Fri 09..15:05/10:10
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
+EOF
+
 sudo tee /etc/caddy/Caddyfile >/dev/null <<EOF
 $HOST {
-  reverse_proxy 127.0.0.1:8787
+  handle_path /data/* {
+    root * /var/lib/nifty-public
+    header Access-Control-Allow-Origin "*"
+    header Cache-Control "no-store"
+    file_server
+  }
+  handle {
+    reverse_proxy 127.0.0.1:8787
+  }
 }
 EOF
 
@@ -83,6 +147,13 @@ sudo timedatectl set-timezone Asia/Kolkata
 sudo systemctl daemon-reload
 sudo systemctl enable -q --now nifty-orders
 sudo systemctl restart nifty-orders caddy
+if sudo grep -q '^GH_TOKEN=.\+' "$MENV" 2>/dev/null; then
+  sudo systemctl enable -q --now nifty-market.timer
+  echo "Market updates run here: next $(systemctl show nifty-market.timer -p NextElapseUSecRealtime --value)"
+else
+  sudo systemctl disable -q --now nifty-market.timer 2>/dev/null || true
+  echo "Market updates stay on GitHub (no GitHub token in $MENV)."
+fi
 
 echo
 echo "Done. Server address for the Orders page:  https://$HOST"
@@ -91,5 +162,5 @@ if [ "${NEW:-}" = 1 ]; then
   echo "Passcode for the Orders page (shown once; it is also in $ENV, readable only by root):"
   echo "  $(sudo grep ^ORDERS_PASSCODE= "$ENV" | cut -d= -f2-)"
 fi
-echo "Logs: sudo journalctl -u nifty-orders -f"
+echo "Logs: sudo journalctl -u nifty-orders -f   (market updates: sudo journalctl -u nifty-market -n 40)"
 echo "To update later: bash $APP/server/setup.sh"

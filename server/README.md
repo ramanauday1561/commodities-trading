@@ -129,6 +129,37 @@ sed -i 's/^AUTO_STAR=.*/AUTO_STAR=0/' /etc/nifty-orders.env && systemctl restart
 ON" and marks each automatic pick. The ★ leans lost ₹53-72 a lot a trade in every backtest; this trades them anyway,
 at the owner's request.
 
+## The market updates on this server (11 Nov 2026)
+
+GitHub's own timer starts late and its runs sometimes wait for a machine, so the 10-minute updates can run here:
+
+- **What runs:** `server/market_run.sh`, the same steps as GitHub's "Intraday nowcast" job (prices, the call, the
+  Status page and phone alerts, the live chart and leans, option prices, paper accounts), started by the
+  `nifty-market` timer 10 seconds after each 10-minute candle (08:57, then 09:25 ... 15:25) on NSE trading days.
+- **Same data:** it saves to the same branches (`site-data`, `scoreboard`, `options-live`), plus `runner.json`
+  (`{"by": "vps", "at": ...}`). While that is under 15 minutes old, GitHub's keeper and fallback timer leave the runs
+  to this server; if it goes quiet, GitHub takes over by itself.
+- **Faster pages:** the page files are also served at `https://<this server>/data/`. The pages read them from here
+  while the heartbeat is fresh (a few seconds after each run instead of 1-2 minutes), else from GitHub.
+- **Morning Kite login:** the Kite page sends the login to this server first (seconds instead of ~30). It is saved
+  here and copied to GitHub's `kite-session` branch for GitHub's jobs; if this server cannot be reached, the Kite
+  page uses GitHub's login job as before.
+- **Stays on GitHub:** the website itself, the 15:50 post-close forecast and nightly training, the backtests, the
+  position alerts and stop watcher (the keeper).
+
+**Turning it on.** `bash /opt/nifty-orders/server/setup.sh` asks once "Run the 10-minute market updates on this
+server too?". Answer `y`, then paste (nothing shows while you type):
+1. **A GitHub token** to save the data: github.com → Settings → Developer settings → Personal access tokens →
+   **Fine-grained tokens** → Generate. Repository access: **Only select repositories → commodities-trading**.
+   Permissions: **Contents: Read and write** (nothing else). Expiry: a year.
+2. The **Telegram bot token** and **chat id** (the same as in GitHub's secrets), so the phone alerts come from here.
+3. The **xAI key** (AI notes), **FRED key** and **ntfy topic**: optional, Enter skips each.
+
+They go in `/etc/nifty-market.env`, readable only by root. To change them later: `sudo rm /etc/nifty-market.env`, then
+run setup.sh again. To stop the updates here: `sudo systemctl disable --now nifty-market.timer` (GitHub takes over
+within 15 minutes). Each run's log, during market hours: `journalctl -u nifty-market -n 40` (it ends with
+`market run done HH:MM:SS`).
+
 ## Every day
 
 1. Log in to Kite on the **Kite login** page before trading, as now. The server picks up the day's token within a

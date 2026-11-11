@@ -229,4 +229,9 @@ From 5 Nov (this part of the session):
   4-11 Nov: 43 trades, 49% won, +₹15,272 (+₹355 a trade), almost all on the trend days 6 and 11 Nov; the 9-year test
   is still negative. 11 Nov 17:40: rerunning the first day's ~/setup.sh never installed lightgbm (an old copy of
   the steps); `bash /opt/nifty-orders/server/setup.sh` did ("leans made here too"). The `dev` branch had been deleted
-  on GitHub after the release merge; recreated from `main` (nothing lost).
+  on GitHub after the release merge; recreated from `main` (nothing lost). Evening: the VPS takes over the 10-minute updates
+  (`market_run.sh` + `nifty-market` timer; heartbeat `runner.json`; GitHub falls back when it is over 15 minutes old),
+  serves the page data at `/data/` (pages prefer it while fresh), and does the morning Kite login (`/api/kite-login`,
+  copied to the kite-session branch). Tested here: the market script end to end against a local copy of the data
+  branches (pulls, pushes, heartbeat, 33 files served; the price steps need Kite, not reachable from the sandbox), the
+  page data choice (fresh: VPS; stale or down: GitHub), the login endpoint and the keeper's heartbeat rule.

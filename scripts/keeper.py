@@ -41,7 +41,26 @@ def at(now, hm):
     return now.replace(hour=h, minute=m, second=0, microsecond=0)
 
 
+VPS_FRESH, VPS_FRESH_MORNING = timedelta(minutes=15), timedelta(hours=20)
+
+
+def vps_active(runner, now):
+    """11 Nov 2026: the order server (VPS) runs the 10-minute updates itself and writes runner.json to site-data each
+    run. While it is fresh this keeper leaves those runs to it (two runs at once would write over each other); if it
+    goes quiet for 15 minutes the keeper takes over again. Before 09:00 last session's runs count (no run since
+    15:25 yesterday), so the 08:57 call is not made twice."""
+    try:
+        at_ = datetime.fromisoformat((runner or {})["at"])
+    except (KeyError, TypeError, ValueError):
+        return False
+    limit = VPS_FRESH_MORNING if now.strftime("%H:%M") < "09:00" else VPS_FRESH
+    return (runner or {}).get("by") == "vps" and timedelta(0) <= now - at_ <= limit
+
+
 def dispatch(label, workflow="intraday.yml"):
+    if workflow == "intraday.yml" and vps_active(site_json("runner.json"), datetime.now(IST)):
+        print(f"{datetime.now(IST):%H:%M:%S} IST  {label}: the VPS runs the updates; not started here", flush=True)
+        return
     r = subprocess.run(["gh", "workflow", "run", workflow, "--ref", "main"], capture_output=True, text=True)
     print(f"{datetime.now(IST):%H:%M:%S} IST  {label}: {'started' if r.returncode == 0 else 'FAILED ' + r.stderr.strip()}",
           flush=True)
@@ -53,9 +72,13 @@ def signal_ok(status, today):
 
 
 def live_status():
+    return site_json("status.json")
+
+
+def site_json(name):
     repo = os.environ.get("GITHUB_REPOSITORY", "")
     r = subprocess.run(["gh", "api", "-H", "Accept: application/vnd.github.raw",
-                        f"repos/{repo}/contents/status.json?ref=site-data"], capture_output=True, text=True)
+                        f"repos/{repo}/contents/{name}?ref=site-data"], capture_output=True, text=True)
     try:
         return json.loads(r.stdout) if r.returncode == 0 else None
     except ValueError:

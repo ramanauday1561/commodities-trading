@@ -66,5 +66,18 @@ class StopWatcherTest(unittest.TestCase):
             self.assertEqual(d.call_count, 0)
 
 
+class VpsActive(unittest.TestCase):
+    def test_fresh_heartbeat_leaves_the_runs_to_the_vps(self):
+        from datetime import datetime
+        t = lambda hm: datetime.fromisoformat(f"2026-11-12T{hm}:00+05:30")
+        beat = {"by": "vps", "at": "2026-11-12T10:05:20+05:30"}
+        self.assertTrue(keeper.vps_active(beat, t("10:15")))
+        self.assertFalse(keeper.vps_active(beat, t("10:25")))                   # quiet for 20 minutes: take over
+        self.assertTrue(keeper.vps_active({"by": "vps", "at": "2026-11-11T15:25:15+05:30"}, t("08:57")))   # the morning
+        self.assertFalse(keeper.vps_active({"by": "vps", "at": "2026-11-11T15:25:15+05:30"}, t("09:25")))
+        self.assertFalse(keeper.vps_active({"by": "github", "at": "2026-11-12T10:05:20+05:30"}, t("10:15")))
+        self.assertFalse(keeper.vps_active(None, t("10:15")))
+
+
 if __name__ == "__main__":
     unittest.main()

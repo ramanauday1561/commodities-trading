@@ -24,8 +24,9 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   else the app suggests (plain leans, the 09:15 signal, the straddle) becomes an order. ★ leans failed every backtest
   (-₹53 to -₹72 a lot a trade). Keep the server's limits (lots a pick, open picks, loss a day), the passcode and LIMIT
   orders only.
-- **Secrets live only in GitHub secrets** (and, for the order server, in `/etc/nifty-orders.env` on the VPS, entered
-  by the owner in `setup.sh`) (`KITE_API_KEY`, `KITE_API_SECRET`, `FRED_API_KEY`, `XAI_API_KEY`,
+- **Secrets live only in GitHub secrets** (and, for the order server, in `/etc/nifty-orders.env` on the VPS; since
+  11 Nov 2026 with the owner's OK also the market-update keys in `/etc/nifty-market.env`: a fine-grained GitHub token
+  with Contents read/write on this repo, Telegram, xAI, FRED, ntfy; all entered by the owner in `setup.sh`) (`KITE_API_KEY`, `KITE_API_SECRET`, `FRED_API_KEY`, `XAI_API_KEY`,
   `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `NTFY_TOPIC`; Kaggle keys, if ever, only as `KAGGLE_USERNAME` / `KAGGLE_KEY`).
   Never ask for them in chat, never print or commit them. Request tokens and access tokens are masked in logs.
 - **Positions are never printed in logs or stored** anywhere; they go to the phone only (`positions.py`, `keeper.py`).
@@ -64,6 +65,11 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
 - The **Hostinger** connector (claude.ai, remote MCP `https://mcp.hostinger.com`, owner's sign-in) can read and
   change the VPS (id 2147705, KVM 1, Mumbai, IP 189.72.149.115). Read freely; restart, rebuild, firewall or OS
   changes only when the owner asks. It never sees the Kite keys or the Orders passcode.
+- **The VPS runs the 10-minute updates** (11 Nov 2026, `server/market_run.sh` on the `nifty-market` timer) and writes
+  `runner.json` to site-data; `keeper.py` (`vps_active`) and `intraday.yml`'s fallback skip their runs while it is
+  under 15 minutes old, and take over when it stops. The pages read data from the VPS (`/data/`) while it is fresh
+  (`fresh.js`), else GitHub. The Kite page logs in on the VPS first (`/api/kite-login`), else GitHub's job.
+  GitHub keeps the website, the 15:50 run and training, studies, the keeper's position alerts and stop watcher.
 - The claude branch is reused: after each PR is merged, restart it from `dev` before the next change.
 
 ## Design rule: 60-30-10 colours (owner, 11 Nov 2026)

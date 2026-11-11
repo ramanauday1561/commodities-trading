@@ -49,6 +49,12 @@ jobs:
             recent=$(gh api "repos/${{ github.repository }}/actions/workflows/intraday.yml/runs?per_page=10" \
               --jq "[.workflow_runs[] | select(.id != ${{ github.run_id }} and .created_at >= \"$since\" and (.conclusion == \"success\" or .status != \"completed\"))] | length" || echo 0)
             if [ "$recent" != "0" ]; then go=false; echo "a run happened in the last 25 minutes; skipping"; fi
+            # 11 Nov 2026: the order server (VPS) runs these updates itself and leaves runner.json on site-data
+            runner=$(gh api -H "Accept: application/vnd.github.raw" "repos/${{ github.repository }}/contents/runner.json?ref=site-data" 2>/dev/null || echo '{}')
+            by=$(echo "$runner" | jq -r '.by // ""'); at=$(echo "$runner" | jq -r '.at // ""')
+            if [ "$by" = "vps" ] && [ -n "$at" ] && [ $(( $(date +%s) - $(date -d "$at" +%s) )) -lt 900 ]; then
+              go=false; echo "the VPS ran the update at $at; skipping"
+            fi
           fi
           echo "go=$go" >> "$GITHUB_OUTPUT"
       - if: steps.gate.outputs.go == 'true'

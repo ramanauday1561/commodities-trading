@@ -5,6 +5,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -497,6 +498,30 @@ class Local(unittest.TestCase):
         self.c.dt = self.c.dt.replace(minute=5, second=20)
         self.assertIsNone(loc.check())
         self.assertEqual(self.seen, [])
+
+
+class KiteLogin(unittest.TestCase):
+    """The morning Kite login on the VPS: traded with Kite, saved for both servers, copied to GitHub."""
+
+    def test_login_saved_and_copied(self):
+        store, seen = tempfile.mkdtemp(), []
+        def fake_login(rt, d, key, secret):
+            seen.append((rt, key, secret))
+            json.dump({"until": "2026-11-12T06:00+05:30", "token": "enc"}, open(os.path.join(d, osv.kite.SESSION), "w"))
+        with mock.patch.object(osv.kite, "login", fake_login):
+            out = osv.kite_login("AbC123xyz789", store, "k", "s", push=lambda: True)
+        self.assertEqual(out, {"until": "2026-11-12T06:00+05:30", "pushed": True})
+        self.assertEqual(seen, [("AbC123xyz789", "k", "s")])
+
+    def test_junk_and_kite_refusals(self):
+        with mock.patch.object(osv.kite, "login", side_effect=AssertionError("must not be called")):
+            for bad in (None, "", "short", "has spaces in it", "x" * 80):
+                with self.assertRaisesRegex(ValueError, "not a Kite request token"):
+                    osv.kite_login(bad, tempfile.mkdtemp(), "k", "s", push=lambda: True)
+        with mock.patch.object(osv.kite, "login", side_effect=RuntimeError("TokenException: secret-ish text")):
+            with self.assertRaises(ValueError) as e:
+                osv.kite_login("AbC123xyz789", tempfile.mkdtemp(), "k", "s", push=lambda: True)
+        self.assertNotIn("AbC123xyz789", str(e.exception))                       # the token is never echoed
 
 
 if __name__ == "__main__":

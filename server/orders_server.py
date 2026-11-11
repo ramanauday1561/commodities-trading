@@ -26,6 +26,7 @@ secret, which this server also holds).
 Usage: python3 server/orders_server.py            (systemd runs it; settings from the environment, see setup.sh)
 """
 import hmac
+import subprocess
 import json
 import os
 import sys
@@ -47,7 +48,8 @@ API = "https://api.kite.trade"
 TICK, TAG = 0.05, "niftyapp"
 OPEN_T, LAST_ENTRY_T, LAST_EXIT_T = "09:15", "15:00", "15:15"
 ENTRY_TRIES, ENTRY_WAIT, EXIT_WAIT, SL_WAIT = 3, 15, 5, 10       # re-prices; seconds between them
-SESSION_URL = "https://raw.githubusercontent.com/ramanauday1561/commodities-trading/kite-session/session.json"
+REPO = "ramanauday1561/commodities-trading"
+SESSION_URL = f"https://raw.githubusercontent.com/{REPO}/kite-session/session.json"
 LEANS_URL = "https://api.github.com/repos/ramanauday1561/commodities-trading/contents/next-nifty.json?ref=site-data"
 # 11 Nov 2026: GitHub allows 60 API requests an hour per address without a login, 304 answers included, so polling
 # every 20 seconds was refused from 12:2x on and the 12:35 and 12:45 stars were missed; every 75 s is 48 an hour
@@ -744,6 +746,33 @@ class LocalLeans:
         return {"date": today, "leans": [{**{x: out[x] for x in ("at", "lean", "confident") if x in out}, "made": now.strftime("%H:%M")}]}
 
 
+def kite_login(request_token, store, key, secret, push=None):
+    """The morning Kite login on this box (11 Nov 2026): the Kite page sends the one-time request_token here instead
+    of to GitHub's "Kite login" job. Traded for the day's access token (kite.login: saved encrypted with the API
+    secret, which only this box and GitHub hold), then copied to the kite-session branch so GitHub's jobs keep working
+    as the fallback (needs GH_TOKEN in /etc/nifty-market.env). Returns {"until", "pushed"}."""
+    if not (isinstance(request_token, str) and 8 <= len(request_token) <= 64 and request_token.isalnum()):
+        raise ValueError("that is not a Kite request token")
+    try:
+        kite.login(request_token, store, key, secret)
+    except Exception as e:                                  # Kite's answer, never the token
+        raise ValueError(f"Kite did not accept the login ({type(e).__name__}); try again from the Kite page") from None
+    with open(os.path.join(store, kite.SESSION)) as f:
+        until = json.load(f)["until"]
+    pushed = False
+    if push is None and os.environ.get("GH_TOKEN"):
+        app = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+        push = lambda: subprocess.run(["bash", os.path.join(app, "scripts", "store.sh"), "push", "kite-session", store, "--squash"],
+                                      capture_output=True, timeout=60, env={**os.environ, "GITHUB_REPOSITORY": REPO}).returncode == 0
+    if push:
+        try:
+            pushed = bool(push())
+        except Exception:
+            pushed = False
+    print(f"kite login: done here, until {until}; copied to GitHub: {'yes' if pushed else 'no'}", flush=True)
+    return {"until": until, "pushed": pushed}
+
+
 class Session:
     """The day's access token from the morning Kite login (the kite-session branch), checked every minute until found."""
 
@@ -788,7 +817,7 @@ class Guard:
         return False
 
 
-def handler(engine, guard, origin, history_path=None):
+def handler(engine, guard, origin, history_path=None, login=None):
     class H(BaseHTTPRequestHandler):
         def log_message(self, fmt, *args):                          # no request lines (they would show what was asked)
             pass
@@ -845,6 +874,8 @@ def handler(engine, guard, origin, history_path=None):
                 if p.startswith("/api/picks/") and p.endswith("/exit"):
                     engine.exit(p.split("/")[3])
                     return self._send(200, {"ok": True})
+                if p == "/api/kite-login" and login:
+                    return self._send(200, login(req.get("request_token")))
                 if p == "/api/stop":
                     engine.stop_all()
                     return self._send(200, {"ok": True})
@@ -881,7 +912,8 @@ def main():
         auto = Auto(engine, local=local)
     srv = ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("ORDERS_PORT", "8787"))),
                               handler(engine, Guard(code), os.environ.get("ALLOW_ORIGIN", "https://ramanauday1561.github.io"),
-                                      os.path.join(data, "money.json")))
+                                      os.path.join(data, "money.json"),
+                                      login=lambda rt: kite_login(rt, os.path.join(data, "kite"), key, secret)))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     print(f"orders server up; limits {engine.limits}; automatic star picks "
           f"{ {'on': 'ON', 'practice': 'PRACTICE (no orders)'}.get(engine.auto_mode, 'off') }"
