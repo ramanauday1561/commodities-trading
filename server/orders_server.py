@@ -80,9 +80,10 @@ class Kite:
 
     def _call(self, method, path, data=None, raw=False, as_json=False):
         h = {"X-Kite-Version": "3", "User-Agent": "nifty-orders", "Authorization": f"token {self.key}:{self.token}"}
-        body = urllib.parse.urlencode(data).encode() if data is not None else None
-        if as_json:
+        if as_json:                                                   # a list of orders: urlencode cannot take it
             body, h["Content-Type"] = json.dumps(data).encode(), "application/json"
+        else:
+            body = urllib.parse.urlencode(data).encode() if data is not None else None
         try:
             with urllib.request.urlopen(urllib.request.Request(API + path, data=body, headers=h, method=method), timeout=15) as f:
                 return f.read().decode() if raw else json.load(f)["data"]
