@@ -50,7 +50,7 @@ OS **Plain OS → Ubuntu** (24.04 or newer).
 
 ### 2. Install
 
-In hPanel, open the VPS and tap **Browser terminal** (you are logged in as root), then run:
+In hPanel, open the VPS and tap **Web console** (you are logged in as root), then run:
 
 ```
 curl -fsSL https://raw.githubusercontent.com/ramanauday1561/commodities-trading/main/server/setup.sh -o setup.sh
@@ -92,7 +92,7 @@ Keep the passcode private. It is like a password for placing orders.
 - **Money** (⋯ menu → Money): only the account's money, from Kite: today's result after charges, how it adds up
   (started with, trades, charges, now, free to trade), and every trading day since. It uses the Orders page's address
   and passcode. The server keeps one line of totals a day in `money.json` (never positions).
-- **To get these on the server**, run `bash setup.sh` again in the Web console after the release is in `main`: it
+- **To get these on the server**, run `bash /opt/nifty-orders/server/setup.sh` in the Web console after the release is in `main`: it
   pulls the new code and keeps your settings.
 
 ## Automatic ★ picks (11 Nov 2026, asked by the owner)
@@ -105,7 +105,7 @@ With the switch on, the server buys every new ★ lean by itself, without the ph
 - each lean is tried **once** (also when Kite or a limit refuses it), and every pick goes through the same checks as a
   phone pick: the lots, open-pick and daily-loss limits, the Kite login, 09:15-15:00.
 
-Turn it **on** (Web console, after `bash setup.sh` has the new code):
+Turn it **on** (Web console, after `bash /opt/nifty-orders/server/setup.sh` has the new code):
 ```
 echo AUTO_STAR=1 >> /etc/nifty-orders.env && systemctl restart nifty-orders
 ```
@@ -141,7 +141,9 @@ at the owner's request.
 - **Where the picks are kept.** Picks, orders and P&L stay on the server's disk and your phone. They never go to this
   repository, and the server's log does not print them.
   - Logs: `sudo journalctl -u nifty-orders -f`
-- **Updating.** To update the code, run `bash setup.sh` again; your settings are kept. To change the limits, edit
+- **Updating.** To update, run `bash /opt/nifty-orders/server/setup.sh` (not the `setup.sh` downloaded on the first day:
+  that old copy updates the code but runs its own old steps; on 11 Nov 2026 it skipped installing lightgbm). Your
+  settings are kept. To change the limits, edit
   `/etc/nifty-orders.env` with `sudo nano`, then run `sudo systemctl restart nifty-orders`.
 - **If the server goes down.** The stop-loss is already at the exchange. A target or an exit time is not, so check
   Kite if the server is unreachable.
