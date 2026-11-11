@@ -34,8 +34,29 @@
     return pending;
   }
 
-  // fetch(name) -> Response (or null): the file from site-data's newest commit, else the branch, else the site copy
+  // 11 Nov 2026: the order server (VPS) runs the 10-minute updates and serves the same files seconds after each run.
+  // Used while its heartbeat (runner.json) is under 15 minutes old; otherwise GitHub as before. Checked every 15 s.
+  const VPS = 'https://189-72-149-115.sslip.io/data/';
+  let vps = false, vpsAt = 0, vpsPending = null;
+  async function get(u, ms) {
+    const c = new AbortController(), t = setTimeout(() => c.abort(), ms);
+    try { return await fetch(u, { cache: 'no-store', signal: c.signal }); } finally { clearTimeout(t); }
+  }
+  function vpsLive() {
+    if (vpsPending) return vpsPending;
+    if (Date.now() - vpsAt < 15000) return Promise.resolve(vps);
+    vpsPending = get(VPS + 'runner.json', 2500).then(r => r.ok ? r.json() : null).then(j => {
+      vps = !!j && j.by === 'vps' && Date.now() - Date.parse(j.at) < 15 * 60000;
+    }).catch(() => { vps = false; }).finally(() => { vpsPending = null; vpsAt = Date.now(); }).then(() => vps);
+    return vpsPending;
+  }
+
+  // fetch(name) -> Response (or null): the VPS while it runs the updates, else the file from site-data's newest
+  // commit, else the branch, else the site copy
   async function siteFile(name, { site = true } = {}) {
+    if (await vpsLive()) {
+      try { const r = await get(VPS + name, 4000); if (r.ok) return r; } catch (e) { /* GitHub below */ }
+    }
     const s = await latest();
     const urls = [...(s ? [RAW + s + '/' + name] : []), RAW + 'site-data/' + name, ...(site ? ['data/' + name + '?t=' + Date.now()] : [])];
     for (const u of urls) {

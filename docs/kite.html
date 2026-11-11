@@ -163,8 +163,31 @@ $('save').onclick = () => {
 // back from Kite: ?request_token=...&action=login&status=success
 async function finish(requestToken) {
   history.replaceState(null, '', location.pathname);         // the one-time token leaves the address bar at once
-  show('Logging in…', '', 'Starting the Kite login on GitHub (about 30 seconds).');
   $('go').disabled = true;
+  // 11 Nov 2026: first on the order server (seconds, not ~30 s on GitHub); it copies the login to GitHub too. If the
+  // server cannot be reached or has no login there yet, GitHub as before (the token is still unused then)
+  const srv = store.get('ordersUrl'), code = store.get('ordersCode');
+  if (srv && code) {
+    show('Logging in…', '', 'Logging in on your order server…');
+    try {
+      const r = await fetch(srv.replace(/\/+$/, '') + '/api/kite-login', { method: 'POST', cache: 'no-store',
+        headers: { Authorization: 'Bearer ' + code, 'Content-Type': 'application/json' }, body: JSON.stringify({ request_token: requestToken }) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok) {
+        const until = (j.until || '').slice(11, 16);
+        if (j.pushed) { await refresh(); show('Logged in', 'ok', `On your order server, until ${until} IST tomorrow; copied to GitHub too.`); }
+        else show('Logged in', 'ok', `On your order server, until ${until} IST tomorrow. Not copied to GitHub (no GitHub key on the server), so GitHub's own runs use Yahoo today.`);
+        $('go').disabled = false;
+        return;
+      }
+      if (r.status === 400) {                                   // Kite refused it: the link is used up, GitHub cannot help
+        show('Login failed', 'bad', (j.error || 'Kite did not accept the login.') + ' Log in again (Kite login links work once).');
+        $('go').disabled = false;
+        return;
+      }
+    } catch (e) { /* not reachable: GitHub below */ }
+  }
+  show('Logging in…', '', 'Starting the Kite login on GitHub (about 30 seconds).');
   const t0 = new Date(Date.now() - 60000).toISOString();
   try {
     const r = await ghApi('/actions/workflows/kite-login.yml/dispatches', { method: 'POST',
