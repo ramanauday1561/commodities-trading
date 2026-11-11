@@ -1,7 +1,7 @@
 """Phone alerts on your own Kite positions (4 Nov 2026, asked by the user). Read-only: nothing is ever ordered.
 
 The keeper (keeper.py) looks at your open NIFTY / BANKNIFTY option positions every 2 minutes during the session, once
-there is a Kite login that day, and sends an alert (status.py's Telegram / ntfy channels) when:
+there is a Kite login that day, and sends an alert (status.py's ntfy channel) when:
   - a position appears or changes size: what it is, your average price, the price now, and its alert levels;
   - the option's price crosses a level against your average price, once each a day:
       bought options: -20% (warning), -35% (stop), +30%, +60%;

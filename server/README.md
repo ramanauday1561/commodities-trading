@@ -152,8 +152,7 @@ server too?". Answer `y`, then paste (nothing shows while you type):
 1. **A GitHub token** to save the data: github.com → Settings → Developer settings → Personal access tokens →
    **Fine-grained tokens** → Generate. Repository access: **Only select repositories → commodities-trading**.
    Permissions: **Contents: Read and write** (nothing else). Expiry: a year.
-2. The **Telegram bot token** and **chat id** (the same as in GitHub's secrets), so the phone alerts come from here.
-3. The **xAI key** (AI notes), **FRED key** and **ntfy topic**: optional, Enter skips each.
+2. The **xAI key** (AI notes), **FRED key** and **ntfy topic**: optional, Enter skips each.
 
 They go in `/etc/nifty-market.env`, readable only by root. To change them later: `sudo rm /etc/nifty-market.env`, then
 run setup.sh again. To stop the updates here: `sudo systemctl disable --now nifty-market.timer` (GitHub takes over

@@ -45,15 +45,13 @@ if ! sudo test -f "$MENV"; then
   read -rp "Run the 10-minute market updates on this server too? [y/N]: " YN
   if [ "${YN,,}" = "y" ]; then
     read -rsp "GitHub token (Contents: Read and write on commodities-trading): " GHT; echo
-    read -rsp "Telegram bot token (Enter to skip): " TGT; echo
-    read -rsp "Telegram chat id (Enter to skip): " TGC; echo
     read -rsp "xAI API key for the AI notes (Enter to skip): " XAI; echo
     read -rsp "FRED API key (Enter to skip): " FRED; echo
     read -rsp "ntfy topic (Enter to skip): " NTFY; echo
     sudo install -m 600 -o root -g root /dev/null "$MENV"
-    printf 'GH_TOKEN=%s\nTELEGRAM_BOT_TOKEN=%s\nTELEGRAM_CHAT_ID=%s\nXAI_API_KEY=%s\nFRED_API_KEY=%s\nNTFY_TOPIC=%s\n' \
-      "$GHT" "$TGT" "$TGC" "$XAI" "$FRED" "$NTFY" | sudo tee "$MENV" >/dev/null
-    unset GHT TGT TGC XAI FRED NTFY
+    printf 'GH_TOKEN=%s\nXAI_API_KEY=%s\nFRED_API_KEY=%s\nNTFY_TOPIC=%s\n' \
+      "$GHT" "$XAI" "$FRED" "$NTFY" | sudo tee "$MENV" >/dev/null
+    unset GHT XAI FRED NTFY
   fi
 fi
 

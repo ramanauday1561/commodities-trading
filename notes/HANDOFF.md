@@ -235,3 +235,6 @@ From 5 Nov (this part of the session):
   copied to the kite-session branch). Tested here: the market script end to end against a local copy of the data
   branches (pulls, pushes, heartbeat, 33 files served; the price steps need Kite, not reachable from the sandbox), the
   page data choice (fresh: VPS; stale or down: GitHub), the login endpoint and the keeper's heartbeat rule.
+- 11 Nov 2026 (later): **Telegram removed** at the owner's request (they use the app, and never set the bot token or
+  chat id): `send_telegram` and the channel in `status.py`, the `TELEGRAM_*` keys in the workflows and the VPS setup
+  prompts. Phone alerts remain only through ntfy (`NTFY_TOPIC`, optional); without it the alerts are just not sent.

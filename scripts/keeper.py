@@ -5,7 +5,7 @@ The first update is the pre-open call, which only counts if it is made before 09
 keeper starts are skipped, except that the most recent one is run straight away so a late start still gives an update.
 
 At 09:08 it checks that the 08:57 call reached the Status page (status.json on site-data dated today, past "pending").
-If not, the phone gets a "no signal today" warning (status.py's Telegram / ntfy channels), so silence never hides a
+If not, the phone gets a "no signal today" warning (status.py's ntfy channel), so silence never hides a
 failure, and the nowcast is started once more.
 
 Your positions (positions.py, 4 Nov 2026): with that day's Kite login, every 2 minutes from 09:15 to 15:30 it looks

@@ -31,11 +31,8 @@ Usage: python scripts/status.py <data_dir> [store_dir]   (reads today-nifty.json
 status.json). With store_dir, every run is also appended to <store>/journal/<date>.json (scoreboard branch): what the
 page said, why, the pre-open calls and the price at that moment, and whether an alert went out, so each day can be
 checked and the rules improved from it.
-A change of state is sent to the phone through every channel whose GitHub secrets are set (never in the repo):
-  Telegram  TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (a bot made with @BotFather; after messaging the bot, the chat ID
-            is in https://api.telegram.org/bot<token>/getUpdates). Added 22 Oct 2026: ntfy messages reached the app
-            but iOS never showed them as notifications.
-  ntfy.sh   NTFY_TOPIC
+A change of state is sent to the phone through ntfy.sh when the NTFY_TOPIC secret is set (never in the repo). The
+Telegram channel was removed on 11 Nov 2026 at the owner's request: they use the app itself.
 """
 import json
 import os
@@ -230,10 +227,6 @@ TITLES = {"call": "NIFTY: BUY CALL", "put": "NIFTY: BUY PUT", "hold": "NIFTY: ST
           "weekly": "Markets: the week (info, not a trade signal)", "kite": "Log in to Kite for today's prices",
           "position": "Your position", "position_stop": "Your position: ACTION",
           "star": "NIFTY \u2605 lean: {side} (information)"}
-ICONS = {"call": "\U0001F7E2", "put": "\U0001F534", "sell": "\u26A0\uFE0F", "hold": "\u23F3", "test": "\U0001F514",
-         "info": "\u2139\uFE0F", "summary": "\U0001F4CA", "warning": "\U0001F6A8", "stop": "\U0001F6A8",
-         "move": "\u26A1", "weekly": "\U0001F5D3\uFE0F", "kite": "\U0001F511",
-         "position": "\U0001F4BC", "position_stop": "\U0001F6A8", "star": "\u2B50"}
 
 
 def _title(status):
@@ -257,24 +250,9 @@ def send_ntfy(status, topic, silent=False):
     urllib.request.urlopen(req, timeout=15).read()
 
 
-def send_telegram(status, token, chat_id, silent=False):
-    """silent: delivered without sound or vibration (hourly updates)."""
-    icon = ICONS.get(status.get("kind", ""), "\u26AA")
-    text = f"{icon} {_title(status)}\n{_body(status)}"
-    data = json.dumps({"chat_id": chat_id, "text": text, "disable_web_page_preview": True,
-                       "disable_notification": bool(silent)}).encode()
-    req = urllib.request.Request(f"https://api.telegram.org/bot{token}/sendMessage", data=data,
-                                 headers={"Content-Type": "application/json"})
-    out = json.loads(urllib.request.urlopen(req, timeout=15).read())
-    if not out.get("ok"):
-        raise RuntimeError(f"telegram: {out.get('description')}")
-
-
 def channels():
     env = os.environ
     out = []
-    if env.get("TELEGRAM_BOT_TOKEN") and env.get("TELEGRAM_CHAT_ID"):
-        out.append(("telegram", lambda st, q=False: send_telegram(st, env["TELEGRAM_BOT_TOKEN"], env["TELEGRAM_CHAT_ID"], q)))
     if env.get("NTFY_TOPIC"):
         out.append(("ntfy", lambda st, q=False: send_ntfy(st, env["NTFY_TOPIC"], q)))
     return out
