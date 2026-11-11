@@ -138,6 +138,18 @@ class NextRecord(unittest.TestCase):
         self.assertIsNone(live.next_record(store, "2026-11-02"))                      # closing auction: no 15:15 lean counted
 
 
+class StarAlert(unittest.TestCase):
+    def test_only_star_leans_alert_with_side_and_strike(self):
+        now = datetime(2026, 11, 11, 10, 25, 40, tzinfo=IST)
+        self.assertIsNone(live.star_alert({"at": "10:25", "lean": "up", "pts": 2.0, "confident": False}, 25012.0, now))
+        a = live.star_alert({"at": "10:25", "lean": "down", "pts": -3.4, "confident": True, "size": 12.5}, 25037.0, now)
+        self.assertEqual((a["kind"], a["side"]), ("star", "PUT"))
+        self.assertIn("10:25-10:35", a["body"])
+        self.assertIn("25,050 PUT", a["body"])
+        self.assertIn("Made 10:25:40", a["body"])
+        self.assertIn("\u00b112.5", a["body"])
+
+
 class Budget(unittest.TestCase):
     def test_stops_at_the_daily_cap_and_needs_the_key(self):
         st = {"grok_calls": grok.DAILY_CAP}
