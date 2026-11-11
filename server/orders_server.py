@@ -35,7 +35,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from zoneinfo import ZoneInfo
 
@@ -48,6 +48,8 @@ TICK, TAG = 0.05, "niftyapp"
 OPEN_T, LAST_ENTRY_T, LAST_EXIT_T = "09:15", "15:00", "15:15"
 ENTRY_TRIES, ENTRY_WAIT, EXIT_WAIT, SL_WAIT = 3, 15, 5, 10       # re-prices; seconds between them
 SESSION_URL = "https://raw.githubusercontent.com/ramanauday1561/commodities-trading/kite-session/session.json"
+LEANS_URL = "https://api.github.com/repos/ramanauday1561/commodities-trading/contents/next-nifty.json?ref=site-data"
+AUTO_EVERY, AUTO_MAX_AGE, AUTO_STOP, AUTO_HOLD = 20, 180, 0.10, 30   # poll s; a lean older than this is skipped; stop; minutes
 FALLBACK_CHARGES_LOT = 120      # Rs a lot for a round trip when Kite's charges API cannot be reached (option_study.py)
 
 
@@ -155,6 +157,7 @@ class Engine:
         self.clock = clock
         self.lock = threading.RLock()
         self.kite, self.contracts, self.contracts_day = None, {}, None
+        self.auto_on = False
         self.state = {"day": None, "locked": None, "trades": []}
         try:
             self.state.update(json.load(open(state_path)))
@@ -253,12 +256,40 @@ class Engine:
                 "charges": ch, "free_to_trade": round(float(f.get("net") or 0)),
                 "history": [{"d": d, **v} for d, v in hist.items()]}
 
+    def auto_pick(self, lean):
+        """A pick for one * lean (Auto): the at-the-money option of the next expiry after today on its side."""
+        with self.lock:
+            if not self.kite:
+                raise ValueError("no Kite login today")
+            self.load_contracts()
+            today = self.now().date().isoformat()
+            exps = sorted({r["expiry"] for r in self.contracts.values() if r["expiry"] > today})
+            spot = self.kite.quote(["NSE:NIFTY 50"]).get("NSE:NIFTY 50", {}).get("last_price")
+            if not exps or not spot:
+                raise ValueError("no expiry or no NIFTY price")
+            typ, k = ("CE" if lean["lean"] == "up" else "PE"), round(spot / 50) * 50
+            sym = next((s for s, r in self.contracts.items() if r["expiry"] == exps[0] and r["instrument_type"] == typ
+                        and float(r["strike"]) == k), None)
+            if not sym:
+                raise ValueError(f"no {k} {typ} for {exps[0]}")
+            ltp, _, ask = best(self.kite.quote([f"NFO:{sym}"]).get(f"NFO:{sym}", {}))
+            ref = ask or ltp
+            if not ref:
+                raise ValueError(f"no price for {sym}")
+            out = (self.now() + timedelta(minutes=AUTO_HOLD)).strftime("%H:%M")
+            tid = self.add({"symbol": sym, "lots": 1, "stop": down(ref * (1 - AUTO_STOP)), "exit_by": min(out, LAST_EXIT_T)})
+            t = next(x for x in self.state["trades"] if x["id"] == tid)
+            t["auto"] = f"\u2605 {lean['at']} {lean['lean']}"
+            self.log(t, f"placed by itself for the \u2605 lean {lean['at']} {lean['lean']}")
+            self.save()
+            return tid
+
     # ------------------------------------------------------------------ the phone's requests
     def view(self):
         with self.lock:
             open_loss = sum(self._pnl(t) for t in self.state["trades"])
             return {"day": self.state["day"], "now": self.now().isoformat(timespec="seconds"), "kite": bool(self.kite),
-                    "locked": self.state["locked"], "limits": self.limits, "day_pnl": round(open_loss),
+                    "locked": self.state["locked"], "limits": self.limits, "auto": self.auto_on, "day_pnl": round(open_loss),
                     "trades": [{k: v for k, v in t.items() if k not in ("entry_id", "sl_id", "exit_id")} for t in self.state["trades"]]}
 
     def add(self, req):
@@ -498,6 +529,75 @@ class Engine:
                                  "ltp": q.get(f"NFO:{r['tradingsymbol']}", {}).get("last_price")} for r in pick]}
 
 
+def auto_leans(doc, now, done):
+    """The * leans to act on now: today's, confident, made at most AUTO_MAX_AGE seconds ago (the page records the minute
+    it was made, so up to a minute more), and not tried before (done: the ids already tried today)."""
+    today = now.date().isoformat()
+    if not doc or doc.get("date") != today:
+        return []
+    out = []
+    for l in doc.get("leans") or []:
+        lid = f"{today} {l.get('at')}"
+        if not l.get("confident") or lid in done or l.get("lean") not in ("up", "down"):
+            continue
+        try:
+            made = datetime.strptime(f"{today} {l.get('made') or l['at']}", "%Y-%m-%d %H:%M").replace(tzinfo=now.tzinfo)
+        except (KeyError, ValueError):
+            continue
+        if 0 <= (now - made).total_seconds() <= AUTO_MAX_AGE + 60:
+            out.append({**l, "id": lid})
+    return out
+
+
+class Auto:
+    """AUTO_STAR=1 (11 Nov 2026, asked by the owner: "make it place orders automatically"): each new * lean becomes a
+    pick by itself. The at-the-money option of the next expiry after today on the lean's side (CALL up, PUT down),
+    1 lot, stop 10% under the price, out after 30 minutes. Every pick goes through Engine.add like a phone pick (the
+    limits, the Kite login, the hours), and each lean is tried once only, even if the order is refused. The * leans
+    lost Rs53-72 a lot a trade in the 2017-2026 tests (star_hold_study.py)."""
+
+    def __init__(self, engine, fetch=None, clock=time.time):
+        self.engine, self.clock, self.etag, self.checked = engine, clock, None, 0.0
+        self.fetch = fetch or self._fetch
+
+    def _fetch(self):
+        """next-nifty.json from the site-data branch through GitHub's API (no CDN delay); None when unchanged
+        (a 304 answer to If-None-Match does not count against GitHub's rate limit)."""
+        h = {"Accept": "application/vnd.github.raw+json", "User-Agent": "nifty-orders"}
+        if self.etag:
+            h["If-None-Match"] = self.etag
+        try:
+            with urllib.request.urlopen(urllib.request.Request(LEANS_URL, headers=h), timeout=10) as f:
+                self.etag = f.headers.get("ETag")
+                return json.load(f)
+        except urllib.error.HTTPError as e:
+            if e.code == 304:
+                return None
+            raise
+
+    def tick(self):
+        if self.clock() - self.checked < AUTO_EVERY:
+            return
+        self.checked = self.clock()
+        doc = self.fetch()
+        if doc is None:
+            return
+        e = self.engine
+        with e.lock:
+            e._new_day()
+            done = e.state.setdefault("auto_done", [])
+            todo = auto_leans(doc, e.now(), set(done))
+            for l in todo:
+                done.append(l["id"])                         # before trying: never twice, even after a refusal
+            e.save()
+        for l in todo:
+            try:
+                tid = e.auto_pick(l)
+                print(f"auto: star {l['at']} {l['lean']}: pick {tid}", flush=True)
+            except (ValueError, KiteError) as err:
+                print(f"auto: star {l['at']} {l['lean']} not placed: {err}", flush=True)
+
+
 class Session:
     """The day's access token from the morning Kite login (the kite-session branch), checked every minute until found."""
 
@@ -621,15 +721,19 @@ def main():
     os.makedirs(data, exist_ok=True)
     engine = Engine(os.path.join(data, "state.json"), limits_from_env())
     sess = Session(engine, key, secret, os.path.join(data, "kite"))
+    engine.auto_on = os.environ.get("AUTO_STAR", "0").strip() == "1"
+    auto = Auto(engine) if engine.auto_on else None
     srv = ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("ORDERS_PORT", "8787"))),
                               handler(engine, Guard(code), os.environ.get("ALLOW_ORIGIN", "https://ramanauday1561.github.io"),
                                       os.path.join(data, "money.json")))
     threading.Thread(target=srv.serve_forever, daemon=True).start()
-    print(f"orders server up; limits {engine.limits}", flush=True)
+    print(f"orders server up; limits {engine.limits}; automatic star picks {'ON' if engine.auto_on else 'off'}", flush=True)
     while True:
         try:
             sess.refresh()
             engine.tick()
+            if auto:
+                auto.tick()
         except Exception as e:                                       # keep going; the exchange holds each stop
             print(f"loop: {type(e).__name__}: {e}", flush=True)
         time.sleep(2)
