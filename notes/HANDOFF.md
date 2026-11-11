@@ -15,7 +15,7 @@ the open items. Dates are IST. Nothing secret is in here (keys live only in GitH
 - **UI:** Liquid Glass look (Glisse 0.5.0 on React 18.3.1, bundled by esbuild from `ui/` into
   `docs/vendor/glass-ui.js`, no CDN). `nav.js` adds the tab bar (Next 10, Today, Status, Live, Forecast) and the ⋯
   "More" menu (History, Kite login, and a temporary "Screen check" = `next.html?debug`). `theme.css` holds the shared
-  styles (currently `theme.css?v=8`, service worker cache `forecast-v21`).
+  styles (currently `theme.css?v=9`, service worker cache `forecast-v22`).
 - **Back end:** GitHub Actions only (see README "What runs when"). Data in branches (README "Where data lives").
 
 ## 2. Branch flow and how releases work
@@ -217,4 +217,7 @@ From 5 Nov (this part of the session):
   waits for the reset when refused. raw.githubusercontent.com was not an option: it caches for 5 minutes. Then
   from 13:25 the ★ orders reached Kite but were refused: the VPS sent them from its IPv6 address (2a02:4780:...),
   and only the IPv4 one is whitelisted. Fix: prefer IPv4 (`precedence ::ffff:0:0/96 100` in /etc/gai.conf, now in
-  `setup.sh`). The charges lookup also failed (urlencode on a JSON list): fixed; until then the ₹120 estimate was used.
+  `setup.sh`). The charges lookup also failed (urlencode on a JSON list): fixed; until then the ₹120 estimate was used. 14:39:
+  the server's orders reached Kite and were refused: **"NFO is disabled for your account"**; the owner must activate
+  the F&O segment on Zerodha Console. Later: the 60-30-10 colour rule (Desert Sand, Olive Drab, Signal Yellow) applied
+  to every page; see `CLAUDE.md`.

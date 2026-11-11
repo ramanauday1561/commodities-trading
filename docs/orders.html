@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Orders</title>
-<meta name="theme-color" content="#070a12">
+<meta name="theme-color" content="#EDC9AF">
 <meta name="referrer" content="no-referrer">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -16,8 +16,8 @@
      The server address and passcode stay in this browser only; the picks and P&L come from the server and are never
      saved in the repository. Nothing here comes from the app's leans or signals. -->
 <style>
-  :root { --bg:#070a12; --card:#0d121d; --line:#1f2735; --text:#e8edf5; --muted:#8a96a8; --up:#34d1bf; --down:#ff6b6b;
-          --warn:#f2c14e; --blue:#5aa9ff; }
+  :root { --bg:#EDC9AF; --card:#F7E8D8; --line:rgba(75,83,32,.25); --text:#2B2F14; --muted:#57532F; --up:#185C3B; --down:#A3261F;
+          --warn:#7A4E00; --blue:#24529C; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
          padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px); }
@@ -27,10 +27,10 @@
   .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin:10px 0; }
   .card h2 { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; font-weight:600; }
   .up { color:var(--up); } .down { color:var(--down); } .m { color:var(--muted); } .warn { color:var(--warn); }
-  .row { display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-top:1px solid #151b26; }
+  .row { display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-top:1px solid rgba(75,83,32,.15); }
   .row:first-of-type { border-top:0; } .row span:first-child { color:var(--muted); } .row b { font-weight:600; text-align:right; }
   label { display:block; font-size:13px; color:var(--muted); margin:10px 0 4px; }
-  input, select { width:100%; min-width:0; max-width:100%; font:inherit; color:var(--text); background:#0a0f19; border:1px solid var(--line); border-radius:10px;
+  input, select { width:100%; min-width:0; max-width:100%; font:inherit; color:var(--text); background:#FBF3EA; border:1px solid var(--line); border-radius:10px;
                   padding:10px 12px; min-height:44px; }
   /* 11 Nov 2026: Safari on iPhone draws a time box wider than its column and ignores width, which pushed the whole
      page sideways (the header cut off on the left); without its native look it obeys the width like the other fields */
@@ -38,12 +38,12 @@
   input[type=time]::-webkit-date-and-time-value { text-align:left; }
   .two { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
   .two > div { min-width:0; }
-  button { font:inherit; font-weight:600; color:var(--text); background:#1a2233; border:1px solid var(--line); border-radius:12px;
+  button { font:inherit; font-weight:600; color:var(--text); background:#E3CFB2; border:1px solid var(--line); border-radius:12px;
            padding:10px 14px; min-height:44px; cursor:pointer; }
-  button.go { width:100%; margin-top:14px; background:#16443f; }
-  button.stop { width:100%; background:#4a1c22; color:#ffd5d5; }
+  button.go { width:100%; margin-top:14px; background:#F9A900; }
+  button.stop, button.stop.gui-native { width:100%; background:#A3261F; color:#FFFFFF !important; }   /* white on red: 6.6:1 */
   .seg { display:flex; gap:8px; } .seg button { flex:1; }
-  .pick { border-top:1px solid #151b26; padding:10px 0; } .pick:first-of-type { border-top:0; }
+  .pick { border-top:1px solid rgba(75,83,32,.15); padding:10px 0; } .pick:first-of-type { border-top:0; }
   .pick .top { display:flex; justify-content:space-between; gap:10px; align-items:baseline; }
   .pick .top b { overflow-wrap:anywhere; }
   .note { font-size:12px; color:var(--muted); margin-top:6px; }

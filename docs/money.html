@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Money</title>
-<meta name="theme-color" content="#070a12">
+<meta name="theme-color" content="#EDC9AF">
 <meta name="referrer" content="no-referrer">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -15,7 +15,7 @@
      and passcode saved by the Orders page. Nothing here is saved in the repository; the server keeps one row of
      totals a day (never positions). -->
 <style>
-  :root { --bg:#070a12; --card:#0d121d; --line:#1f2735; --text:#e8edf5; --muted:#8a96a8; --up:#34d1bf; --down:#ff6b6b; --warn:#f2c14e; }
+  :root { --bg:#EDC9AF; --card:#F7E8D8; --line:rgba(75,83,32,.25); --text:#2B2F14; --muted:#57532F; --up:#185C3B; --down:#A3261F; --warn:#7A4E00; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
          padding:calc(env(safe-area-inset-top) + 16px) 16px calc(env(safe-area-inset-bottom) + 24px); }
@@ -26,7 +26,7 @@
   .card h2 { font-size:12px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; font-weight:600; }
   .up { color:var(--up); } .down { color:var(--down); } .m { color:var(--muted); } .warn { color:var(--warn); }
   .big { font-size:40px; font-weight:800; letter-spacing:-.02em; line-height:1.1; font-variant-numeric:tabular-nums; }
-  .row { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid #151b26; }
+  .row { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid rgba(75,83,32,.15); }
   .row:first-of-type { border-top:0; } .row span:first-child { color:var(--muted); }
   .row b { font-weight:600; text-align:right; font-variant-numeric:tabular-nums; }
   .bars { display:flex; gap:3px; height:96px; margin:8px 0 4px; background:linear-gradient(var(--line), var(--line)) 0 50% / 100% 1px no-repeat; }
