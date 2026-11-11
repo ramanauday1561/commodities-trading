@@ -64,6 +64,18 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   changes only when the owner asks. It never sees the Kite keys or the Orders passcode.
 - The claude branch is reused: after each PR is merged, restart it from `dev` before the next change.
 
+## Design rule: 60-30-10 colours (owner, 11 Nov 2026)
+
+- **60% Desert Sand** `#EDC9AF`: the page; cards `#F7E8D8`, inputs `#FBF3EA`.
+- **30% Olive Drab** `#4B5320`: the tab bar and the status-bar strip (`#434A1C`), headings, text (`#2B2F14`, muted
+  `#57532F`), borders (olive at low alpha).
+- **10% Signal Yellow** `#F9A900`: the active tab, the main (filled) buttons, switches when on, a selected chip. Never
+  as text on sand (too light); dark text on it.
+- Gains and losses keep their own colours (up `#185C3B`, down `#A3261F`); chart lines blue `#24529C`, purple
+  `#6A3D9A`, amber `#7A4E00`. Every text colour is 4.5:1 or more on sand and on cards: check new ones.
+- The tokens live in `docs/theme.css` (`--sand`, `--olive`, `--yellow`, and Glisse's `--lg-*` in light mode, set by
+  `nav.js` with `data-theme="light"`); the pages' own `--bg / --text / --muted ...` use the same values.
+
 ## Checking UI changes
 
 Use Playwright (pre-installed Chromium) at iPhone 14 size 393x852, simulating the safe areas by replacing

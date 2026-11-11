@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Next 10 minutes</title>
-<meta name="theme-color" content="#070a12">
+<meta name="theme-color" content="#EDC9AF">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <style>
-  :root { --bg:#070a12; --text:#eef1f6; --mute:#9aa6b8; --edge:rgba(255,255,255,.10); --up:#34d1bf; --down:#ff6b6b;
-          --warn:#f2c14e; }
+  :root { --bg:#EDC9AF; --text:#2B2F14; --mute:#57532F; --edge:rgba(75,83,32,0.16); --up:#185C3B; --down:#A3261F;
+          --warn:#7A4E00; }
   * { box-sizing:border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden;
                font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
@@ -16,8 +16,8 @@
           padding:calc(env(safe-area-inset-top) + 32px) calc(env(safe-area-inset-right) + 10px) calc(env(safe-area-inset-bottom) + 8px) calc(env(safe-area-inset-left) + 10px); }
   .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .top b { font-size:19px; letter-spacing:-.01em; } .top small { display:block; color:var(--mute); font-size:12px; }
-  .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(255,255,255,.06); }
-  .now { margin:8px 0 6px; padding:10px 12px; border:1px solid var(--edge); border-radius:12px; background:rgba(255,255,255,.04); }
+  .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(75,83,32,0.1); }
+  .now { margin:8px 0 6px; padding:10px 12px; border:1px solid var(--edge); border-radius:12px; background:rgba(75,83,32,0.06); }
   .now .big { font-size:22px; font-weight:700; letter-spacing:-.01em; }
   .warn { color:var(--mute); font-size:12px; margin-top:4px; }
   .warn b { color:var(--warn); font-weight:600; }
@@ -30,7 +30,7 @@
   .n { text-align:right; white-space:nowrap; } .m { color:var(--mute); }
   .up { color:var(--up); } .down { color:var(--down); }
   button.show { margin-left:4px; border:1px solid var(--edge); border-radius:999px; padding:3px 10px; font-size:12px;
-                color:var(--text); background:rgba(255,255,255,.06); cursor:pointer; }
+                color:var(--text); background:rgba(75,83,32,0.1); cursor:pointer; }
 </style>
 </head>
 <body>
@@ -54,18 +54,18 @@ const $ = id => document.getElementById(id);
 const f = x => x == null ? '' : x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(Math.round(x)).toLocaleString('en-IN')}`;
 const chart = LightweightCharts.createChart($('chart'), {
-  autoSize: true, layout: { background: { color: 'transparent' }, textColor: '#9aa6b8', fontSize: 11 },
-  grid: { vertLines: { color: 'rgba(255,255,255,.04)' }, horzLines: { color: 'rgba(255,255,255,.05)' } },
-  rightPriceScale: { borderColor: 'rgba(255,255,255,.1)' },
-  timeScale: { borderColor: 'rgba(255,255,255,.1)', timeVisible: true, secondsVisible: false, rightOffset: 4 },
+  autoSize: true, layout: { background: { color: 'transparent' }, textColor: '#57532F', fontSize: 11 },
+  grid: { vertLines: { color: 'rgba(75,83,32,0.06)' }, horzLines: { color: 'rgba(75,83,32,0.08)' } },
+  rightPriceScale: { borderColor: 'rgba(75,83,32,0.16)' },
+  timeScale: { borderColor: 'rgba(75,83,32,0.16)', timeVisible: true, secondsVisible: false, rightOffset: 4 },
   crosshair: { mode: 0 },
   // 3 Nov 2026: a vertical drag on a phone switched the price axis to a manual zoom (23,000-25,000 for a 200-point day)
   // and it stayed there; the price axis now cannot be dragged, and it re-fits to the candles on every update
   handleScale: { axisPressedMouseMove: { time: true, price: false }, pinch: true, mouseWheel: true },
   handleScroll: { vertTouchDrag: false, pressedMouseMove: true, horzTouchDrag: true, mouseWheel: true },
 });
-const candles = chart.addCandlestickSeries({ upColor: '#34d1bf', downColor: '#ff6b6b', borderVisible: false,
-  wickUpColor: '#34d1bf', wickDownColor: '#ff6b6b' });
+const candles = chart.addCandlestickSeries({ upColor: '#185C3B', downColor: '#A3261F', borderVisible: false,
+  wickUpColor: '#185C3B', wickDownColor: '#A3261F' });
 let last = '', first = true, data = null;
 // The leans are hidden by default (2 Nov 2026): every test says trading them loses after option costs, and an arrow on
 // screen invites a trade. The page leads with their live record; "Show today's leans anyway" reveals them for the visit.
@@ -113,7 +113,7 @@ function draw(d) {
   candles.setData(c);
   chart.priceScale('right').applyOptions({ autoScale: true });
   candles.setMarkers(!showLeans ? [] : s.map(x => ({ time: x.t, position: x.lean === 'up' ? 'belowBar' : 'aboveBar',
-    shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending || x.paused ? '#9aa6b8' : x.right ? '#34d1bf' : '#ff6b6b',
+    shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending || x.paused ? '#57532F' : x.right ? '#185C3B' : '#A3261F',
     text: x.confident ? '★' : '' })).sort((a, b) => a.time - b.time));
   if (first && c.length) { chart.timeScale().fitContent(); first = false; }
   $('when').innerHTML = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}${d.feed === 'kite' ? ' · Kite prices' : ''}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;

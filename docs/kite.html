@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Kite login</title>
-<meta name="theme-color" content="#070a12">
+<meta name="theme-color" content="#EDC9AF">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,7 +15,7 @@
      workflow to trade it for the day's token. The API key and the GitHub token stay in this browser; the API secret
      is only in GitHub's secrets. -->
 <style>
-  :root { --bg:#070a12; --text:#e8edf5; --muted:#8a96a8; --up:#26a69a; --down:#ef5350; --warn:#f5a623; --line:#1f2735; }
+  :root { --bg:#EDC9AF; --text:#2B2F14; --muted:#57532F; --up:#185C3B; --down:#A3261F; --warn:#7A4E00; --line:rgba(75,83,32,.25); }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
          min-height:100svh; padding:calc(env(safe-area-inset-top) + 24px) 16px calc(env(safe-area-inset-bottom) + 24px); }
@@ -25,13 +25,13 @@
   #state.ok { color:var(--up); } #state.no { color:var(--warn); } #state.bad { color:var(--down); }
   #detail { color:var(--muted); margin:0 0 20px; }
   button, .btn { display:block; width:100%; padding:14px; border-radius:12px; border:0; font:600 17px/1 inherit;
-                 background:#f5a623; color:#111; cursor:pointer; text-align:center; text-decoration:none; }
+                 background:#7A4E00; color:#111; cursor:pointer; text-align:center; text-decoration:none; }
   button.ghost { background:transparent; color:var(--muted); border:1px solid var(--line); font-weight:500; font-size:14px; margin-top:10px; }
   button:disabled { opacity:.5; }
   .box { border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-top:20px; font-size:14px; color:var(--muted); }
   .box b { color:var(--text); font-weight:600; }
   label { display:block; font-size:14px; color:var(--muted); margin:14px 0 6px; }
-  input { width:100%; padding:12px; border-radius:10px; border:1px solid var(--line); background:#0d121d; color:var(--text);
+  input { width:100%; padding:12px; border-radius:10px; border:1px solid var(--line); background:#F7E8D8; color:var(--text);
           font:15px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace; }
   ol { padding-left:20px; margin:8px 0 0; } li { margin:4px 0; }
   a { color:var(--muted); }
