@@ -227,4 +227,6 @@ From 5 Nov (this part of the session):
   server's own code path, and made the 09:35 lean GitHub missed. The model on site-data is retrained every evening on
   that day, so a check must use a model trained before the day. The automatic ★ rules on saved real option candles,
   4-11 Nov: 43 trades, 49% won, +₹15,272 (+₹355 a trade), almost all on the trend days 6 and 11 Nov; the 9-year test
-  is still negative.
+  is still negative. 11 Nov 17:40: rerunning the first day's ~/setup.sh never installed lightgbm (an old copy of
+  the steps); `bash /opt/nifty-orders/server/setup.sh` did ("leans made here too"). The `dev` branch had been deleted
+  on GitHub after the release merge; recreated from `main` (nothing lost).
