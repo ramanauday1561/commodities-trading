@@ -282,6 +282,10 @@ jobs:
           # day replays (replay.py) may have been added while this job ran: keep them in the squashed copy
           latest="$RUNNER_TEMP/site-latest" && bash scripts/store.sh pull site-data "$latest" && cp "$latest"/replay-*.json site-snap/ 2>/dev/null || true
           bash scripts/store.sh push site-data site-snap --squash
+      # 12 Nov 2026: a run that started before a merge published its older pages over the new ones (the redesign
+      # stayed hidden). Publish main's newest pages; the data in docs/data is not tracked, so it stays this run's.
+      - name: The newest pages from main
+        run: git fetch -q --depth 1 origin main && git checkout FETCH_HEAD -- docs
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

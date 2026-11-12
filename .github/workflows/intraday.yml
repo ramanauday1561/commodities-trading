@@ -146,6 +146,8 @@ jobs:
           else
             echo "ok=false" >> "$GITHUB_OUTPUT"; echo "not republishing the site this run (site-data is updated)"
           fi
+      - if: steps.have.outputs.ok == 'true'     # main's newest pages, not the ones this run started with (12 Nov 2026)
+        run: git fetch -q --depth 1 origin main && git checkout FETCH_HEAD -- docs
       - if: steps.have.outputs.ok == 'true'
         uses: actions/configure-pages@v6
       - if: steps.have.outputs.ok == 'true'

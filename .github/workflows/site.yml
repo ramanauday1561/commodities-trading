@@ -25,6 +25,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: main          # 12 Nov 2026: always main's newest pages, also for a run queued behind a later merge
       - name: The latest data the pages read
         run: bash scripts/store.sh pull site-data docs/data
       - uses: actions/configure-pages@v6
