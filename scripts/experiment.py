@@ -205,6 +205,7 @@ STUDIES = {
     "futures": ("futures_study", "main"),
     "leanfilters": ("leanfilter_study", "main"),
     "starhold": ("star_hold_study", "main"),
+    "starrules": ("star_rules_study", "main"),
 }
 
 

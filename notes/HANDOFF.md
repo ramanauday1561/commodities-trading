@@ -246,3 +246,9 @@ From 5 Nov (this part of the session):
   server, a row per pick with pills. Kite: the help is a folding section. History already used tiles and pills.
   Same numbers and wording everywhere, rearranged. Also 12 Nov: the order server's GitHub copies (VPS market updates,
   the Kite login copy) failed with 403: the owner's fine-grained token needs Contents: Read and write.
+- 12 Nov 2026 (evening): **study starrules** (star_rules_study.py; owner asked for the three tests): the server's 10%
+  stop, skipping early * leans, the time of day. A and B fail; C "only 14:05-15:05" passes as written but not once a
+  stopped trade is priced at the 10-minute close it is seen at (every variant then loses about Rs50 a trade, 1 of 10
+  years). Real option candles (40 picks, 5 days) favour a wider stop and the afternoon, too few to act on. No change
+  on the server; re-run at about 30 days of options-live candles.
+
