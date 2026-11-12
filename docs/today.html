@@ -35,10 +35,14 @@
   .word.NOTHING { color:var(--muted); }
   .row { display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-top:1px solid rgba(75,83,32,.15); }
   .row:first-of-type { border-top:0; } .row span:first-child { color:var(--muted); } .row b { font-weight:600; text-align:right; }
-  .card svg { display:block; width:100%; height:64px; margin-top:6px; }
+  .spark { display:block; width:100%; height:64px; margin-top:6px; }
+  .word-s { font-weight:800; } .word-s.CALL { color:var(--up); } .word-s.PUT { color:var(--down); } .word-s.STAY { color:var(--warn); }
+  .word-s.SELL { color:var(--blue); } .word-s.NOTHING { color:var(--muted); }
   .note { font-size:12px; color:var(--muted); margin-top:6px; }
   a { color:var(--muted); }
 </style>
+<link rel="stylesheet" href="kit.css?v=1">
+<script src="ui.js?v=1"></script>
 <script src="fresh.js"></script>
 </head>
 <body>
@@ -55,8 +59,10 @@ const pct = x => `${x >= 0 ? '+' : ''}${Number(x).toFixed(2)}%`;
 const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(Math.round(x)).toLocaleString('en-IN')}`;
 const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
 const todayIst = () => new Date(Date.now() + 19800000).toISOString().slice(0, 10);
-const card = (title, link, body) => body ? `<section class="card"><h2>${title}${link ? `<a href="${link}">details ›</a>` : ''}</h2>${body}</section>` : '';
-const row = (a, b) => `<div class="row"><span>${a}</span><b>${b}</b></div>`;
+// 12 Nov 2026: each part is a section with an icon and its main number on the right (kit.css, ui.js), as on Next 10
+const { ico, sec, tile, pill } = UI;
+const more = (href, label) => `<a class="k-go" href="${href}">${label} ${ico('chev')}</a>`;
+const row = (a, b) => `<div class="k-kv"><span>${a}</span><b>${b}</b></div>`;
 
 function spark(candles, prev) {
   const c = (candles || []).map(x => x.close);
@@ -66,46 +72,51 @@ function spark(candles, prev) {
   const pts = c.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
   const base = prev ? `<line x1="0" x2="300" y1="${y(prev)}" y2="${y(prev)}" stroke="#57532F" stroke-dasharray="3 3" stroke-width="1"/>` : '';
   const col = c[c.length - 1] >= (prev || c[0]) ? 'var(--up)' : 'var(--down)';
-  return `<svg viewBox="0 0 300 64" preserveAspectRatio="none" aria-label="NIFTY today">${base}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
+  return `<svg class="spark" viewBox="0 0 300 64" preserveAspectRatio="none" aria-label="NIFTY today">${base}<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>`;
 }
 
+// the price stays on top, always open
 function priceCard(l) {
   if (!l || !l.price) return '';
   const pc = l.prev_close, mv = l.move_pct;
-  return card('NIFTY 50', 'live.html', `<div class="price">${f2(l.price)} <span class="${cls(mv)}" style="font-size:16px">${mv != null ? pct(mv) : ''}</span></div>
-    <div class="m" style="font-size:13px">${pc ? `yesterday ${f2(pc)}` : ''}${l.feed === 'kite' ? ' · Kite prices' : l.feed ? ' · Yahoo prices' : ''}</div>${spark(l.candles, pc)}`);
+  return `<section class="k-card"><div class="k-chips"><span class="k-chip">${ico('trend')}NIFTY 50</span>
+      ${mv != null ? `<span class="k-chip ${cls(mv)}">${ico(mv >= 0 ? 'up' : 'down')}${pct(mv)}</span>` : ''}
+      <span class="k-chip">${l.feed === 'kite' ? 'Kite prices' : 'Yahoo prices'}</span></div>
+    <div class="k-hero"><b>${f2(l.price)}</b>${pc ? `<span>yesterday ${f2(pc)}</span>` : ''}</div>${spark(l.candles, pc)}
+    ${more('live.html', 'Live chart')}</section>`;
 }
 
 function signalCard(s) {
   if (!s) return '';
   const word = s.date === todayIst() ? s.state : 'NOTHING';
-  return card('Signal', 'status.html', `<div class="word ${word}">${word}</div><div><b>${s.headline || ''}</b></div>
-    <div class="m" style="font-size:14px">${s.reason || ''}</div>`);
+  return sec('signal', 'target', '09:15 signal', s.headline || '', `<span class="word-s ${word}">${word}</span>`,
+    `<div class="word ${word}">${word}</div><div><b>${s.headline || ''}</b></div><div class="m" style="font-size:14px">${s.reason || ''}</div>${more('status.html', 'Status page')}`);
 }
 
 function morningCard(l, g) {
-  let b = '';
+  let b = '', sum = '';
   if (g && g.gap_pct != null) {
     const r = g.record || {};
-    b += row('GIFT Nifty', `${k0(g.price)} → open ${pct(g.gap_pct)}`) + (r.days ? row('GIFT record', `off ${r.avg_miss.toFixed(2)}% · right side ${r.side_right}/${r.days}`) : '');
+    sum = `<span class="${cls(g.gap_pct)}">${pct(g.gap_pct)}</span>`;
+    b += `<div class="k-tiles">${tile(k0(g.price), 'GIFT Nifty')}${tile(pct(g.gap_pct), 'open gap it pointed to', cls(g.gap_pct))}${r.days ? tile(`${r.side_right}/${r.days}`, `right side · off ${r.avg_miss.toFixed(2)}%`) : ''}</div>`;
   }
-  if (l && l.call && l.call.dir) b += row('08:57 close call', `<span class="${l.call.dir === 'up' ? 'up' : 'down'}">${l.call.dir}</span> ${l.call.target ? f2(l.call.target) : ''}`);
+  if (l && l.call && l.call.dir) b += row('08:57 close call', `<span class="${l.call.dir === 'up' ? 'up' : 'down'}">${ico(l.call.dir)} ${l.call.dir}</span> ${l.call.target ? f2(l.call.target) : ''}`);
   const mo = l && l.morning;
   if (mo && mo.score != null) b += row('AI morning read', `<span class="${cls(mo.score)}">${mo.score > 0 ? 'bullish' : mo.score < 0 ? 'bearish' : 'neutral'} (${mo.score > 0 ? '+' : ''}${mo.score})</span>`)
     + (mo.reasons && mo.reasons[0] ? `<div class="note">${mo.reasons[0]}</div>` : '');
-  return card('Before the open', 'index.html', b);
+  return sec('morning', 'globe', 'Before the open', 'GIFT Nifty, the 08:57 call, the AI read', sum, b && b + more('index.html', 'Forecast page'), true);
 }
 
 function optionsCard(o) {
   if (!o || o.date !== todayIst()) return '';
-  const leg = x => x && x.rs != null ? `${x.open} → ${x.now} <span class="${cls(x.rs)}">${rs(x.rs)}</span>` : '—';
-  let b = row(`ATM CALL ${k0(o.call.strike)}`, leg(o.call)) + row(`ATM PUT ${k0(o.put.strike)}`, leg(o.put));
-  if (o.app) b += row(`Our ${o.app.side}`, leg(o.app));
+  const leg = (name, x) => x && x.rs != null ? `<tr><td class="k-t1">${name}</td><td class="n">${x.open} → ${x.now}</td><td class="n"><span class="k-pill ${cls(x.rs) || 'm'}">${rs(x.rs)}</span></td></tr>` : '';
+  let b = `<table class="k-tbl"><tr><th>Option</th><th class="n">Open → now</th><th class="n">1 lot</th></tr>`
+    + leg(`CALL ${k0(o.call.strike)}`, o.call) + leg(`PUT ${k0(o.put.strike)}`, o.put) + (o.app ? leg(`Our ${o.app.side}`, o.app) : '') + '</table>';
   const c = o.chain;
-  if (c) b += row('Put-call ratio (OI)', `${c.pcr} · CALL wall ${k0(c.call_wall)} · PUT wall ${k0(c.put_wall)}`);
+  if (c) b += `<div class="k-tiles" style="margin-top:8px">${tile(c.pcr, 'put-call ratio (OI)')}${tile(k0(c.call_wall), 'CALL wall')}${tile(k0(c.put_wall), 'PUT wall')}</div>`;
   const p = o.paper;
   if (p && p.today) b += row('Paper straddle (no money)', `<span class="${cls(p.today.rs)}">${rs(p.today.rs)}</span>${p.record && p.record.days ? ` · ${p.record.days}d ${rs(p.record.total_rs)}` : ''}`);
-  return card(`Options · ${o.at} · expiry ${o.expiry}`, 'live.html', b + '<div class="note">Bought at the first price today, per lot after costs.</div>');
+  return sec('options', 'layers', 'Options', `${o.at} · expiry ${o.expiry}`, '', b + '<div class="note">Bought at the first price today, per lot after costs.</div>' + more('live.html', 'Live page'));
 }
 
 function nextCard(n) {
@@ -113,30 +124,35 @@ function nextCard(n) {
   const last = (n.leans || [])[n.leans.length - 1];
   const lr = n.live_record;
   let b = '';
-  if (last) b += row(`Lean for ${last.at}`, `<span class="${last.lean === 'up' ? 'up' : 'down'}">${last.lean}</span> ${Math.abs(last.pts) < 0.05 ? '≈0' : (last.pts > 0 ? '+' : '') + last.pts} pts`);
-  if (last && last.size != null) b += row('Expected size of that move', `±${last.size} pts${last.typical ? ` <span class="m">(usual ±${last.typical})</span>` : ''}`);
-  if (lr && lr.days) b += row(`Leans since ${lr.since.slice(5)}`, `${lr.right}/${lr.leans} right · <span class="${cls(lr.rs)}">${rs(lr.rs)}</span>`);
-  return card('Next 10 minutes', 'next.html', b && b + '<div class="note">The leans lose after option costs in every tested year: information only.</div>');
+  if (last || (lr && lr.days)) b = `<div class="k-tiles">`
+    + (last ? tile(`${ico(last.lean)} ${Math.abs(last.pts) < 0.05 ? '≈0' : (last.pts > 0 ? '+' : '') + last.pts}`, `lean for ${last.at}${last.confident ? ' ★' : ''}`, last.lean === 'up' ? 'up' : 'down') : '')
+    + (last && last.size != null ? tile(`±${last.size}`, `expected size${last.typical ? ` (usual ±${last.typical})` : ''}`) : '')
+    + (lr && lr.days ? tile(rs(lr.rs), `every lean since ${lr.since.slice(5)} · ${lr.right}/${lr.leans} right`, cls(lr.rs)) : '') + '</div>';
+  return sec('next', 'clock', 'Next 10 minutes', last ? `lean for ${last.at}` : '', last ? `<span class="${last.lean === 'up' ? 'up' : 'down'}">${last.lean}</span>` : '',
+    b && b + '<div class="note">The leans lose after option costs in every tested year: information only.</div>' + more('next.html', 'Next 10 page'));
 }
 
 // Paper accounts on Kite's real option prices (5 Nov 2026, paper_accounts.py): ₹2 lakh each from 4 Nov, scored at the close
 function paperCard(p) {
   if (!p || !p.totals) return '';
   const order = ['straddle', 'leans_star', 'leans', 'signal_lean'], short = { leans: 'Every Next 10 lean', leans_star: '★ leans only',
-    straddle: 'Short straddle (50% stops)', signal_lean: "09:15 signal's lean" };
-  const b = order.filter(k => p.totals[k]).map(k => { const t = p.totals[k];
-    // 10 Nov 2026: the gain first, the balance and the days under it (one long line wrapped badly on a phone)
-    return row(`${short[k]}<small>up on ${t.up_days} of ${t.days} day${t.days > 1 ? 's' : ''}</small>`,
-               `<em class="${cls(t.rs)}" style="font-style:normal; white-space:nowrap">${rs(t.rs)}</em><small>₹${k0(t.balance)}</small>`); }).join('');
-  return card(`Paper accounts · since ${new Date(p.start + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })}`, 'next.html', b && b + '<div class="note">₹2,00,000 each, 1 lot a trade on Kite\'s real option prices, after costs; updated at the close. No money is traded.</div>');
+    straddle: 'Short straddle', signal_lean: "09:15 signal's lean" };
+  const rows = order.filter(k => p.totals[k]).map(k => { const t = p.totals[k];
+    return `<tr><td class="k-t1">${short[k]}<div class="m" style="font-weight:400;font-size:12px">up ${t.up_days} of ${t.days} day${t.days > 1 ? 's' : ''}</div></td>
+      <td class="n"><span class="k-pill ${cls(t.rs) || 'm'}">${rs(t.rs)}</span></td><td class="n m">₹${k0(t.balance)}</td></tr>`; }).join('');
+  const best = order.filter(k => p.totals[k]).sort((a, b) => p.totals[b].rs - p.totals[a].rs)[0];
+  return sec('paper', 'wallet', 'Paper accounts', `since ${new Date(p.start + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })} · no money traded`,
+    best ? `<span class="${cls(p.totals[best].rs)}">${rs(p.totals[best].rs)}</span>` : '',
+    rows && `<table class="k-tbl"><tr><th>Account</th><th class="n">Result</th><th class="n">Balance</th></tr>${rows}</table>
+      <div class="note">₹2,00,000 each, 1 lot a trade on Kite's real option prices, after costs; updated at the close. The best one is on the right above.</div>`, true);
 }
 
 function healthCard(s, h) {
-  const k = s && s.kite;
+  const k = s && s.kite, issues = h && h.date === todayIst() ? (h.issues || []) : null;
   let b = k ? row('Prices', k.logged_in ? '<span class="up">Kite</span>' : '<a href="kite.html">Yahoo · log in to Kite</a>') : '';
-  if (h && h.date === todayIst()) b += (h.issues || []).length ? h.issues.slice(0, 3).map(x => `<div class="warn" style="font-size:13px">${x}</div>`).join('')
-                                                             : row('Data checks', '<span class="up">all fine</span>');
-  return card('Data', 'kite.html', b);
+  if (issues) b += issues.length ? issues.slice(0, 3).map(x => UI.alert(x)).join('') : row('Data checks', `<span class="up">${ico('check')} all fine</span>`);
+  return sec('data', 'shield', 'Data', 'Prices and the data checks',
+    issues && issues.length ? `<span class="warn">${issues.length} issue${issues.length > 1 ? 's' : ''}</span>` : k && !k.logged_in ? '<span class="warn">Yahoo</span>' : '<span class="up">fine</span>', b, true);
 }
 
 async function load() {

@@ -30,20 +30,22 @@
   .row:first-of-type { border-top:0; } .row span:first-child { color:var(--muted); }
   .row b { font-weight:600; text-align:right; font-variant-numeric:tabular-nums; }
   .bars { display:flex; gap:3px; height:96px; margin:8px 0 4px; background:linear-gradient(var(--line), var(--line)) 0 50% / 100% 1px no-repeat; }
-  .bars i { flex:1; min-width:4px; position:relative; }
+  .bars i { flex:1; min-width:4px; max-width:28px; position:relative; }
   .bars i b { position:absolute; left:0; right:0; border-radius:2px; }
   .note { font-size:12px; color:var(--muted); margin-top:6px; }
   .err { color:var(--down); font-size:14px; overflow-wrap:anywhere; }
   a { color:var(--text); }
 </style>
+<link rel="stylesheet" href="kit.css?v=1">
+<script src="ui.js?v=1"></script>
 <script src="fresh.js"></script>
 </head>
 <body>
 <main>
   <header data-nav><div><b>Money</b><small id="when">From your Kite account</small></div></header>
   <section class="card" id="today"><div class="m">Loading…</div></section>
-  <section class="card" id="parts" hidden></section>
-  <section class="card" id="days" hidden></section>
+  <div id="parts"></div>
+  <div id="days"></div>
   <p class="note">Real money, from Kite through your order server. Charges are Kite's own calculation (brokerage, STT, exchange and
     SEBI fees, stamp duty, GST). The server keeps one line of totals a day; nothing goes into the app's repository.</p>
 </main>
@@ -56,29 +58,30 @@ const day = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: '
 const get = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
 const srv = get('ordersUrl'), code = get('ordersCode');
 
+// 12 Nov 2026: the result on top, then sections with icons (kit.css, ui.js), as on Next 10
 function draw(m) {
-  const t = m.today, pct = t.start ? t.net / t.start * 100 : 0;
-  $('today').innerHTML = `<h2>Today, after charges</h2>
-    <div class="big ${cls(t.net)}">${rs(t.net)}</div>
-    <div class="m">${t.start ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}% of the ${k0(t.start)} you started with` : 'No opening balance from Kite yet'}</div>`;
-  $('parts').hidden = false;
-  $('parts').innerHTML = `<h2>How it adds up</h2>
-    <div class="row"><span>Started the day with</span><b>${k0(t.start)}</b></div>
-    <div class="row"><span>Trades made or lost</span><b class="${cls(t.pnl)}">${rs(t.pnl)}</b></div>
-    <div class="row"><span>Charges (${t.orders} order${t.orders === 1 ? '' : 's'})</span><b class="${t.charges ? 'down' : ''}">${rs(-t.charges)}</b></div>
-    <div class="row"><span><b style="color:var(--text)">Now</b></span><b>${k0(t.now)}</b></div>
-    <div class="row"><span>Free to trade in Kite</span><b>${k0(m.free_to_trade)}</b></div>
-    ${m.charges && m.charges.source === 'estimate' ? '<div class="note warn">Kite did not give the charges just now: about ₹120 a round trip is used.</div>' : ''}`;
+  const t = m.today, pct = t.start ? t.net / t.start * 100 : 0, { ico, sec, tile } = UI;
+  $('today').innerHTML = `<div class="k-chips"><span class="k-chip">${ico('rupee')}Today, after charges</span>
+      ${t.start ? `<span class="k-chip ${cls(t.net)}">${ico(t.net >= 0 ? 'up' : 'down')}${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>` : ''}</div>
+    <div class="big ${cls(t.net)}" style="margin-top:8px">${rs(t.net)}</div>
+    <div class="m">${t.start ? `of the ${k0(t.start)} you started with` : 'No opening balance from Kite yet'}</div>
+    <div class="k-tiles" style="margin:12px 0 0">${tile(k0(t.now), 'now')}${tile(k0(m.free_to_trade), 'free to trade')}${tile(String(t.orders), `order${t.orders === 1 ? '' : 's'} today`)}</div>`;
+  $('parts').innerHTML = sec('parts', 'list', 'How it adds up', 'Start, trades, charges, now', `<span class="${cls(t.net)}">${rs(t.net)}</span>`,
+    `<div class="k-kv"><span>Started the day with</span><b>${k0(t.start)}</b></div>
+    <div class="k-kv"><span>Trades made or lost</span><b class="${cls(t.pnl)}">${rs(t.pnl)}</b></div>
+    <div class="k-kv"><span>Charges (${t.orders} order${t.orders === 1 ? '' : 's'})</span><b class="${t.charges ? 'down' : ''}">${rs(-t.charges)}</b></div>
+    <div class="k-kv"><span><b style="color:var(--text)">Now</b></span><b>${k0(t.now)}</b></div>
+    <div class="k-kv"><span>Free to trade in Kite</span><b>${k0(m.free_to_trade)}</b></div>
+    ${m.charges && m.charges.source === 'estimate' ? UI.alert('Kite did not give the charges just now: about ₹120 a round trip is used.') : ''}`);
   const h = (m.history || []).filter(x => x.orders || x.d === m.day), tot = h.reduce((a, x) => a + x.net, 0);
-  if (!h.length) return;
+  if (!h.length) { $('days').innerHTML = ''; return; }
   const max = Math.max(...h.map(x => Math.abs(x.net)), 1);
-  $('days').hidden = false;
-  $('days').innerHTML = `<h2>Every trading day</h2>
-    <div class="row"><span>Total since ${day(h[0].d)}</span><b class="${cls(tot)}">${rs(tot)}</b></div>
-    <div class="row"><span>Days up / down</span><b>${h.filter(x => x.net > 0).length} up · ${h.filter(x => x.net < 0).length} down</b></div>
+  $('days').innerHTML = sec('days', 'calendar', 'Every trading day', `since ${day(h[0].d)}`, `<span class="${cls(tot)}">${rs(tot)}</span>`,
+    `<div class="k-tiles">${tile(rs(tot), 'total', cls(tot))}${tile(String(h.filter(x => x.net > 0).length), 'days up', 'up')}${tile(String(h.filter(x => x.net < 0).length), 'days down', 'down')}</div>
     <div class="bars" role="img" aria-label="Each day's result after charges">${h.slice(-30).map(x =>        // up days grow up from the middle line, down days down
       `<i title="${day(x.d)}: ${rs(x.net)}"><b style="height:${Math.max(2, Math.abs(x.net) / max * 50)}%;${x.net >= 0 ? 'bottom' : 'top'}:50%;background:var(--${x.net >= 0 ? 'up' : 'down'})"></b></i>`).join('')}</div>
-    ${h.slice().reverse().slice(0, 15).map(x => `<div class="row"><span>${day(x.d)}</span><b class="${cls(x.net)}">${rs(x.net)}</b></div>`).join('')}`;
+    <table class="k-tbl"><tr><th>Day</th><th class="n">Orders</th><th class="n">After charges</th></tr>
+    ${h.slice().reverse().slice(0, 15).map(x => `<tr><td class="k-t1">${day(x.d)}</td><td class="n m">${x.orders || 0}</td><td class="n"><span class="k-pill ${cls(x.net) || 'm'}">${rs(x.net)}</span></td></tr>`).join('')}</table>`);
 }
 
 async function load() {

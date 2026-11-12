@@ -185,6 +185,8 @@
   input[type=password] { background:var(--glass2); color:var(--text); border:1px solid var(--edge); border-radius:10px; padding:9px 12px; font:inherit; }
 </style>
 <script src="fresh.js"></script>
+<link rel="stylesheet" href="kit.css?v=1">
+<script src="ui.js?v=1"></script>
 </head>
 <body>
 <div class="glow" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -890,7 +892,8 @@ function render(d) {
   ];
   const head = headline(d, first, last, upPct);
   const today = todayCard(d) + nowcastCard(d);
-  const sec = (title, hint, body, id = '') => body.trim() ? `<details class="glass"${id ? ` id="${id}"` : ''}><summary><span>${title}<small>${hint}</small></span></summary><div class="inner">${body}</div></details>` : '';
+  // 12 Nov 2026: the kit's sections (icon, title, a short line, the summary on the right), as on Next 10
+  const sec = (key, icon, title, hint, summary, body) => body.trim() ? UI.sec(key, icon, title, hint, summary, body, true) : '';
   const insight = typicalRange(d);
 
   $('app').innerHTML = `${d.key === 'nifty' ? statusStrip(d) : ''}
@@ -919,33 +922,33 @@ function render(d) {
         : `<span><i style="background:var(--pred)"></i>forecast</span><span><i class="dash"></i>likely range</span><span><i class="dot"></i>last close</span><span>${d.unit}</span>`}</div>
     </div>
 
-    <div class="more">
-      ${sec("Today's call in detail", 'Pre-open call, mid-day update and the live record', today)}
-      ${sec('Day by day', `Open, high, low and close for the next ${fc.length} days`, `
+    <div class="secs">
+      ${sec('call', 'target', "Today's call in detail", 'Pre-open call, mid-day update and the live record', head ? `<span class="${head.cls}">${head.word.replace(/^Leaning /, '')}</span>` : '', today)}
+      ${sec('days', 'calendar', 'Day by day', `Open, high, low and close for the next ${fc.length} days`, `<span class="${cls(chgN)}">${pc(chgN / last * 100)}</span>`, `
         ${toggle}
         ${upcomingEvents(d)}
         <div class="card">
           ${d.today_live ? `<p class="note" style="margin:0 0 8px">Live so far: open ${f(d.today_live.open)}, high ${f(d.today_live.high)}, low ${f(d.today_live.low)}, now ${f(d.today_live.close)}</p>` : ''}
           ${d.inr ? `<p class="note" style="margin:0 0 8px">In rupees: ${inrText(d, first.close)} (last close ${inrText(d, last)}) ${tip('inr')}</p>` : ''}
-          <div class="tablewrap"><table>
+          <div class="tablewrap"><table class="k-tbl">
             <thead><tr><th>Day</th><th>Open</th><th>High</th><th>Low</th><th>Close ${tip('close')}</th><th>vs last ${tip('change')}</th><th>Likely range ${tip('range')}</th><th>Chance up ${tip('pup')}</th></tr></thead>
             <tbody>${fc.map(r => `<tr>
               <td>${r.time}</td><td>${f(r.open)}</td><td>${f(r.high)}</td><td>${f(r.low)}</td>
               <td><b>${f(r.close)}</b></td>
-              <td class="${cls(r.close - last)}">${sg((r.close - last) / last * 100)}%</td>
+              <td><span class="k-pill ${cls(r.close - last) || 'm'}">${sg((r.close - last) / last * 100)}%</span></td>
               <td>${f(lo(r))} – ${f(hi(r))}</td>
               <td>${Math.round(r.prob_up * 100)}%</td></tr>`).join('')}</tbody>
           </table></div>
         </div>`)}
-      ${sec('How sure are we?', 'Plain-English summary, past tests and the live scoreboard', `
+      ${sec('sure', 'shield', 'How sure are we?', 'Plain-English summary, past tests and the live scoreboard', tr.level === 'good' ? '<span class="up">some edge</span>' : tr.level === 'none' ? 'no edge' : '', `
         ${summaryHTML(d, sel, sel.keys)}
         ${models.length > 1 ? agreeHTML(d) : ''}
         ${riskCard(d)}
         <div class="card">${backtestCard(d)}</div>
         ${blendCard(d)}
         ${scoreboardCard(d)}`)}
-      ${sec('News', 'Latest headlines and whether they change the forecast', newsCard(d))}
-      ${sec('How to read this page', 'Candlesticks, the models and their limits', `
+      ${sec('news', 'news', 'News', 'Latest headlines and whether they change the forecast', d._news && d._news.items ? `${d._news.items.length} headlines` : '', newsCard(d))}
+      ${sec('guide', 'info', 'How to read this page', 'Candlesticks, the models and their limits', '', `
         ${about ? `<div class="card"><div class="k">About ${d.symbol}</div><p class="about">${about}</p></div>` : ''}
         ${guideHTML(d)}`)}
     </div>

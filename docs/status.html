@@ -23,31 +23,19 @@
   #word.NOTHING { color:var(--muted); font-size:clamp(56px, 20vw, 120px); }
   #headline { font-size:20px; font-weight:600; margin:0 0 8px; }
   #reason { color:var(--muted); max-width:34ch; margin:0 auto; }
-  #next { color:var(--text); font-size:14px; max-width:34ch; margin:12px auto 0; padding:8px 12px; border-radius:12px;
-          background:rgba(75,83,32,0.08); border:1px solid rgba(75,83,32,.25); }
-  #next b { color:var(--muted); font-weight:500; margin-right:4px; }
-  #optnote { color:var(--muted); font-size:13px; max-width:36ch; margin:12px auto 0; padding-top:10px; border-top:1px solid rgba(75,83,32,.25); }
-  #meta { color:var(--muted); font-size:13px; margin-top:24px; }
+  /* 12 Nov 2026: the parts under the word are kit.css sections, tiles and tables (ui.js), as on Next 10 */
+  .stack { width:100%; max-width:420px; margin:0 auto; text-align:left; }
+  #next .alert, #warn .alert { margin-top:14px; font-size:14px; }
+  #meta { color:var(--muted); font-size:13px; margin-top:18px; }
   #feed { color:var(--muted); font-size:13px; margin:6px auto 0; max-width:36ch; } #feed .bad { color:var(--warn); }
-  .box { margin:20px auto 0; max-width:360px; width:100%; border:1px solid rgba(75,83,32,.25); border-radius:12px; padding:12px 16px; text-align:left; }
-  .box div { display:flex; justify-content:space-between; gap:12px; padding:3px 0; }
-  .box span { color:var(--muted); }
-  #warn { display:none; margin:20px auto 0; max-width:360px; background:#F6D9D3; border:1px solid var(--down); border-radius:12px; padding:12px 16px; }
-  #today { margin:24px auto 0; max-width:360px; width:100%; text-align:left; font-size:14px; }
-  #today h2 { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; }
-  #today li { display:flex; gap:10px; padding:4px 0; border-top:1px solid rgba(75,83,32,.15); }
-  #today ol { list-style:none; margin:0; padding:0; }
-  #today b { min-width:64px; } #today time { color:var(--muted); min-width:42px; }
+  #trade { margin-top:14px; }
+  .state { font-weight:700; } .state.CALL { color:var(--up); } .state.PUT { color:var(--down); } .state.STAY { color:var(--warn); } .state.SELL { color:#24529C; }
+  .state.NOTHING { color:var(--muted); font-weight:600; }
   .up { color:var(--up); } .down { color:var(--down); }
   a { color:var(--muted); }
-  /* Why NOTHING (3 Nov 2026): what the 09:15 signal's lean did on every day, traded or not */
-  #why { margin:24px auto 0; max-width:360px; width:100%; text-align:left; font-size:14px; }
-  #why h2 { font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; }
-  #why p { margin:6px 0; color:var(--muted); } #why p b { color:var(--text); font-weight:600; }
-  #why table { width:100%; border-collapse:collapse; margin-top:6px; font-size:13px; font-variant-numeric:tabular-nums; }
-  #why td { padding:4px 0; border-top:1px solid rgba(75,83,32,.15); } #why td.n { text-align:right; }
-  #why td.m { color:var(--muted); }
 </style>
+<link rel="stylesheet" href="kit.css?v=1">
+<script src="ui.js?v=1"></script>
 <script src="fresh.js"></script>
 </head>
 <body>
@@ -55,14 +43,15 @@
   <div id="word" class="NOTHING">…</div>
   <p id="headline"></p>
   <p id="reason"></p>
-  <p id="next" hidden data-glass></p>
-  <p id="optnote" hidden></p>
-  <div id="warn"></div>
-  <div id="trade" class="box" hidden></div>
+  <div class="stack">
+    <div id="next" hidden></div>
+    <div id="optnote" hidden></div>
+    <div id="warn" hidden></div>
+    <div id="trade" hidden></div>
+  </div>
   <p id="meta"></p>
   <p id="feed" hidden></p>
-  <section id="today" hidden data-glass><h2>Today</h2><ol id="rows"></ol></section>
-  <section id="why" hidden data-glass></section>
+  <div class="stack"><div id="today" hidden></div><div id="why" hidden></div></div>
   <p style="font-size:13px; margin-top:28px"><a href="live.html" style="padding:14px 0">Live chart</a> · <a href="./#nifty" style="padding:14px 0">Full forecast</a> · <a href="history.html" style="padding:14px 0">History</a> · Learning tool, not financial advice.</p>
 <script>
 const WORD = { CALL: 'CALL', PUT: 'PUT', STAY: 'STAY', SELL: 'SELL', NOTHING: 'NOTHING' };   // the only five states
@@ -93,9 +82,9 @@ async function load() {
     $('headline').textContent = stale ? 'Waiting for today’s update' : s.headline;
     $('reason').textContent = stale ? 'The signal is made at about 08:57 IST on market days.' : s.reason;
     const nx = stale ? '' : nextStep(s);
-    $('next').hidden = !nx; $('next').innerHTML = nx ? `<b>Next:</b>${nx}` : '';
+    $('next').hidden = !nx; $('next').innerHTML = nx ? UI.alert(`<b style="color:var(--text)">Next:</b> ${nx}`, 'ok', 'clock') : '';
     $('optnote').hidden = stale || !s.option_note;                 // which option, or what buying without a reason costs
-    $('optnote').textContent = stale ? '' : (s.option_note || '');
+    $('optnote').innerHTML = stale || !s.option_note ? '' : UI.alert(s.option_note.replace(/[&<>]/g, ''), '', 'info');
     const t = x => new Date(x).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     const istNow = new Date(Date.now() + 19800000), hmNow = istNow.getUTCHours() * 100 + istNow.getUTCMinutes();
     const open = !stale && hmNow >= 845 && hmNow < 1535 && s.kind !== 'closed';
@@ -104,17 +93,16 @@ async function load() {
     // 09:15-15:30 IST on a trading day (next_session, from the last update) with no call for today: something failed
     const ist = new Date(Date.now() + 19800000), hm = ist.getUTCHours() * 100 + ist.getUTCMinutes();
     const broken = hm >= 915 && hm < 1530 && ((stale && s.next_session === todayIst) || (!stale && s.kind === 'pending'));
-    $('warn').style.display = broken ? 'block' : 'none';
-    $('warn').textContent = 'No signal today: the 08:57 call did not arrive. If the market is open, do not trade on the app today.';
+    $('warn').hidden = !broken;
+    $('warn').innerHTML = UI.alert('<b>No signal today:</b> the 08:57 call did not arrive. If the market is open, do not trade on the app today.', 'bad');
     const t2 = !stale && s.trade;
     $('trade').hidden = !t2;
     if (t2) {
       const f = x => x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const cls = t2.pct >= 0 ? 'up' : 'down';
-      $('trade').innerHTML = `<div><span>${t2.side} bought at the open</span><b>${f(t2.entry)}</b></div>
-        <div><span>Stop (sell if NIFTY goes ${t2.side === 'CALL' ? 'below' : 'above'})</span><b>${f(t2.stop)}</b></div>
-        <div><span>NIFTY now</span><b>${f(t2.price)}</b></div>
-        <div><span>Trade so far (NIFTY move)</span><b class="${cls}">${t2.pct >= 0 ? '+' : ''}${t2.pct.toFixed(2)}%</b></div>`;
+      $('trade').innerHTML = `<section class="k-card"><div class="k-chips"><span class="k-chip ${t2.side === 'CALL' ? 'up' : 'down'}">${UI.ico(t2.side === 'CALL' ? 'up' : 'down')}${t2.side} today</span></div>
+        <div class="k-tiles" style="margin:10px 0 0">${UI.tile(f(t2.entry), 'NIFTY at the open')}${UI.tile(f(t2.stop), `stop: sell if NIFTY goes ${t2.side === 'CALL' ? 'below' : 'above'}`)}
+        ${UI.tile(`${t2.pct >= 0 ? '+' : ''}${t2.pct.toFixed(2)}%`, `so far · NIFTY ${f(t2.price)}`, cls)}</div></section>`;
     }
     whyNothing(s.shadow);
     feedLine(stale ? null : s.kite);
@@ -149,20 +137,16 @@ function whyNothing(sh) {
   const rs = x => (x >= 0 ? '+₹' : '−₹') + Math.abs(x).toLocaleString('en-IN');
   const pct = x => `${x >= 0 ? '+' : ''}${x.toFixed(2)}%`;
   const t = sh.test;
-  el.innerHTML = `<h2>Why NOTHING?</h2>
-    <p>Only one tested rule says CALL or PUT: the 09:15 signal, on its most confident days${t && t.trade_share
-      ? ` (about 1 day in ${Math.round(1 / t.trade_share)} in its test)` : ''}.
-      It has traded <b>${sh.traded} of ${sh.days}</b> days since ${day(sh.since)}.</p>
-    <p>Its lean on every day, as if traded from the open to the close: right <b>${sh.right} of ${sh.days}</b>, NIFTY
-      <b class="${sh.pct >= 0 ? 'up' : 'down'}">${pct(sh.pct)}</b> after costs${sh.rs != null ? `; an at-the-money option, 1 lot:
-      <b class="${sh.rs >= 0 ? 'up' : 'down'}">${rs(sh.rs)}</b> (${sh.rs_days} days on real NSE prices)` : ''}.</p>
-    ${t && t.days ? `<p>In its ${t.days}-day test, leaning every day was right ${Math.round(t.right * 100)}% of the time,
-      ${pct(t.pct)} a day after costs: a few weeks of this cannot show an edge. Information, not a trade signal.</p>` : ''}
-    <table>${sh.rows.slice().reverse().map(x => `<tr><td>${day(x.d)}${x.traded ? ' ★' : ''}</td>
-      <td class="${x.dir === 'up' ? 'up' : 'down'}">${x.dir === 'up' ? '▲' : '▼'} ${x.pred != null ? pct(x.pred) : x.dir}</td>
-      <td class="n ${x.move_pct >= 0 ? 'up' : 'down'}">${pct(x.move_pct)} ${x.right ? '✓' : '✗'}</td>
-      <td class="n ${x.rs == null ? 'm' : x.rs >= 0 ? 'up' : 'down'}">${x.rs == null ? '—' : rs(x.rs)}</td></tr>`).join('')}</table>
-    <p style="font-size:12px">Lean · NIFTY open to close · the option on that side, 1 lot (prices come each evening; ★ traded).</p>`;
+  el.innerHTML = UI.sec('why', 'info', 'Why NOTHING?', `the 09:15 signal traded ${sh.traded} of ${sh.days} days`, `${sh.right}/${sh.days} right`,
+    `<p style="margin:0 0 8px">Only one tested rule says CALL or PUT: the 09:15 signal, on its most confident days${t && t.trade_share
+      ? ` (about 1 day in ${Math.round(1 / t.trade_share)} in its test)` : ''}. Its lean on every day, as if traded from the open to the close:</p>
+    <div class="k-tiles">${UI.tile(`${sh.right}/${sh.days}`, 'days right')}${UI.tile(pct(sh.pct), 'NIFTY after costs', sh.pct >= 0 ? 'up' : 'down')}
+      ${sh.rs != null ? UI.tile(rs(sh.rs), `ATM option, 1 lot (${sh.rs_days} days)`, sh.rs >= 0 ? 'up' : 'down') : ''}</div>
+    <table class="k-tbl"><tr><th>Day</th><th>Lean</th><th class="n">Open→close</th><th class="n">1 lot</th></tr>${sh.rows.slice().reverse().map(x => `<tr><td class="k-t1">${day(x.d)}${x.traded ? ' ' + UI.star : ''}</td>
+      <td class="${x.dir === 'up' ? 'up' : 'down'}">${UI.ico(x.dir === 'up' ? 'up' : 'down')} ${x.pred != null ? pct(x.pred) : x.dir}</td>
+      <td class="n"><span class="k-pill ${x.right ? 'up' : 'down'}">${UI.ico(x.right ? 'check' : 'x')}${pct(x.move_pct)}</span></td>
+      <td class="n ${x.rs == null ? 'm' : x.rs >= 0 ? 'up' : 'down'}">${x.rs == null ? '—' : `<b>${rs(x.rs)}</b>`}</td></tr>`).join('')}</table>
+    <div class="k-note">${t && t.days ? `In its ${t.days}-day test, leaning every day was right ${Math.round(t.right * 100)}% of the time, ${pct(t.pct)} a day after costs: a few weeks of this cannot show an edge. ` : ''}Option prices come each evening; ★ traded. Information, not a trade signal.</div>`, true);
 }
 // site-data's newest commit (fresh.js: updated by every 10-minute run, no 5-minute cache); the site copy as a fallback
 async function fresh(name) {
@@ -184,8 +168,12 @@ async function loadToday(date) {
       rows.push(x);
     }
     $('today').hidden = !rows.length;
-    $('rows').innerHTML = rows.map(x => `<li><time>${x.at}</time><b>${x.state}</b><span>${x.price ? x.price.toLocaleString('en-IN') : ''}${
-      x.move_pct != null ? ` <span class="${x.move_pct >= 0 ? 'up' : 'down'}">(${x.move_pct >= 0 ? '+' : ''}${x.move_pct.toFixed(2)}%)</span>` : ''}${x.alert ? ' · alert sent' : ''}</span></li>`).join('');
+    const last = rows[rows.length - 1];
+    $('today').innerHTML = rows.length ? UI.sec('today', 'list', 'Today', 'Changes of state and one line an hour', last ? `<span class="state ${last.state}">${last.state}</span>` : '',
+      `<table class="k-tbl"><tr><th>Time</th><th>State</th><th class="n">NIFTY</th></tr>${rows.map(x => `<tr><td class="k-t1">${x.at}${x.alert ? ' ' + UI.ico('bell') : ''}</td>
+        <td><span class="state ${x.state}">${x.state}</span></td><td class="n">${x.price ? x.price.toLocaleString('en-IN') : ''}${
+        x.move_pct != null ? ` <span class="k-pill ${x.move_pct >= 0 ? 'up' : 'down'}">${x.move_pct >= 0 ? '+' : ''}${x.move_pct.toFixed(2)}%</span>` : ''}</td></tr>`).join('')}</table>
+      <div class="k-note">${UI.ico('bell')} an alert was sent.</div>`) : '';
   } catch (e) { $('today').hidden = true; }
 }
 load();

@@ -31,7 +31,7 @@
   #chart { flex:1; min-height:0; position:relative; }
   #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mute); text-align:center; padding:20px; }
   #msg[hidden] { display:none; }
-  #panel { border-top:1px solid var(--edge); padding:8px 2px 0; font-size:13px; min-height:38px; max-height:48vh; overflow:auto; color:var(--text); }
+  #panel { padding:2px 0 0; font-size:13px; min-height:38px; max-height:48vh; overflow:auto; color:var(--text); }
   .money { margin-top:6px; } .money summary { cursor:pointer; }
   .money table { width:100%; border-collapse:collapse; margin-top:6px; font-size:12.5px; }
   .money td { padding:5px 4px; border-top:1px solid var(--edge); vertical-align:top; } .money .n { text-align:right; white-space:nowrap; }
@@ -39,6 +39,8 @@
   #panel .m { color:var(--mute); }
   .up { color:var(--up); } .down { color:var(--down); }
 </style>
+<link rel="stylesheet" href="kit.css?v=1">
+<script src="ui.js?v=1"></script>
 </head>
 <body>
 <div class="wrap">
@@ -54,7 +56,7 @@
     <button data-k="prev"><i style="border-color:#57532F;border-top-style:dashed"></i>prev close</button>
   </div>
   <div id="chart"><div id="msg" hidden></div></div>
-  <div id="panel" data-glass></div>
+  <div id="panel"></div>
 </div>
 <script src="lightweight-charts.js"></script>
 <script src="fresh.js"></script>
@@ -243,7 +245,10 @@ function checkLine(k) {
   return sec('30 minutes later', `Off by: model <b>${k.model.toFixed(0)}</b> pts · ${k.ai != null ? `AI <b>${k.ai.toFixed(0)}</b> · ` : ''}"price stays" <b>${k.stays.toFixed(0)}</b>
     <span class="m">(${k.n} runs: model ${verdict(k.model, k.stays)}${k.ai != null ? `, AI ${verdict(k.ai, k.aiStays)}` : ''})</span>`);
 }
-const sec = (title, body) => `<div class="sec"><div class="h">${title}</div>${body}</div>`;
+// 12 Nov 2026: each part is a kit section with an icon (kit.css, ui.js), as on Next 10; the first word picks the icon
+const SEC_ICON = { The: 'activity', Lines: 'chart', Why: 'info', AI: 'globe', '30': 'clock', Days: 'calendar', Price: 'alert' };
+const sec = (title, body, summary = '') => UI.sec(title.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 24), SEC_ICON[title.split(' ')[0]] || 'info',
+  title.split(' · ')[0], title.split(' · ').slice(1).join(' · '), summary, body);
 const beat = (k, n) => `<b class="${k / n > 0.5 ? 'up' : 'down'}">${k} of ${n}</b>`;
 // The track record over every stored day (live.py track_record): is each line nearer the close than just taking the
 // price at that moment, and was Grok's morning read on the right side of the day's move?
@@ -290,9 +295,8 @@ function summary() {
   // of yesterday's close, and going further from here, which is what an option bought now needs
   if (dl && d.status === 'open') {
     const side = d.move_pct >= 0 ? 'above' : 'below', held = Math.round((d.move_pct >= 0 ? dl.close_above : 1 - dl.close_above) * 100);
-    h += sec(`Days like today · ${dl.days} since 2015, at ${dl.at}`, `<div class="stats">
-      <div class="stat"><b>${held}%</b><small>closed ${side} yesterday's close</small></div>
-      <div class="stat"><b>${Math.round(dl.up * 100)}%</b><small>rose further from here: what a CALL / PUT bought now needs</small></div></div>
+    h += sec(`Days like today · ${dl.days} since 2015, at ${dl.at}`, `<div class="k-tiles two">
+      ${UI.tile(`${held}%`, `closed ${side} yesterday's close`)}${UI.tile(`${Math.round(dl.up * 100)}%`, 'rose further from here: what a CALL / PUT bought now needs')}</div>
       <span class="m">${pc(dl.avg_pct)} on average, usually ${pc(dl.range_pct[0])} to ${pc(dl.range_pct[1])} (${dl.read}). Not a trade signal.</span>`);
   }
   if (d.paused_from) h += sec('Price feed', `<span class="m">Yahoo's 5-minute prices stopped moving from ${d.paused_from} (it happens near the close on most days since Aug 2026); those minutes are left out of the candles until the close.</span>`);

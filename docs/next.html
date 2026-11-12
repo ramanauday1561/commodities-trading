@@ -6,6 +6,8 @@
 <title>Next 10 minutes</title>
 <meta name="theme-color" content="#EDC9AF">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="kit.css?v=1">
+<script src="ui.js?v=1"></script>
 <style>
   :root { --bg:#EDC9AF; --card:#F7E8D8; --text:#2B2F14; --mute:#57532F; --olive:#4B5320; --edge:rgba(75,83,32,0.16);
           --up:#185C3B; --down:#A3261F; --warn:#7A4E00; --tint:rgba(75,83,32,0.07); }
@@ -17,23 +19,8 @@
   .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .top b { font-size:19px; letter-spacing:-.01em; } .top small { display:block; color:var(--mute); font-size:12px; }
   .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(75,83,32,0.1); }
-  .ico { width:16px; height:16px; flex:none; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; vertical-align:-3px; }
-  .star { fill:#F9A900; stroke:var(--olive); stroke-width:1.5; }
-
   /* the card on top: only what is live now */
   .now { margin:8px 0 6px; padding:12px 14px; border:1px solid var(--edge); border-radius:16px; background:rgba(75,83,32,0.06); }
-  .chips { display:flex; flex-wrap:wrap; gap:6px; }
-  .chip { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:12.5px; font-weight:600;
-          background:rgba(75,83,32,0.1); color:var(--text); white-space:nowrap; }
-  .chip.up { background:rgba(24,92,59,0.12); color:var(--up); } .chip.down { background:rgba(163,38,31,0.1); color:var(--down); }
-  .hero { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin:8px 0 2px; }
-  .hero b { font-size:30px; font-weight:800; letter-spacing:-.02em; line-height:1.1; font-variant-numeric:tabular-nums; }
-  .hero span { color:var(--mute); font-size:14px; }
-  .hero .ico { width:26px; height:26px; stroke-width:2.6; align-self:center; }
-  .sub { color:var(--mute); font-size:13px; }
-  .alert { display:flex; gap:8px; align-items:flex-start; margin-top:10px; padding:8px 10px; border-radius:12px;
-           background:rgba(122,78,0,0.08); font-size:12.5px; color:var(--mute); }
-  .alert > .ico { color:var(--warn); margin-top:1px; } .alert b { color:var(--warn); font-weight:650; }
   .warn { color:var(--mute); font-size:12px; margin-top:4px; } .warn b { color:var(--warn); font-weight:600; }
 
   #chart { flex:1; min-height:160px; position:relative; }
@@ -41,47 +28,6 @@
   #msg[hidden] { display:none; }
   #panel { padding:4px 0 0; font-size:13px; max-height:38vh; overflow:auto; }
 
-  /* grouped sections, each opens and closes */
-  .sec { background:var(--card); border:1px solid var(--edge); border-radius:16px; margin:10px 0; overflow:hidden; }
-  .sec > summary { list-style:none; display:flex; align-items:center; gap:10px; padding:11px 12px; cursor:pointer; -webkit-tap-highlight-color:transparent; }
-  .sec > summary::-webkit-details-marker { display:none; }
-  .sec .badge-ic { width:32px; height:32px; border-radius:10px; background:rgba(75,83,32,0.12); color:var(--olive); display:grid; place-items:center; flex:none; }
-  .sec .badge-ic .ico { width:18px; height:18px; vertical-align:0; }
-  .sec .t { flex:1; min-width:0; font-weight:650; font-size:15px; }
-  .sec .t small { display:block; font-weight:400; font-size:12px; color:var(--mute); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .sec .s { font-weight:700; font-size:14px; white-space:nowrap; font-variant-numeric:tabular-nums; }
-  .sec .chev { color:var(--mute); transition:transform .2s; }
-  .sec[open] .chev { transform:rotate(90deg); }
-  .sec .body { padding:0 12px 12px; }
-  .tiles { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-bottom:8px; }
-  .tiles.two { grid-template-columns:repeat(2, 1fr); }
-  .tile { background:var(--tint); border-radius:12px; padding:8px 9px; min-width:0; }
-  .tile b { display:block; font-size:17px; font-weight:750; letter-spacing:-.01em; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  .tile span { display:block; font-size:11.5px; line-height:1.3; color:var(--mute); }
-  .note { font-size:12px; color:var(--mute); margin-top:8px; }
-  .sub-h { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--mute); font-weight:650; margin:12px 0 6px; }
-
-  /* tables */
-  .tbl { width:100%; border-collapse:collapse; font-size:13px; font-variant-numeric:tabular-nums; }
-  .tbl th { font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--mute); font-weight:650; text-align:left;
-            padding:4px 6px 6px; border-bottom:1px solid var(--edge); }
-  .tbl td { padding:8px 6px; border-bottom:1px solid rgba(75,83,32,0.09); vertical-align:middle; }
-  .tbl tr:last-child td { border-bottom:0; }
-  .tbl .n { text-align:right; white-space:nowrap; }
-  .tbl td.t1 { font-weight:600; white-space:nowrap; }
-  .pill { display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:999px; font-size:12px; font-weight:650; white-space:nowrap; }
-  .pill.up { background:rgba(24,92,59,0.12); color:var(--up); } .pill.down { background:rgba(163,38,31,0.1); color:var(--down); }
-  .pill.m { background:rgba(75,83,32,0.09); color:var(--mute); font-weight:500; }
-  .pill .ico { width:13px; height:13px; stroke-width:2.6; vertical-align:0; }
-  .bar { height:5px; border-radius:3px; background:rgba(163,38,31,0.25); overflow:hidden; margin-top:4px; min-width:44px; }
-  .bar i { display:block; height:100%; background:var(--up); }
-  .pick { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid rgba(75,83,32,0.09); }
-  .pick:last-of-type { border-bottom:0; }
-  .pick .dot { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; flex:none; }
-  .pick .dot.up { background:rgba(24,92,59,0.12); color:var(--up); } .pick .dot.down { background:rgba(163,38,31,0.1); color:var(--down); }
-  .pick .dot.m { background:rgba(75,83,32,0.1); color:var(--mute); }
-  .pick .what { flex:1; min-width:0; } .pick .what small { display:block; color:var(--mute); font-size:12px; }
-  .pick b { font-variant-numeric:tabular-nums; }
   .n { text-align:right; white-space:nowrap; } .m { color:var(--mute); }
   .up { color:var(--up); } .down { color:var(--down); }
   button.show { margin-left:4px; border:1px solid var(--edge); border-radius:999px; padding:3px 10px; font-size:12px;
@@ -152,37 +98,11 @@ function score(d) {
 // 12 Nov 2026 (asked by the owner: "too much text, group them, show some icons, a better table"): the card on top keeps
 // only what is live now; everything else is grouped into sections with an icon, a one-line summary and a chevron, and
 // each remembers whether it is open. The numbers and their wording are the same as before, only arranged.
-const ICONS = {
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  size: '<path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/>',
-  up: '<path d="M12 19V5M6 11l6-6 6 6"/>', down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
-  check: '<path d="M5 12l5 5 9-10"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
-  activity: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
-  star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
-  rupee: '<path d="M6 4h12M6 9h12M9 4c4 0 6 2 6 5s-2 5-6 5H6l8 7"/>',
-  chart: '<path d="M3 21h18M6 17v-6M11 17V5M16 17v-9M21 17v-3"/>',
-  list: '<path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/>',
-  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
-  alert: '<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17h.01"/>',
-  chev: '<path d="M9 6l6 6-6 6"/>',
-};
-const ico = (n, cls = '') => `<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
-const starIco = '<svg class="ico star" viewBox="0 0 24 24" aria-label="more confident">' + ICONS.star + '</svg>';
+const { ico, sec, tile } = UI, starIco = UI.star;
 const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const sign = x => `${x >= 0 ? '+' : '−'}${Math.abs(x)}`;
 const ud = x => x >= 0 ? 'up' : 'down';
 const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
-
-let openSec = { today: true, picks: true, star: true, leans: true };
-try { Object.assign(openSec, JSON.parse(localStorage.getItem('nextOpen') || '{}')); } catch (e) {}
-// one section: an icon, a title with a short line under it, the summary on the right, then the body
-function sec(key, icon, title, sub, summary, body) {
-  if (!body) return '';
-  return `<details class="sec" data-sec="${key}"${openSec[key] ? ' open' : ''}><summary>
-    <span class="badge-ic">${icon}</span><span class="t">${title}${sub ? `<small>${sub}</small>` : ''}</span>
-    <span class="s">${summary || ''}</span>${ico('chev', 'chev')}</summary><div class="body">${body}</div></details>`;
-}
-const tile = (value, label, cls = '') => `<div class="tile"><b class="${cls}">${value}</b><span>${label}</span></div>`;
 
 function draw(d) {
   data = d;
@@ -207,17 +127,17 @@ function draw(d) {
   const kind = dayKind(c);
   $('panel').innerHTML =
     sec('today', ico('activity'), 'Today', kind ? kind.sub : 'The day so far', kind ? `<span class="${kind.cls}">${kind.word}</span>` : '',
-      (kind ? '' : '') + `<div class="tiles">
+      (kind ? '' : '') + `<div class="k-tiles">
         ${kind ? tile(`${sign(Math.round(kind.net))}`, `pts since the open (${Math.round(kind.path)} travelled)`, kind.net >= 0 ? 'up' : 'down') : tile('—', 'from 3 candles on')}
         ${tile(done.length ? `${right}/${done.length}` : '—', done.length ? `leans right (${pct(right, done.length)}%)${conf.length ? ` · ★ ${cRight}/${conf.length}` : ''}` : 'no lean scored yet')}
         ${tile(done.length ? rs(money) : '—', 'every lean, 1 lot, after costs', done.length ? ud(money) : '')}</div>
-        <div class="note">${dayLine(money, d)}${kind ? ' The day type describes the day; it did not make the leans pay in the test.' : ''}</div>`)
+        <div class="k-note">${dayLine(money, d)}${kind ? ' The day type describes the day; it did not make the leans pay in the test.' : ''}</div>`)
     + picksSec()
     + starSec(d)
     + (showLeans && s.length ? sec('leans', ico('list'), "Today's leans", 'Each 10-minute candle and how it went',
         done.length ? `${right} of ${done.length}` : '', leansTable(s, d, realRs)) : '')
     + recordSec(d)
-    + sec('about', ico('info'), 'About these numbers', 'How each one is worked out', '', aboutHTML(d));
+    + sec('about', ico('info'), 'About these numbers', 'How each one is worked out', '', aboutHTML(d), true);
 }
 
 // the card on top: the time, then the expected size (always) or the lean (when shown), and the warning with the switch
@@ -225,32 +145,32 @@ function nowCard(d, cur, late) {
   const lastAt = lastLean(d), over = cur && cur.at >= lastAt;
   const rec = (d.record && d.record.text) || 'not tested';
   const sw = showLeans
-    ? `<div class="alert">${ico('alert')}<div><b>Information, not a CALL / PUT signal.</b> ${rec}.
+    ? `<div class="k-alert">${ico('alert')}<div><b>Information, not a CALL / PUT signal.</b> ${rec}.
          <div style="margin-top:4px"><button class="show" data-show="0" data-switch="on">Show the leans</button></div></div></div>`
-    : `<div class="alert">${ico('alert')}<div><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
+    : `<div class="k-alert">${ico('alert')}<div><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
          <div style="margin-top:4px"><button class="show" data-show="1" data-switch="off">Show today's leans anyway</button></div></div></div>`;
   let main;
-  if (d.status !== 'open') main = `<div class="hero"><b class="m" style="font-size:20px">${d.status === 'closed' ? 'Market closed' : 'Before the open'}</b></div>
-      <div class="sub">${d.status === 'closed' ? 'No live lean. The day is summed up below.' : "The first lean comes after the 09:15 open."}</div>`;
-  else if (late && over) main = `<div class="hero"><b class="m" style="font-size:20px">No more leans today</b></div>
-      <div class="sub">${lastAt === '15:05' ? "NSE's closing auction holds NIFTY still from 15:15 until the close is set at 15:30, so the last lean is for 15:05 to 15:15." : 'The last 10-minute candle is 15:15 to 15:25.'}</div>`;
-  else if (late) main = `<div class="hero"><b class="m" style="font-size:20px">Waiting for the ${addMin(cur.at, 10)} update</b></div>
-      <div class="sub">It runs every 10 minutes, but sometimes starts a few minutes late. The page refreshes by itself.</div>`;
+  if (d.status !== 'open') main = `<div class="k-hero"><b class="m" style="font-size:20px">${d.status === 'closed' ? 'Market closed' : 'Before the open'}</b></div>
+      <div class="k-sub">${d.status === 'closed' ? 'No live lean. The day is summed up below.' : "The first lean comes after the 09:15 open."}</div>`;
+  else if (late && over) main = `<div class="k-hero"><b class="m" style="font-size:20px">No more leans today</b></div>
+      <div class="k-sub">${lastAt === '15:05' ? "NSE's closing auction holds NIFTY still from 15:15 until the close is set at 15:30, so the last lean is for 15:05 to 15:15." : 'The last 10-minute candle is 15:15 to 15:25.'}</div>`;
+  else if (late) main = `<div class="k-hero"><b class="m" style="font-size:20px">Waiting for the ${addMin(cur.at, 10)} update</b></div>
+      <div class="k-sub">It runs every 10 minutes, but sometimes starts a few minutes late. The page refreshes by itself.</div>`;
   else if (cur && cur.pending) {
     const big = cur.size != null && cur.typical ? cur.size / cur.typical : 1;
     const word = big >= 1.3 ? 'bigger than usual' : big <= 0.75 ? 'smaller than usual' : 'about usual';
-    const sizeChip = cur.size != null ? `<span class="chip">${ico('size')}±${cur.size} pts ${word}</span>` : '';
-    main = `<div class="chips"><span class="chip">${ico('clock')}${cur.at}–${addMin(cur.at, 10)}</span>${showLeans ? sizeChip : ''}
-        ${showLeans && cur.confident ? `<span class="chip">${starIco}more confident</span>` : ''}</div>`
+    const sizeChip = cur.size != null ? `<span class="k-chip">${ico('size')}±${cur.size} pts ${word}</span>` : '';
+    main = `<div class="k-chips"><span class="k-chip">${ico('clock')}${cur.at}–${addMin(cur.at, 10)}</span>${showLeans ? sizeChip : ''}
+        ${showLeans && cur.confident ? `<span class="k-chip">${starIco}more confident</span>` : ''}</div>`
       + (showLeans
-        ? `<div class="hero ${cur.lean === 'up' ? 'up' : 'down'}">${ico(cur.lean === 'up' ? 'up' : 'down')}<b>Leans ${cur.lean}</b>
+        ? `<div class="k-hero ${cur.lean === 'up' ? 'up' : 'down'}">${ico(cur.lean === 'up' ? 'up' : 'down')}<b>Leans ${cur.lean}</b>
              <span>${Math.abs(cur.pts) < 0.05 ? '≈0 pts, a coin flip' : `${sign(cur.pts)} pts`}</span></div>
-           <div class="sub">Expected size ±${cur.size ?? '?'} pts${cur.typical ? ` (usual ±${cur.typical})` : ''}. The size is tested; the direction is not.</div>`
+           <div class="k-sub">Expected size ±${cur.size ?? '?'} pts${cur.typical ? ` (usual ±${cur.typical})` : ''}. The size is tested; the direction is not.</div>`
         : cur.size != null
-        ? `<div class="hero">${ico('size')}<b>±${cur.size} pts</b><span>expected move · ${word}</span></div>
-           <div class="sub">${cur.typical ? `Usual at this time ±${cur.typical}. ` : ''}Size, not direction: an at-the-money option needs about 7.4 pts the right way to cover its costs.</div>`
-        : `<div class="hero"><b class="m" style="font-size:20px">Waiting for the next candle</b></div>`);
-  } else main = `<div class="hero"><b class="m" style="font-size:20px">Waiting for the next 10-minute candle</b></div>`;
+        ? `<div class="k-hero">${ico('size')}<b>±${cur.size} pts</b><span>expected move · ${word}</span></div>
+           <div class="k-sub">${cur.typical ? `Usual at this time ±${cur.typical}. ` : ''}Size, not direction: an at-the-money option needs about 7.4 pts the right way to cover its costs.</div>`
+        : `<div class="k-hero"><b class="m" style="font-size:20px">Waiting for the next candle</b></div>`);
+  } else main = `<div class="k-hero"><b class="m" style="font-size:20px">Waiting for the next 10-minute candle</b></div>`;
   return main + sw;
 }
 
@@ -304,14 +224,14 @@ function picksSec() {
   const known = real.picks.filter(p => p.net != null), net = known.reduce((a, p) => a + p.net, 0);
   const rows = real.picks.map(p => {
     const m = /(\d\d:\d\d)\s+(up|down)/.exec(p.at || ''), cls = p.net == null ? 'm' : ud(p.net);
-    return `<div class="pick"><span class="dot ${cls}">${ico(p.net == null ? 'clock' : p.net >= 0 ? 'check' : 'x')}</span>
-      <span class="what">${m ? `${m[1]} · ${m[2] === 'up' ? 'CALL' : 'PUT'} ${ico(m[2])}` : esc(p.at)}<small>${p.done ? 'closed' : 'open'}${p.why ? ` · ${esc(p.why)}` : ''}</small></span>
+    return `<div class="k-pick"><span class="k-dot ${cls}">${ico(p.net == null ? 'clock' : p.net >= 0 ? 'check' : 'x')}</span>
+      <span class="k-what">${m ? `${m[1]} · ${m[2] === 'up' ? 'CALL' : 'PUT'} ${ico(m[2])}` : esc(p.at)}<small>${p.done ? 'closed' : 'open'}${p.why ? ` · ${esc(p.why)}` : ''}</small></span>
       <b class="${cls}">${p.net == null ? '…' : rs(p.net)}${p.done || p.net == null ? '' : '<span class="m" style="font-weight:400"> so far</span>'}</b></div>`;
   }).join('');
   return sec('picks', ico('rupee'), 'Your real ★ picks', 'Kite, after charges · up to 30 min, 10% stop',
     real.picks.length ? `<span class="${ud(net)}">${rs(net)}</span>` : '',
     (rows || '<div class="m">No ★ pick yet today.</div>')
-    + (real.total ? `<div class="note">Whole account since ${day(real.total.since)}: <b class="${ud(real.total.net)}">${rs(real.total.net)}</b> (as on the Money page).</div>` : ''));
+    + (real.total ? `<div class="k-note">Whole account since ${day(real.total.since)}: <b class="${ud(real.total.net)}">${rs(real.total.net)}</b> (as on the Money page).</div>` : ''));
 }
 
 // The ★ report card (11 Nov 2026): the ★ leans alone, day by day, the leans the owner trades. Right / total and
@@ -323,25 +243,25 @@ function starSec(d) {
   const paid = Object.fromEntries(((paper && paper.days) || []).map(x => [x.d, x.accounts.leans_star]));
   const rows = (r.by_day || []).filter(x => x.star).slice(-7).reverse().map(x => {
     const p = paid[x.d], k = pct(x.star.right, x.star.leans);
-    return `<tr><td class="t1">${day(x.d)}</td><td>${x.star.right} of ${x.star.leans}<div class="bar"><i style="width:${k}%"></i></div></td>
-      <td class="n"><span class="pill ${ud(x.star.pts)}">${sign(x.star.pts)}</span></td>
+    return `<tr><td class="k-t1">${day(x.d)}</td><td>${x.star.right} of ${x.star.leans}<div class="k-bar"><i style="width:${k}%"></i></div></td>
+      <td class="n"><span class="k-pill ${ud(x.star.pts)}">${sign(x.star.pts)}</span></td>
       <td class="n ${p ? ud(p.rs) : 'm'}">${p ? `<b>${rs(p.rs)}</b>` : '—'}</td></tr>`;
   }).join('');
   return sec('star', starIco, 'Report card', `★ leans since ${day(r.since)}`, `${pct(s.right, s.leans)}% right`,
-    `<div class="tiles">${tile(`${s.right}/${s.leans}`, `right (${pct(s.right, s.leans)}%)`)}${tile(sign(s.pts), 'pts the right way', ud(s.pts))}${tile(`${s.up_days}/${s.days}`, 'days up')}</div>
-     <table class="tbl"><tr><th>Day</th><th>★ right</th><th class="n">Pts</th><th class="n">₹ real prices</th></tr>${rows}</table>
-     <div class="note">The 9-year test: right 53%, −₹72 a lot a trade after costs. A good run reads against that.</div>`);
+    `<div class="k-tiles">${tile(`${s.right}/${s.leans}`, `right (${pct(s.right, s.leans)}%)`)}${tile(sign(s.pts), 'pts the right way', ud(s.pts))}${tile(`${s.up_days}/${s.days}`, 'days up')}</div>
+     <table class="k-tbl"><tr><th>Day</th><th>★ right</th><th class="n">Pts</th><th class="n">₹ real prices</th></tr>${rows}</table>
+     <div class="k-note">The 9-year test: right 53%, −₹72 a lot a trade after costs. A good run reads against that.</div>`);
 }
 
 function leansTable(s, d, realRs) {
-  return `<table class="tbl"><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
+  return `<table class="k-tbl"><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
     + s.slice().reverse().map(x => {
       const v = realRs[x.at + x.lean] ?? x.rs;
-      return `<tr><td class="t1">${x.at}${x.confident ? ' ' + starIco : ''}</td>
+      return `<tr><td class="k-t1">${x.at}${x.confident ? ' ' + starIco : ''}</td>
         <td class="${ud(x.lean === 'up' ? 1 : -1)}">${ico(x.lean)} ${sign(x.pts)}${x.size != null ? ` <span class="m">±${x.size}</span>` : ''}</td>`
-        + (x.pending ? `<td class="n"><span class="pill m">${ico('clock')}${d.status === 'open' ? 'pending' : 'not scored'}</span></td><td></td>`
-          : x.paused ? '<td class="n"><span class="pill m">feed paused</span></td><td></td>'
-          : `<td class="n"><span class="pill ${x.right ? 'up' : 'down'}">${ico(x.right ? 'check' : 'x')}${x.move >= 0 ? '+' : '−'}${Math.abs(x.move).toFixed(1)}</span></td>
+        + (x.pending ? `<td class="n"><span class="k-pill m">${ico('clock')}${d.status === 'open' ? 'pending' : 'not scored'}</span></td><td></td>`
+          : x.paused ? '<td class="n"><span class="k-pill m">feed paused</span></td><td></td>'
+          : `<td class="n"><span class="k-pill ${x.right ? 'up' : 'down'}">${ico(x.right ? 'check' : 'x')}${x.move >= 0 ? '+' : '−'}${Math.abs(x.move).toFixed(1)}</span></td>
              <td class="n ${ud(v)}"><b>${rs(v)}</b>${realRs[x.at + x.lean] != null ? '•' : ''}</td>`)
         + '</tr>';
     }).join('') + '</table>';
@@ -353,19 +273,19 @@ function recordSec(d) {
   if (!r && !t && !(p && p.totals && p.totals.leans)) return '';
   const a = p && p.totals && p.totals.leans, st = p && p.totals && p.totals.leans_star, g = p && p.totals && p.totals.signal_lean;
   const pday = p && (p.days || []).find(x => x.d === d.date), pt = pday && pday.accounts.leans, pts = pday && pday.accounts.leans_star;
-  const live = r ? `<div class="tiles">${tile(rs(r.rs), `every lean, 1 lot, since ${day(r.since)}`, ud(r.rs))}
+  const live = r ? `<div class="k-tiles">${tile(rs(r.rs), `every lean, 1 lot, since ${day(r.since)}`, ud(r.rs))}
       ${tile(`${r.losing_days}/${r.days}`, 'days lost money')}${tile(`${pct(r.right, r.leans)}%`, `leans right (${r.right} of ${r.leans})`)}</div>` : '';
-  const test = t ? `<div class="note" style="margin-top:0">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
-  const paperH = a ? `<div class="sub-h">On Kite's real option prices · ₹2 lakh paper from ${day(p.start)}</div>
-      <div class="tiles">${tile(rs(a.rs), `every lean, ${a.days} day${a.days > 1 ? 's' : ''}`, ud(a.rs))}
+  const test = t ? `<div class="k-note" style="margin-top:0">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
+  const paperH = a ? `<div class="k-sub-h">On Kite's real option prices · ₹2 lakh paper from ${day(p.start)}</div>
+      <div class="k-tiles">${tile(rs(a.rs), `every lean, ${a.days} day${a.days > 1 ? 's' : ''}`, ud(a.rs))}
         ${st ? tile(rs(st.rs), '★ leans only', ud(st.rs)) : ''}
         ${g && g.days ? tile(rs(g.rs), `09:15 signal, right ${g.won} of ${g.days} days`, ud(g.rs)) : ''}</div>
-      <div class="note" style="margin-top:0">${pt ? `Today: every lean <b class="${ud(pt.rs)}">${rs(pt.rs)}</b> (${pt.won} of ${pt.trades} made money)${pts && pts.trades ? `, ★ <b class="${ud(pts.rs)}">${rs(pts.rs)}</b> (${pts.won} of ${pts.trades})` : ''}.` : 'Today is added after the close.'}</div>` : '';
-  return sec('record', ico('chart'), 'Track record', 'Every lean, live and in the 9-year test', r ? `<span class="${ud(r.rs)}">${rs(r.rs)}</span>` : '', live + test + paperH);
+      <div class="k-note" style="margin-top:0">${pt ? `Today: every lean <b class="${ud(pt.rs)}">${rs(pt.rs)}</b> (${pt.won} of ${pt.trades} made money)${pts && pts.trades ? `, ★ <b class="${ud(pts.rs)}">${rs(pts.rs)}</b> (${pts.won} of ${pts.trades})` : ''}.` : 'Today is added after the close.'}</div>` : '';
+  return sec('record', ico('chart'), 'Track record', 'Every lean, live and in the 9-year test', r ? `<span class="${ud(r.rs)}">${rs(r.rs)}</span>` : '', live + test + paperH, true);
 }
 
 function aboutHTML(d) {
-  return `<div class="note" style="margin-top:0">
+  return `<div class="k-note" style="margin-top:0">
     <p style="margin:0 0 6px"><b>Expected size</b>: tested 2017-2026, 10% closer than the usual size at that time of day, in every year. The direction is not tested to pay.</p>
     <p style="margin:0 0 6px"><b>Arrows on the chart</b>: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).</p>
     <p style="margin:0 0 6px"><b>₹ per lot</b>: with • on Kite's real option prices (bought at the at-the-money option's price when the lean was made, sold 10 minutes later), added after the close; without •, assuming the option moves half as much as NIFTY. A round trip costs about ₹120.</p>
@@ -373,13 +293,6 @@ function aboutHTML(d) {
     ${d.trained_until ? `<p style="margin:0">Model trained on candles to ${d.trained_until}.</p>` : ''}</div>`;
 }
 
-// each section remembers whether it is open (the panel is re-drawn on every update)
-document.addEventListener('toggle', e => {
-  const k = e.target && e.target.dataset && e.target.dataset.sec;
-  if (!k) return;
-  openSec[k] = e.target.open;
-  try { localStorage.setItem('nextOpen', JSON.stringify(openSec)); } catch (err) {}
-}, true);
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('button.show');
   if (!b) return;

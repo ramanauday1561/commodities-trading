@@ -37,6 +37,7 @@
   a { color:var(--muted); }
   #setup[hidden], #log[hidden] { display:none; }
 </style>
+<link rel="stylesheet" href="kit.css?v=1">
 </head>
 <body>
 <main>
@@ -55,15 +56,18 @@
     <button id="save" style="margin-top:14px">Save and log in</button>
   </div>
   <div id="log" class="box" hidden></div>
-  <div class="box">
-    <b>Why log in each morning?</b> Kite's own 5-minute NIFTY candles replace Yahoo's, and only Kite gives the real option prices the paper accounts use.
+  <!-- 12 Nov 2026: the kit's folding section (kit.css), as on Next 10 -->
+  <details class="k-sec" style="margin-top:16px"><summary>
+    <span class="k-badge-ic"><svg class="k-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg></span>
+    <span class="k-t">Why log in each morning?<small>What the login gives, and the one-time setup</small></span><span class="k-s"></span>
+    <svg class="k-ico k-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></summary><div class="k-body">
+    Kite's own 5-minute NIFTY candles replace Yahoo's, and only Kite gives the real option prices the paper accounts use.
     Kite's access token lasts one day (until 06:00), so log in once before 09:15. Without a login, the app uses Yahoo as
-    before. The app only reads prices; it never places orders.
-    <ol>
+    before. This page only logs in; orders come only from your own order server.
+    <ol style="margin:8px 0 0; padding-left:20px">
       <li>In your Kite Connect app, set the <b>Redirect URL</b> to <span id="here"></span></li>
       <li>Each morning: tap <b>Log in to Kite</b>, log in, and wait here for "Logged in".</li>
-    </ol>
-  </div>
+    </ol></div></details>
   <p style="font-size:13px; margin-top:24px; color:var(--muted)"><a href="status.html" style="padding:14px 0">Status</a> · <a href="live.html" style="padding:14px 0">Live chart</a> · Learning tool, not financial advice.</p>
 </main>
 <script>
