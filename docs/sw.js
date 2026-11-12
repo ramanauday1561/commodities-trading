@@ -1,6 +1,6 @@
 // Service worker: lets the home-screen app open offline and start fast.
 // Network first for everything (forecasts change several times a day); the cached copy is used only when offline.
-const CACHE = 'forecast-v24';
+const CACHE = 'forecast-v25';
 const SHELL = ['./', 'index.html', 'lightweight-charts.js?v=2', 'manifest.webmanifest', 'nav.js', 'fresh.js', 'theme.css?v=9', 'vendor/glass-ui.js?v=3', 'today.html', 'next.html', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

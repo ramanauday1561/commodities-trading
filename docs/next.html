@@ -52,6 +52,7 @@
 const DELTA = 0.5, COST = 1.85, LOT = 65;      // an at-the-money option moves about half; a round trip ~1.85 option points
 const $ = id => document.getElementById(id);
 const f = x => x == null ? '' : x.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esc = x => String(x).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(Math.round(x)).toLocaleString('en-IN')}`;
 const chart = LightweightCharts.createChart($('chart'), {
   autoSize: true, layout: { background: { color: 'transparent' }, textColor: '#57532F', fontSize: 11 },
@@ -195,7 +196,34 @@ function starCard(d) {
     <div>Since ${day(r.since)}: <b>${s.right} of ${s.leans} right (${Math.round(s.right / s.leans * 100)}%)</b>,
       <b class="${s.pts >= 0 ? 'up' : 'down'}">${s.pts >= 0 ? '+' : ''}${s.pts} pts</b> the right way, up on ${s.up_days} of ${s.days} days.
       <span class="m">The 9-year test: right 53%, −₹72 a lot a trade after costs.</span></div>
-    <table><tr><th>Day</th><th class="n">★ right</th><th class="n">pts</th><th class="n">₹ real prices</th></tr>${rows}</table></div>`;
+    <table><tr><th>Day</th><th class="n">★ right</th><th class="n">pts</th><th class="n">₹ real prices</th></tr>${rows}</table>${realLine()}</div>`;
+}
+
+// Your real ★ picks (12 Nov 2026, asked by the owner): from your order server, with the address and passcode the
+// Orders page saved on this phone; never from GitHub (picks stay on the server and the phone). After charges, held
+// by the server's rule (up to 30 minutes, stop 10% under), so they differ from the 10-minute estimates above.
+let real = null;
+async function loadReal() {
+  let u, c;
+  try { u = localStorage.getItem('ordersUrl'); c = localStorage.getItem('ordersCode'); } catch (e) { return null; }
+  if (!u || !c) return null;
+  const get = path => fetch(u.replace(/\/+$/, '') + path, { cache: 'no-store', headers: { Authorization: 'Bearer ' + c } })
+    .then(r => r.ok ? r.json() : null).catch(() => null);
+  const [st, m] = await Promise.all([get('/api/state'), get('/api/money')]);
+  if (!st) return null;
+  const picks = (st.trades || []).filter(t => t.auto && !t.practice && t.status !== 'not entered').map(t => ({
+    at: t.auto, net: t.net != null ? t.net : t.pnl != null ? t.pnl - (t.charges_est || 0) : null, done: t.status === 'closed', why: t.why }));
+  const h = ((m && m.history) || []).filter(x => x.orders);
+  return { picks, total: h.length ? { since: h[0].d, net: h.reduce((a, x) => a + x.net, 0) } : null };
+}
+function realLine() {
+  if (!real) return '';
+  const done = real.picks.filter(p => p.net != null), net = done.reduce((a, p) => a + p.net, 0);
+  const each = real.picks.map(p => `${esc(p.at)}: ${p.net == null ? 'open' : `<b class="${p.net >= 0 ? 'up' : 'down'}">${rs(p.net)}</b>${p.done ? '' : ' so far'}`}${p.why ? ` (${esc(p.why)})` : ''}`).join(' · ');
+  const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return `<div style="margin-top:8px"><b style="color:var(--text)">Your real ★ picks</b> <span class="m">(Kite, after charges; held up to 30 min with the 10% stop)</span>
+    <div>Today: ${real.picks.length ? `${real.picks.length} pick${real.picks.length > 1 ? 's' : ''}, <b class="${net >= 0 ? 'up' : 'down'}">${rs(net)}</b>. ${each}` : 'no ★ pick yet.'}</div>
+    ${real.total ? `<div>Whole account since ${day(real.total.since)}: <b class="${real.total.net >= 0 ? 'up' : 'down'}">${rs(real.total.net)}</b> <span class="m">(Money page)</span></div>` : ''}</div>`;
 }
 
 // The expected size of the next move (5 Nov 2026, movesize_study.py): it passed its test (error 10% below the usual
@@ -247,9 +275,9 @@ function addMin(hm, m) { const [h, mm] = hm.split(':').map(Number), t = h * 60 +
 let paper = null;
 async function load() {
   let d = null, p = null;
-  [d, p] = await Promise.all([siteJSON('next-nifty.json'), siteJSON('paper-accounts.json')].map(x => x.catch(() => null)));   // fresh.js: site-data's newest commit
+  [d, p, real] = await Promise.all([siteJSON('next-nifty.json'), siteJSON('paper-accounts.json'), loadReal()].map(x => x.catch(() => null)));   // fresh.js: site-data's newest commit
   if (!d) { $('msg').hidden = false; $('msg').textContent = 'No data yet today.'; return; }
-  const key = d.updated + (p && p.updated);
+  const key = d.updated + (p && p.updated) + JSON.stringify(real);
   paper = p;
   if (key !== last) { last = key; draw(d); }
 }
