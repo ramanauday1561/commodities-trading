@@ -4378,7 +4378,314 @@
 "typical": 21.3
 }
 ],
-"2026-11-12": []
+"2026-11-12": [
+{
+"made": "09:35",
+"at": "09:35",
+"lean": "down",
+"pts": -1.9,
+"confident": true,
+"size": 26.3,
+"typical": 26.5
+},
+{
+"made": "09:45",
+"at": "09:45",
+"lean": "down",
+"pts": -0.2,
+"confident": false,
+"size": 23.0,
+"typical": 24.0
+},
+{
+"made": "09:55",
+"at": "09:55",
+"lean": "down",
+"pts": -0.4,
+"confident": false,
+"size": 20.2,
+"typical": 21.8
+},
+{
+"made": "10:05",
+"at": "10:05",
+"lean": "down",
+"pts": -0.5,
+"confident": false,
+"size": 16.7,
+"typical": 19.9
+},
+{
+"made": "10:15",
+"at": "10:15",
+"lean": "up",
+"pts": 0.8,
+"confident": false,
+"size": 19.8,
+"typical": 20.4
+},
+{
+"made": "10:25",
+"at": "10:25",
+"lean": "up",
+"pts": 0.2,
+"confident": false,
+"size": 16.5,
+"typical": 18.3
+},
+{
+"made": "10:35",
+"at": "10:35",
+"lean": "up",
+"pts": 0.0,
+"confident": false,
+"size": 15.5,
+"typical": 17.7
+},
+{
+"made": "10:45",
+"at": "10:45",
+"lean": "down",
+"pts": -0.5,
+"confident": false,
+"size": 13.1,
+"typical": 17.2
+},
+{
+"made": "10:55",
+"at": "10:55",
+"lean": "up",
+"pts": 0.5,
+"confident": false,
+"size": 14.4,
+"typical": 17.0
+},
+{
+"made": "11:05",
+"at": "11:05",
+"lean": "down",
+"pts": -0.2,
+"confident": false,
+"size": 15.3,
+"typical": 16.8
+},
+{
+"made": "11:15",
+"at": "11:15",
+"lean": "up",
+"pts": 0.8,
+"confident": false,
+"size": 18.3,
+"typical": 16.1
+},
+{
+"made": "11:25",
+"at": "11:25",
+"lean": "down",
+"pts": -0.3,
+"confident": false,
+"size": 15.1,
+"typical": 16.7
+},
+{
+"made": "11:35",
+"at": "11:35",
+"lean": "up",
+"pts": 0.4,
+"confident": false,
+"size": 15.4,
+"typical": 15.9
+},
+{
+"made": "11:45",
+"at": "11:45",
+"lean": "up",
+"pts": 0.3,
+"confident": false,
+"size": 15.8,
+"typical": 15.2
+},
+{
+"made": "11:55",
+"at": "11:55",
+"lean": "down",
+"pts": -0.2,
+"confident": false,
+"size": 14.5,
+"typical": 16.2
+},
+{
+"made": "12:05",
+"at": "12:05",
+"lean": "up",
+"pts": 0.5,
+"confident": false,
+"size": 16.2,
+"typical": 15.7
+},
+{
+"made": "12:15",
+"at": "12:15",
+"lean": "up",
+"pts": 2.3,
+"confident": true,
+"size": 20.6,
+"typical": 15.5
+},
+{
+"made": "12:25",
+"at": "12:25",
+"lean": "down",
+"pts": -0.1,
+"confident": false,
+"size": 17.6,
+"typical": 17.1
+},
+{
+"made": "12:35",
+"at": "12:35",
+"lean": "up",
+"pts": 0.4,
+"confident": false,
+"size": 17.3,
+"typical": 16.5
+},
+{
+"made": "12:45",
+"at": "12:45",
+"lean": "down",
+"pts": -0.1,
+"confident": false,
+"size": 16.1,
+"typical": 16.6
+},
+{
+"made": "12:55",
+"at": "12:55",
+"lean": "down",
+"pts": -0.6,
+"confident": false,
+"size": 16.0,
+"typical": 17.7
+},
+{
+"made": "13:05",
+"at": "13:05",
+"lean": "down",
+"pts": -0.2,
+"confident": false,
+"size": 16.3,
+"typical": 17.2
+},
+{
+"made": "13:15",
+"at": "13:15",
+"lean": "up",
+"pts": 0.3,
+"confident": false,
+"size": 17.4,
+"typical": 17.4
+},
+{
+"made": "13:25",
+"at": "13:25",
+"lean": "up",
+"pts": 0.7,
+"confident": false,
+"size": 18.7,
+"typical": 18.5
+},
+{
+"made": "13:35",
+"at": "13:35",
+"lean": "down",
+"pts": -0.1,
+"confident": false,
+"size": 17.6,
+"typical": 18.8
+},
+{
+"made": "13:45",
+"at": "13:45",
+"lean": "down",
+"pts": -0.4,
+"confident": false,
+"size": 17.6,
+"typical": 19.5
+},
+{
+"made": "13:55",
+"at": "13:55",
+"lean": "down",
+"pts": -0.9,
+"confident": false,
+"size": 19.1,
+"typical": 20.7
+},
+{
+"made": "14:05",
+"at": "14:05",
+"lean": "up",
+"pts": 0.4,
+"confident": false,
+"size": 18.7,
+"typical": 20.2
+},
+{
+"made": "14:15",
+"at": "14:15",
+"lean": "down",
+"pts": -0.3,
+"confident": false,
+"size": 18.1,
+"typical": 20.5
+},
+{
+"made": "14:25",
+"at": "14:25",
+"lean": "up",
+"pts": 0.4,
+"confident": false,
+"size": 18.8,
+"typical": 22.3
+},
+{
+"made": "14:35",
+"at": "14:35",
+"lean": "up",
+"pts": 0.9,
+"confident": false,
+"size": 19.1,
+"typical": 21.4
+},
+{
+"made": "14:45",
+"at": "14:45",
+"lean": "down",
+"pts": -0.2,
+"confident": false,
+"size": 17.6,
+"typical": 20.0
+},
+{
+"made": "14:55",
+"at": "14:55",
+"lean": "down",
+"pts": -0.0,
+"confident": false,
+"size": 25.6,
+"typical": 30.6
+},
+{
+"made": "15:05",
+"at": "15:05",
+"lean": "down",
+"pts": -0.2,
+"confident": false,
+"size": 17.2,
+"typical": 21.4
+}
+]
 },
 "spot_by_day": {
 "2026-11-04": {
@@ -4581,7 +4888,44 @@
 "15:25": 25130.0,
 "15:35": 25130.0
 },
-"2026-11-12": {}
+"2026-11-12": {
+"09:25": 25298.45,
+"09:35": 25336.9,
+"09:45": 25346.8,
+"09:55": 25353.4,
+"10:05": 25366.5,
+"10:15": 25336.8,
+"10:25": 25334.4,
+"10:35": 25339.85,
+"10:45": 25357.7,
+"10:55": 25336.6,
+"11:05": 25314.9,
+"11:15": 25296.4,
+"11:25": 25305.2,
+"11:35": 25289.95,
+"11:45": 25274.6,
+"11:55": 25282.3,
+"12:05": 25257.75,
+"12:15": 25222.3,
+"12:25": 25236.5,
+"12:35": 25223.75,
+"12:45": 25228.35,
+"12:55": 25236.35,
+"13:05": 25260.45,
+"13:15": 25252.05,
+"13:25": 25226.35,
+"13:35": 25247.4,
+"13:45": 25253.85,
+"13:55": 25273.85,
+"14:05": 25251.3,
+"14:15": 25260.5,
+"14:25": 25254.5,
+"14:35": 25239.1,
+"14:45": 25249.25,
+"14:55": 25256.25,
+"15:05": 25258.95,
+"15:15": 25275.4
+}
 },
 "totals": {
 "leans": {
@@ -4621,5 +4965,5 @@
 "name": "09:15 signal's lean, every day"
 }
 },
-"updated": "2026-11-12T08:39+05:30"
+"updated": "2026-11-12T16:05+05:30"
 }
