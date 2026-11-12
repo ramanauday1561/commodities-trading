@@ -379,3 +379,13 @@ to the day's close, priced from Kite's saved quotes (0.569x NIFTY's move, -0.08 
 before the run (earn overall, both halves, since 2022, 7 of 10 years). ALL FAIL: 10 minutes -Rs72 a lot a trade (0 of
 10 years, the lean filters' number again), 30 minutes -Rs53 (1 of 10), 60 minutes -Rs53 (1 of 10), to the close -Rs112
 (2 of 10). Right 53% whatever the hold. Nothing changes.
+
+Experiment mode "starrules" (12 Nov 2026, star_rules_study.py, asked by the owner after the 12 Nov 09:35 * pick was
+stopped out): the automatic * picks' (A) stop width, (B) skipping the 09:25-09:55 * leans, (C) skipping 12:05-13:55 or
+keeping only 14:05-15:05; on Kite's real 5-minute option candles (40 picks, 4-11 Nov) and nine years of walk-forward *
+leans held 30 minutes, rules fixed before the run. A FAILS (wider stops better on the 40 real picks, +Rs20,113 to
++Rs21,172 vs +Rs13,334, but never better than 10% in any of the 10 years of the nine-year layer). B FAILS (4 of 10 years). C:
+skipping midday FAILS; only 14:05-15:05 PASSES as written (Rs138 vs Rs112 a trade, 8 of 10 years), but the nine-year
+layer books a stopped trade at exactly the stop although it only sees 10-minute closes; priced at the close where the
+stop is seen, every variant loses about Rs46-55 a trade (1 of 10 years up) and 14:05-15:05 is better in only 6 of 10
+years. Nothing changes on the order server; re-run with about 30 days of real option candles.
