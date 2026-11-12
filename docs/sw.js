@@ -1,6 +1,6 @@
 // Service worker: lets the home-screen app open offline and start fast.
 // Network first for everything (forecasts change several times a day); the cached copy is used only when offline.
-const CACHE = 'forecast-v28';
+const CACHE = 'forecast-v29';
 const SHELL = ['./', 'index.html', 'lightweight-charts.js?v=2', 'manifest.webmanifest', 'nav.js', 'fresh.js', 'theme.css?v=9', 'vendor/glass-ui.js?v=3', 'kit.css?v=1', 'ui.js?v=1', 'today.html', 'next.html', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
@@ -17,7 +17,10 @@ self.addEventListener('fetch', e => {
   const req = e.request, url = new URL(req.url);
   if (req.method !== 'GET' || url.origin !== location.origin) return;     // GitHub API calls go straight to the network
   const key = url.pathname.includes('/data/') ? url.origin + url.pathname : req.url;   // data files: ignore the ?t= cache buster
-  e.respondWith(fetch(req).then(res => {
+  // 12 Nov 2026: pages, scripts and styles are asked for with cache: 'no-cache', so the phone checks with GitHub every
+  // time (a quick "not modified" when nothing changed) instead of keeping a page up to 10 minutes after a release
+  const net = url.pathname.includes('/data/') ? fetch(req) : fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
+  e.respondWith(net.then(res => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(key, copy)); }
     return res;
   }).catch(() => caches.match(key).then(hit => hit || caches.match(req, { ignoreSearch: true }))
