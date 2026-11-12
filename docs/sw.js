@@ -20,7 +20,9 @@ self.addEventListener('fetch', e => {
   // 12 Nov 2026: pages, scripts and styles are asked for with cache: 'no-cache', so the phone checks with GitHub every
   // time (a quick "not modified" when nothing changed) instead of keeping a page up to 10 minutes after a release
   const net = url.pathname.includes('/data/') ? fetch(req) : fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' });
-  e.respondWith(net.then(res => {
+  // Safari refuses a redirected answer to a page load from a service worker: hand it over as a plain response
+  const plain = res => res.redirected ? new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers }) : res;
+  e.respondWith(net.then(plain).then(res => {
     if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(key, copy)); }
     return res;
   }).catch(() => caches.match(key).then(hit => hit || caches.match(req, { ignoreSearch: true }))
