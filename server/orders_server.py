@@ -247,8 +247,8 @@ class Engine:
         legs = [(o["tradingsymbol"], o["transaction_type"], int(o["filled_quantity"]), float(o["average_price"])) for o in done]
         ch = self._charges(legs, len(legs) // 2) if legs else {"total": 0.0, "source": "kite"}
         start = float(av.get("opening_balance") or 0)
-        day = {"start": round(start), "pnl": round(pnl), "charges": round(ch["total"]), "net": round(pnl - ch["total"]),
-               "now": round(start + pnl - ch["total"]), "orders": len(done)}
+        day = {"start": round(start, 2), "pnl": round(pnl, 2), "charges": round(ch["total"], 2), "net": round(pnl - ch["total"], 2),
+               "now": round(start + pnl - ch["total"], 2), "orders": len(done)}         # paise kept (12 Nov 2026, as Kite shows)
         hist = {}
         if history_path:
             with self.lock:                                           # one writer at a time
@@ -263,7 +263,7 @@ class Engine:
                     json.dump(hist, fh)
                 os.replace(tmp, history_path)
         return {"day": self.state["day"], "now": self.now().isoformat(timespec="seconds"), "today": day,
-                "charges": ch, "free_to_trade": round(float(f.get("net") or 0)),
+                "charges": ch, "free_to_trade": round(float(f.get("net") or 0), 2),
                 "history": [{"d": d, **v} for d, v in hist.items()]}
 
     def auto_pick(self, lean):
@@ -332,8 +332,8 @@ class Engine:
             open_loss = sum(self._pnl(t) for t in self.state["trades"] if not t.get("practice"))
             practice = sum(self._pnl(t) for t in self.state["trades"] if t.get("practice"))
             return {"day": self.state["day"], "now": self.now().isoformat(timespec="seconds"), "kite": bool(self.kite),
-                    "locked": self.state["locked"], "limits": self.limits, "auto": self.auto_mode, "day_pnl": round(open_loss),
-                    "practice_pnl": round(practice),
+                    "locked": self.state["locked"], "limits": self.limits, "auto": self.auto_mode, "day_pnl": round(open_loss, 2),
+                    "practice_pnl": round(practice, 2),
                     "trades": [{k: v for k, v in t.items() if k not in ("entry_id", "sl_id", "exit_id")} for t in self.state["trades"]]}
 
     def add(self, req):
@@ -541,9 +541,9 @@ class Engine:
 
     def _closed(self, t, avg_out, why):
         t["status"], t["avg_out"], t["why"] = "closed", avg_out, why
-        t["pnl"] = round((avg_out - t["avg_in"]) * t["filled"])
+        t["pnl"] = round((avg_out - t["avg_in"]) * t["filled"], 2)
         c = self._charges([(t["symbol"], "BUY", t["filled"], t["avg_in"]), (t["symbol"], "SELL", t["filled"], avg_out)], t["lots"])
-        t["charges"], t["net"] = round(c["total"], 2), round(t["pnl"] - c["total"])
+        t["charges"], t["net"] = round(c["total"], 2), round(t["pnl"] - c["total"], 2)
         self.log(t, f"sold {t['filled']} at {avg_out}: {why}; charges Rs{c['total']:.2f}")
 
     def _pnl(self, t):

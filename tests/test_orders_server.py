@@ -293,7 +293,7 @@ class Charges(unittest.TestCase):
         self.k.fill("3", 130.0)
         self.e.tick()
         ch = round(40 + 0.001 * 65 * 130.0, 2)
-        self.assertEqual((t["pnl"], t["charges"], t["net"]), (29 * 65, ch, round(29 * 65 - ch)))
+        self.assertEqual((t["pnl"], t["charges"], t["net"]), (29 * 65, ch, round(29 * 65 - ch, 2)))
         self.assertAlmostEqual(self.e._pnl_today(), 29 * 65 - ch)                  # the loss limit counts charges
 
     def test_charges_fall_back_when_kite_cannot_say(self):
@@ -310,8 +310,9 @@ class Charges(unittest.TestCase):
             o.update(tradingsymbol=o["symbol"], transaction_type=o["side"])
         path = os.path.join(self.tmp.name, "money.json")
         m = self.e.money(path)
-        ch = round(40 + 0.001 * 65 * 110.0)
-        self.assertEqual(m["today"], {"start": 20000, "pnl": 650, "charges": ch, "net": 650 - ch, "now": 20000 + 650 - ch, "orders": 2})
+        ch = round(40 + 0.001 * 65 * 110.0, 2)                                   # paise kept, as Kite shows them
+        self.assertEqual(m["today"], {"start": 20000, "pnl": 650, "charges": ch, "net": round(650 - ch, 2),
+                                      "now": round(20000 + 650 - ch, 2), "orders": 2})
         self.assertEqual(m["free_to_trade"], 15000)
         self.assertEqual([h["d"] for h in m["history"]], ["2026-11-06"])
         self.assertNotIn(SYM, open(path).read())                                   # totals only, never positions
@@ -436,7 +437,7 @@ class Practice(unittest.TestCase):
         self.assertEqual((t["status"], t["avg_out"], t["why"], t["pnl"]), ("closed", 89.5, "exit time (practice)", round(9 * 65)))
         self.assertIn("charges", t)
         self.assertEqual(self.e._pnl_today(), 0)                                 # never in the real P&L or the limit
-        self.assertEqual(self.e.view()["practice_pnl"], round(9 * 65 - t["charges"]))
+        self.assertEqual(self.e.view()["practice_pnl"], round(9 * 65 - t["charges"], 2))
         self.assertEqual(self.k.calls, [])
         self.assertEqual(tid, t["id"])
 

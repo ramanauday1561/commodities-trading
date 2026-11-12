@@ -295,7 +295,7 @@ function summary() {
   // of yesterday's close, and going further from here, which is what an option bought now needs
   if (dl && d.status === 'open') {
     const side = d.move_pct >= 0 ? 'above' : 'below', held = Math.round((d.move_pct >= 0 ? dl.close_above : 1 - dl.close_above) * 100);
-    h += sec(`Days like today · ${dl.days} since 2015, at ${dl.at}`, `<div class="k-tiles two">
+    h += sec(`Days like today · ${dl.days} since 2015, at ${dl.at}`, `<div class="k-tiles k-two">
       ${UI.tile(`${held}%`, `closed ${side} yesterday's close`)}${UI.tile(`${Math.round(dl.up * 100)}%`, 'rose further from here: what a CALL / PUT bought now needs')}</div>
       <span class="m">${pc(dl.avg_pct)} on average, usually ${pc(dl.range_pct[0])} to ${pc(dl.range_pct[1])} (${dl.read}). Not a trade signal.</span>`);
   }

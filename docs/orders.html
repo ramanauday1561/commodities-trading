@@ -106,7 +106,8 @@
 <script>
 const $ = id => document.getElementById(id);
 const k0 = x => Number(x).toLocaleString('en-IN', { maximumFractionDigits: 0 });
-const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(Math.round(x)).toLocaleString('en-IN')}`;
+// rupees with paise, as Kite shows them (12 Nov 2026, asked by the owner)
+const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
