@@ -79,6 +79,9 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   `#57532F`), borders (olive at low alpha).
 - **10% Signal Yellow** `#F9A900`: the active tab, the main (filled) buttons, switches when on, a selected chip. Never
   as text on sand (too light); dark text on it.
+- **Shared building blocks (12 Nov 2026, owner liked the Next 10 redesign):** `docs/kit.css` + `docs/ui.js` give every
+  page the same sections that open and close (`UI.sec`, icon + title + one-line summary, remembered per page), stat tiles,
+  chips, pills, warning boxes and tables. All kit classes start with `k-` so they never clash with a page's own CSS.
 - Gains and losses keep their own colours (up `#185C3B`, down `#A3261F`); chart lines blue `#24529C`, purple
   `#6A3D9A`, amber `#7A4E00`. Every text colour is 4.5:1 or more on sand and on cards: check new ones.
 - The tokens live in `docs/theme.css` (`--sand`, `--olive`, `--yellow`, and Glisse's `--lg-*` in light mode, set by

@@ -238,6 +238,14 @@ From 5 Nov (this part of the session):
 - 11 Nov 2026 (later): **Telegram removed** at the owner's request (they use the app, and never set the bot token or
   chat id): `send_telegram` and the channel in `status.py`, the `TELEGRAM_*` keys in the workflows and the VPS setup
   prompts. Phone alerts remain only through ntfy (`NTFY_TOPIC`, optional); without it the alerts are just not sent.
+- 12 Nov 2026: **the design kit on every page** (owner: "too much text, group it, icons, better tables"; liked the Next 10
+  redesign, then asked for the rest). `docs/kit.css` + `docs/ui.js` (`UI.sec`, `UI.tile`, `UI.pill`, `UI.alert`,
+  `UI.ico`; classes prefixed `k-`). Next 10: a short top card, then Today / Your real ★ picks / Report card / Today's
+  leans / Track record / About. Today, Status, Money: sections with icons, tiles, new tables. Forecast: its folding
+  sections use the kit with a summary each. Live: the panel's parts are sections. Orders: chips and tiles for the
+  server, a row per pick with pills. Kite: the help is a folding section. History already used tiles and pills.
+  Same numbers and wording everywhere, rearranged. Also 12 Nov: the order server's GitHub copies (VPS market updates,
+  the Kite login copy) failed with 403: the owner's fine-grained token needs Contents: Read and write.
 - 12 Nov 2026 (evening): **study starrules** (star_rules_study.py; owner asked for the three tests): the server's 10%
   stop, skipping early * leans, the time of day. A and B fail; C "only 14:05-15:05" passes as written but not once a
   stopped trade is priced at the 10-minute close it is seen at (every variant then loses about Rs50 a trade, 1 of 10

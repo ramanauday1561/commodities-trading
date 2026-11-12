@@ -6,9 +6,11 @@
 <title>Next 10 minutes</title>
 <meta name="theme-color" content="#EDC9AF">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="kit.css?v=1">
+<script src="ui.js?v=1"></script>
 <style>
-  :root { --bg:#EDC9AF; --text:#2B2F14; --mute:#57532F; --edge:rgba(75,83,32,0.16); --up:#185C3B; --down:#A3261F;
-          --warn:#7A4E00; }
+  :root { --bg:#EDC9AF; --card:#F7E8D8; --text:#2B2F14; --mute:#57532F; --olive:#4B5320; --edge:rgba(75,83,32,0.16);
+          --up:#185C3B; --down:#A3261F; --warn:#7A4E00; --tint:rgba(75,83,32,0.07); }
   * { box-sizing:border-box; }
   html, body { margin:0; height:100%; background:var(--bg); color:var(--text); overflow:hidden;
                font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
@@ -17,16 +19,15 @@
   .top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
   .top b { font-size:19px; letter-spacing:-.01em; } .top small { display:block; color:var(--mute); font-size:12px; }
   .top a { color:var(--text); text-decoration:none; border:1px solid var(--edge); border-radius:999px; padding:5px 12px; font-size:13px; background:rgba(75,83,32,0.1); }
-  .now { margin:8px 0 6px; padding:10px 12px; border:1px solid var(--edge); border-radius:12px; background:rgba(75,83,32,0.06); }
-  .now .big { font-size:22px; font-weight:700; letter-spacing:-.01em; }
-  .warn { color:var(--mute); font-size:12px; margin-top:4px; }
-  .warn b { color:var(--warn); font-weight:600; }
+  /* the card on top: only what is live now */
+  .now { margin:8px 0 6px; padding:12px 14px; border:1px solid var(--edge); border-radius:16px; background:rgba(75,83,32,0.06); }
+  .warn { color:var(--mute); font-size:12px; margin-top:4px; } .warn b { color:var(--warn); font-weight:600; }
+
   #chart { flex:1; min-height:160px; position:relative; }
   #msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--mute); text-align:center; padding:20px; }
   #msg[hidden] { display:none; }
-  #panel { border-top:1px solid var(--edge); padding:8px 2px 0; font-size:13px; max-height:38vh; overflow:auto; }
-  table { width:100%; border-collapse:collapse; font-size:12.5px; margin-top:6px; }
-  td, th { padding:4px; border-top:1px solid var(--edge); text-align:left; } th { color:var(--mute); font-weight:500; }
+  #panel { padding:4px 0 0; font-size:13px; max-height:38vh; overflow:auto; }
+
   .n { text-align:right; white-space:nowrap; } .m { color:var(--mute); }
   .up { color:var(--up); } .down { color:var(--down); }
   button.show { margin-left:4px; border:1px solid var(--edge); border-radius:999px; padding:3px 10px; font-size:12px;
@@ -41,7 +42,7 @@
   </div>
   <div class="now" id="now" data-glass>…</div>
   <div id="chart"><div id="msg" hidden></div></div>
-  <div id="panel" data-glass></div>
+  <div id="panel"></div>
 </div>
 <script src="lightweight-charts.js"></script>
 <script src="fresh.js"></script>
@@ -94,17 +95,14 @@ function score(d) {
   });
 }
 
-function recordHTML(d) {
-  const r = d.live_record, t = d.day_record;
-  const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-  const live = r
-    ? `<div class="m">Trading every lean, 1 lot, since ${day(r.since)}</div><div class="big ${r.rs >= 0 ? 'up' : 'down'}">${rs(r.rs)}</div>
-       <div>Lost money on ${r.losing_days} of ${r.days} day${r.days > 1 ? 's' : ''}; ${r.right} of ${r.leans} leans right (${Math.round(r.right / r.leans * 100)}%).</div>`
-    : '<div class="big m" style="font-size:16px">No finished day yet</div>';
-  const test = t ? `<div class="m">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
-  return live + test + paperLine(d) + starCard(d) + `<div class="warn"><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
-    <button class="show" data-show="1" data-switch="off">Show today's leans anyway</button></div>`;
-}
+// 12 Nov 2026 (asked by the owner: "too much text, group them, show some icons, a better table"): the card on top keeps
+// only what is live now; everything else is grouped into sections with an icon, a one-line summary and a chevron, and
+// each remembers whether it is open. The numbers and their wording are the same as before, only arranged.
+const { ico, sec, tile } = UI, starIco = UI.star;
+const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+const sign = x => `${x >= 0 ? '+' : '−'}${Math.abs(x)}`;
+const ud = x => x >= 0 ? 'up' : 'down';
+const pct = (a, b) => b ? Math.round(a / b * 100) : 0;
 
 function draw(d) {
   data = d;
@@ -118,90 +116,95 @@ function draw(d) {
     text: x.confident ? '★' : '' })).sort((a, b) => a.time - b.time));
   if (first && c.length) { chart.timeScale().fitContent(); first = false; }
   $('when').innerHTML = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}${d.feed === 'kite' ? ' · Kite prices' : ''}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;
-  const rec = (d.record && d.record.text) || 'not tested';
   const nowIST = Date.now() / 1000 + 19800, late = cur && d.status === 'open' && nowIST >= cur.t + 600 + 120;
-  const lastAt = lastLean(d), over = cur && cur.at >= lastAt;
-  // 5 Nov 2026: with the leans on, the direction comes first (as before the size forecast), the size one line under it
-  $('now').innerHTML = (showLeans ? '' : sizeLine(cur, d, late)) + (!showLeans ? recordHTML(d) : (late && over
-      ? `<div class="big m" style="font-size:16px">No more leans today</div><div class="m">${lastAt === '15:05' ? "NSE's closing auction holds NIFTY still from 15:15 until the close is set at 15:30, so the last lean is for 15:05 to 15:15." : 'The last 10-minute candle is 15:15 to 15:25.'}</div>`
-      : late
-      ? `<div class="big m" style="font-size:16px">Waiting for the ${addMin(cur.at, 10)} update</div>
-         <div class="m">It runs every 10 minutes, but GitHub sometimes starts it a few minutes late. The page refreshes by itself.</div>`
-      : cur && cur.pending && d.status === 'open'
-      ? `<div class="m">${cur.at} to ${addMin(cur.at, 10)}</div><div class="big ${cur.lean === 'up' ? 'up' : 'down'}">${cur.lean === 'up' ? '▲ leans up' : '▼ leans down'}
-         <span style="font-size:14px;font-weight:500">${Math.abs(cur.pts) < 0.05 ? '≈0 pts: a coin flip' : `${cur.pts >= 0 ? '+' : ''}${cur.pts} pts`}${cur.confident ? ' · ★ more confident' : ''}</span></div>`
-        + sizeShort(cur)
-      : `<div class="big m" style="font-size:16px">${d.status === 'open' ? 'Waiting for the next 10-minute candle' : 'No live lean (market closed)'}</div>`)
-    + (showLeans ? `<div class="warn"><b>Information, not a CALL / PUT signal.</b> ${rec}. <button class="show" data-show="0" data-switch="on">Show the leans</button></div>` : ''));
+  $('now').innerHTML = nowCard(d, cur, late);
+
   const right = done.filter(x => x.right).length, money = done.reduce((a, x) => a + x.rs, 0);
   const conf = done.filter(x => x.confident), cRight = conf.filter(x => x.right).length;
   // each lean's ₹ on Kite's real option prices once the close has scored the day (paper_accounts.py), else the estimate
   const pd = paper && paper.days && paper.days.length && paper.days[paper.days.length - 1].d === d.date ? paper.today_leans || [] : [];
-  const real = Object.fromEntries(pd.map(x => [x.at + x.lean, x.rs]));
-  $('panel').innerHTML = dayKind(c) + (done.length
-      ? `<div><b>Today: ${right} of ${done.length} right (${Math.round(right / done.length * 100)}%)</b>`
-        + (conf.length ? ` · ★ more confident: ${cRight} of ${conf.length}` : '')
-        + `. Trading every lean with 1 lot of an at-the-money option: <b class="${money >= 0 ? 'up' : 'down'}">${rs(money)}</b> after costs.</div>`
-        + dayLine(money, d) + (showLeans ? paperLine(d) + starCard(d) : '')
-      : '<div class="m">No lean scored yet today.</div>')
-    + (showLeans && s.length ? `<table><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
-        + s.slice().reverse().map(x => `<tr><td>${x.at}${x.confident ? ' ★' : ''}</td><td class="${x.lean === 'up' ? 'up' : 'down'}">${x.lean} ${x.pts >= 0 ? '+' : ''}${x.pts}${x.size != null ? ` <span class="m">±${x.size}</span>` : ''}</td>`
-          + (x.pending ? `<td class="n m">${d.status === 'open' ? 'pending' : 'not scored'}</td><td></td>` : x.paused ? '<td class="n m">feed paused</td><td></td>' : `<td class="n ${x.right ? 'up' : 'down'}">${x.move >= 0 ? '+' : ''}${x.move.toFixed(1)} ${x.right ? '✓' : '✗'}</td><td class="n ${(real[x.at + x.lean] ?? x.rs) >= 0 ? 'up' : 'down'}">${rs(real[x.at + x.lean] ?? x.rs)}${real[x.at + x.lean] != null ? '•' : ''}</td>`)
-          + '</tr>').join('') + '</table>' : '')
-    + (d.paused_from ? `<div class="m" style="margin-top:6px">Yahoo's price feed paused from ${d.paused_from}; those candles are left out and their leans are not scored.</div>` : '')
-    + (!showLeans ? '' : `<div class="m" style="margin-top:6px">Arrows: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).
-       ₹ per lot: with • on Kite's real option prices (bought at the at-the-money option's price when the lean was made, sold 10 minutes later), added after the close; without •, assuming the option moves half as much as NIFTY. A round trip costs about ₹120.${d.trained_until ? ` Model trained on candles to ${d.trained_until}.` : ''}</div>`);
+  const realRs = Object.fromEntries(pd.map(x => [x.at + x.lean, x.rs]));
+  const kind = dayKind(c);
+  $('panel').innerHTML =
+    sec('today', ico('activity'), 'Today', kind ? kind.sub : 'The day so far', kind ? `<span class="${kind.cls}">${kind.word}</span>` : '',
+      (kind ? '' : '') + `<div class="k-tiles">
+        ${kind ? tile(`${sign(Math.round(kind.net))}`, `pts since the open (${Math.round(kind.path)} travelled)`, kind.net >= 0 ? 'up' : 'down') : tile('—', 'from 3 candles on')}
+        ${tile(done.length ? `${right}/${done.length}` : '—', done.length ? `leans right (${pct(right, done.length)}%)${conf.length ? ` · ★ ${cRight}/${conf.length}` : ''}` : 'no lean scored yet')}
+        ${tile(done.length ? rs(money) : '—', 'every lean, 1 lot, after costs', done.length ? ud(money) : '')}</div>
+        <div class="k-note">${dayLine(money, d)}${kind ? ' The day type describes the day; it did not make the leans pay in the test.' : ''}</div>`)
+    + picksSec()
+    + starSec(d)
+    + (showLeans && s.length ? sec('leans', ico('list'), "Today's leans", 'Each 10-minute candle and how it went',
+        done.length ? `${right} of ${done.length}` : '', leansTable(s, d, realRs)) : '')
+    + recordSec(d)
+    + sec('about', ico('info'), 'About these numbers', 'How each one is worked out', '', aboutHTML(d), true);
+}
+
+// the card on top: the time, then the expected size (always) or the lean (when shown), and the warning with the switch
+function nowCard(d, cur, late) {
+  const lastAt = lastLean(d), over = cur && cur.at >= lastAt;
+  const rec = (d.record && d.record.text) || 'not tested';
+  const sw = showLeans
+    ? `<div class="k-alert">${ico('alert')}<div><b>Information, not a CALL / PUT signal.</b> ${rec}.
+         <div style="margin-top:4px"><button class="show" data-show="0" data-switch="on">Show the leans</button></div></div></div>`
+    : `<div class="k-alert">${ico('alert')}<div><b>Not a CALL / PUT signal.</b> The leans lose after option costs, so they are hidden.
+         <div style="margin-top:4px"><button class="show" data-show="1" data-switch="off">Show today's leans anyway</button></div></div></div>`;
+  let main;
+  if (d.status !== 'open') main = `<div class="k-hero"><b class="m" style="font-size:20px">${d.status === 'closed' ? 'Market closed' : 'Before the open'}</b></div>
+      <div class="k-sub">${d.status === 'closed' ? 'No live lean. The day is summed up below.' : "The first lean comes after the 09:15 open."}</div>`;
+  else if (late && over) main = `<div class="k-hero"><b class="m" style="font-size:20px">No more leans today</b></div>
+      <div class="k-sub">${lastAt === '15:05' ? "NSE's closing auction holds NIFTY still from 15:15 until the close is set at 15:30, so the last lean is for 15:05 to 15:15." : 'The last 10-minute candle is 15:15 to 15:25.'}</div>`;
+  else if (late) main = `<div class="k-hero"><b class="m" style="font-size:20px">Waiting for the ${addMin(cur.at, 10)} update</b></div>
+      <div class="k-sub">It runs every 10 minutes, but sometimes starts a few minutes late. The page refreshes by itself.</div>`;
+  else if (cur && cur.pending) {
+    const big = cur.size != null && cur.typical ? cur.size / cur.typical : 1;
+    const word = big >= 1.3 ? 'bigger than usual' : big <= 0.75 ? 'smaller than usual' : 'about usual';
+    const sizeChip = cur.size != null ? `<span class="k-chip">${ico('size')}±${cur.size} pts ${word}</span>` : '';
+    main = `<div class="k-chips"><span class="k-chip">${ico('clock')}${cur.at}–${addMin(cur.at, 10)}</span>${showLeans ? sizeChip : ''}
+        ${showLeans && cur.confident ? `<span class="k-chip">${starIco}more confident</span>` : ''}</div>`
+      + (showLeans
+        ? `<div class="k-hero ${cur.lean === 'up' ? 'up' : 'down'}">${ico(cur.lean === 'up' ? 'up' : 'down')}<b>Leans ${cur.lean}</b>
+             <span>${Math.abs(cur.pts) < 0.05 ? '≈0 pts, a coin flip' : `${sign(cur.pts)} pts`}</span></div>
+           <div class="k-sub">Expected size ±${cur.size ?? '?'} pts${cur.typical ? ` (usual ±${cur.typical})` : ''}. The size is tested; the direction is not.</div>`
+        : cur.size != null
+        ? `<div class="k-hero">${ico('size')}<b>±${cur.size} pts</b><span>expected move · ${word}</span></div>
+           <div class="k-sub">${cur.typical ? `Usual at this time ±${cur.typical}. ` : ''}Size, not direction: an at-the-money option needs about 7.4 pts the right way to cover its costs.</div>`
+        : `<div class="k-hero"><b class="m" style="font-size:20px">Waiting for the next candle</b></div>`);
+  } else main = `<div class="k-hero"><b class="m" style="font-size:20px">Waiting for the next 10-minute candle</b></div>`;
+  return main + sw;
 }
 
 // The day so far (10 Nov 2026): "trending" when NIFTY's move since the open is 40%+ of the distance it has travelled
 // in 10-minute steps, from 3 candles on (leanfilter_study's F3, here in points). A description of the day, not a
 // signal: leans taken with a trending day still lost in the test (-Rs99 a lot a trade, 0 of 10 years).
 function dayKind(c) {
-  if (c.length < 3) return '';
+  if (c.length < 3) return null;
   const net = c[c.length - 1].close - c[0].open;
   const path = c.reduce((a, x, i) => a + Math.abs(x.close - (i ? c[i - 1].close : x.open)), 0);
   const trend = path > 0 && Math.abs(net) / path >= 0.4;
-  return `<div style="margin-bottom:6px">Day so far: <b class="${!trend ? '' : net > 0 ? 'up' : 'down'}">${!trend ? 'Choppy' : net > 0 ? 'Trending up' : 'Trending down'}</b>
-    <span class="m">· ${net >= 0 ? '+' : ''}${Math.round(net)} pts since the open, out of ${Math.round(path)} pts travelled. Describes the day; it did not make the leans pay in the test.</span></div>`;
+  return { net, path, word: !trend ? 'Choppy' : net > 0 ? 'Trending up' : 'Trending down', cls: !trend ? '' : ud(net),
+           sub: `${sign(Math.round(net))} pts since the open` };
 }
 
-// Paper accounts on Kite's real option prices (5 Nov 2026, paper_accounts.py, at the close): each lean bought at its
-// at-the-money option's real price when it was made and sold at the next run's, instead of the half-delta estimate above
-function paperLine(d) {
-  const p = paper;
-  if (!p || !p.totals || !p.totals.leans) return '';
-  const a = p.totals.leans, s = p.totals.leans_star, day = (p.days || []).find(x => x.d === d.date);
-  const t = day && day.accounts.leans, ts = day && day.accounts.leans_star;
-  const g = p.totals.signal_lean;       // the 09:15 signal's lean, at-the-money option on its side, open to close
-  return `<div class="m" style="margin-top:6px"><b style="color:var(--text)">On real option prices</b> (Kite quotes, ₹2 lakh paper from ${new Date(p.start + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })}):
-    every lean <b class="${a.rs >= 0 ? 'up' : 'down'}">${rs(a.rs)}</b> in ${a.days} day${a.days > 1 ? 's' : ''}${s ? `, ★ leans only <b class="${s.rs >= 0 ? 'up' : 'down'}">${rs(s.rs)}</b>` : ''}.
-    ${t ? `Today: every lean <b class="${t.rs >= 0 ? 'up' : 'down'}">${rs(t.rs)}</b> (${t.won} of ${t.trades} made money)${ts && ts.trades ? `, ★ <b class="${ts.rs >= 0 ? 'up' : 'down'}">${rs(ts.rs)}</b> (${ts.won} of ${ts.trades})` : ''}.` : 'Today is added after the close.'}
-    ${g && g.days ? `The 09:15 signal's lean, open to close: right on ${g.won} of ${g.days} day${g.days > 1 ? 's' : ''}, <b style="white-space:nowrap" class="${g.rs >= 0 ? 'up' : 'down'}">${rs(g.rs)}</b>.` : ''}</div>`;
-}
-
-// The ★ report card (11 Nov 2026): the ★ leans alone, day by day, the leans the owner trades. Right / total and
-// NIFTY points caught the right way (live.next_record), and ₹ a lot on Kite's real option prices where the paper
-// account scored that day (paper_accounts.py). Beside the 9-year test, so a good run reads against it.
-function starCard(d) {
-  const r = d.live_record, s = r && r.star;
-  if (!s) return '';
-  const paid = Object.fromEntries(((paper && paper.days) || []).map(x => [x.d, x.accounts.leans_star]));
-  const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-  const rows = (r.by_day || []).filter(x => x.star).slice(-7).reverse().map(x => {
-    const p = paid[x.d];
-    return `<tr><td>${day(x.d)}</td><td class="n">${x.star.right} of ${x.star.leans}</td><td class="n ${x.star.pts >= 0 ? 'up' : 'down'}">${x.star.pts >= 0 ? '+' : ''}${x.star.pts}</td>`
-      + `<td class="n ${p ? (p.rs >= 0 ? 'up' : 'down') : 'm'}">${p ? rs(p.rs) : '—'}</td></tr>`;
-  }).join('');
-  return `<div style="margin-top:10px"><b style="color:var(--text)">★ report card</b> <span class="m">(the leans traded for real)</span>
-    <div>Since ${day(r.since)}: <b>${s.right} of ${s.leans} right (${Math.round(s.right / s.leans * 100)}%)</b>,
-      <b class="${s.pts >= 0 ? 'up' : 'down'}">${s.pts >= 0 ? '+' : ''}${s.pts} pts</b> the right way, up on ${s.up_days} of ${s.days} days.
-      <span class="m">The 9-year test: right 53%, −₹72 a lot a trade after costs.</span></div>
-    <table><tr><th>Day</th><th class="n">★ right</th><th class="n">pts</th><th class="n">₹ real prices</th></tr>${rows}</table>${realLine()}</div>`;
+// The 9-year record of trading every lean, day by day (nextcandle_study.day_record): most days lose, so a day's score
+// is shown with it, and after the close with where the day ranks among those days.
+function dayLine(money, d) {
+  const r = d.day_record;
+  if (!r) return '';
+  let txt = `In ${r.from.slice(0, 4)}-${r.to.slice(0, 4)} trading every lean lost money on ${Math.round((1 - r.profit_share) * 10)} of 10 days (${rs(r.avg_rs)} a day on average).`;
+  if (d.status === 'closed') {
+    const q = Object.entries(r.quantiles).map(([k, v]) => [Number(k), v]).sort((a, b) => a[0] - b[0]);
+    let p = money <= q[0][1] ? q[0][0] : money >= q[q.length - 1][1] ? q[q.length - 1][0] : null;
+    for (let i = 1; p == null && i < q.length; i++)
+      if (money <= q[i][1]) p = q[i - 1][0] + (q[i][0] - q[i - 1][0]) * (money - q[i - 1][1]) / (q[i][1] - q[i - 1][1]);
+    txt += p < 50 ? ` Today was worse than ${Math.round(100 - p)}% of those days.` : ` Today was better than ${Math.round(p)}% of them.`;
+  }
+  return txt;
 }
 
 // Your real ★ picks (12 Nov 2026, asked by the owner): from your order server, with the address and passcode the
 // Orders page saved on this phone; never from GitHub (picks stay on the server and the phone). After charges, held
-// by the server's rule (up to 30 minutes, stop 10% under), so they differ from the 10-minute estimates above.
+// by the server's rule (up to 30 minutes, stop 10% under), so they differ from the 10-minute estimates.
 let real = null;
 async function loadReal() {
   let u, c;
@@ -216,32 +219,78 @@ async function loadReal() {
   const h = ((m && m.history) || []).filter(x => x.orders);
   return { picks, total: h.length ? { since: h[0].d, net: h.reduce((a, x) => a + x.net, 0) } : null };
 }
-function realLine() {
+function picksSec() {
   if (!real) return '';
-  const done = real.picks.filter(p => p.net != null), net = done.reduce((a, p) => a + p.net, 0);
-  const each = real.picks.map(p => `${esc(p.at)}: ${p.net == null ? 'open' : `<b class="${p.net >= 0 ? 'up' : 'down'}">${rs(p.net)}</b>${p.done ? '' : ' so far'}`}${p.why ? ` (${esc(p.why)})` : ''}`).join(' · ');
-  const day = x => new Date(x + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-  return `<div style="margin-top:8px"><b style="color:var(--text)">Your real ★ picks</b> <span class="m">(Kite, after charges; held up to 30 min with the 10% stop)</span>
-    <div>Today: ${real.picks.length ? `${real.picks.length} pick${real.picks.length > 1 ? 's' : ''}, <b class="${net >= 0 ? 'up' : 'down'}">${rs(net)}</b>. ${each}` : 'no ★ pick yet.'}</div>
-    ${real.total ? `<div>Whole account since ${day(real.total.since)}: <b class="${real.total.net >= 0 ? 'up' : 'down'}">${rs(real.total.net)}</b> <span class="m">(Money page)</span></div>` : ''}</div>`;
+  const known = real.picks.filter(p => p.net != null), net = known.reduce((a, p) => a + p.net, 0);
+  const rows = real.picks.map(p => {
+    const m = /(\d\d:\d\d)\s+(up|down)/.exec(p.at || ''), cls = p.net == null ? 'm' : ud(p.net);
+    return `<div class="k-pick"><span class="k-dot ${cls}">${ico(p.net == null ? 'clock' : p.net >= 0 ? 'check' : 'x')}</span>
+      <span class="k-what">${m ? `${m[1]} · ${m[2] === 'up' ? 'CALL' : 'PUT'} ${ico(m[2])}` : esc(p.at)}<small>${p.done ? 'closed' : 'open'}${p.why ? ` · ${esc(p.why)}` : ''}</small></span>
+      <b class="${cls}">${p.net == null ? '…' : rs(p.net)}${p.done || p.net == null ? '' : '<span class="m" style="font-weight:400"> so far</span>'}</b></div>`;
+  }).join('');
+  return sec('picks', ico('rupee'), 'Your real ★ picks', 'Kite, after charges · up to 30 min, 10% stop',
+    real.picks.length ? `<span class="${ud(net)}">${rs(net)}</span>` : '',
+    (rows || '<div class="m">No ★ pick yet today.</div>')
+    + (real.total ? `<div class="k-note">Whole account since ${day(real.total.since)}: <b class="${ud(real.total.net)}">${rs(real.total.net)}</b> (as on the Money page).</div>` : ''));
 }
 
-// The expected size of the next move (5 Nov 2026, movesize_study.py): it passed its test (error 10% below the usual
-// size at that time of day, in all 10 years), unlike the direction; shown whether the leans are on or off
-function sizeShort(cur) {
-  if (cur.size == null) return '';
-  const big = cur.typical ? cur.size / cur.typical : 1;
-  const word = big >= 1.3 ? 'bigger than usual' : big <= 0.75 ? 'smaller than usual' : 'about usual';
-  return `<div class="m" style="font-size:13px;margin-top:2px">Expected size of this move: <b style="color:var(--text)">±${cur.size} pts</b>, ${word}${cur.typical ? ` (usual ±${cur.typical})` : ''}. The size is tested; the direction is not.</div>`;
+// The ★ report card (11 Nov 2026): the ★ leans alone, day by day, the leans the owner trades. Right / total and
+// NIFTY points caught the right way (live.next_record), and ₹ a lot on Kite's real option prices where the paper
+// account scored that day (paper_accounts.py). Beside the 9-year test, so a good run reads against it.
+function starSec(d) {
+  const r = d.live_record, s = r && r.star;
+  if (!s) return '';
+  const paid = Object.fromEntries(((paper && paper.days) || []).map(x => [x.d, x.accounts.leans_star]));
+  const rows = (r.by_day || []).filter(x => x.star).slice(-7).reverse().map(x => {
+    const p = paid[x.d], k = pct(x.star.right, x.star.leans);
+    return `<tr><td class="k-t1">${day(x.d)}</td><td>${x.star.right} of ${x.star.leans}<div class="k-bar"><i style="width:${k}%"></i></div></td>
+      <td class="n"><span class="k-pill ${ud(x.star.pts)}">${sign(x.star.pts)}</span></td>
+      <td class="n ${p ? ud(p.rs) : 'm'}">${p ? `<b>${rs(p.rs)}</b>` : '—'}</td></tr>`;
+  }).join('');
+  return sec('star', starIco, 'Report card', `★ leans since ${day(r.since)}`, `${pct(s.right, s.leans)}% right`,
+    `<div class="k-tiles">${tile(`${s.right}/${s.leans}`, `right (${pct(s.right, s.leans)}%)`)}${tile(sign(s.pts), 'pts the right way', ud(s.pts))}${tile(`${s.up_days}/${s.days}`, 'days up')}</div>
+     <table class="k-tbl"><tr><th>Day</th><th>★ right</th><th class="n">Pts</th><th class="n">₹ real prices</th></tr>${rows}</table>
+     <div class="k-note">The 9-year test: right 53%, −₹72 a lot a trade after costs. A good run reads against that.</div>`);
 }
-function sizeLine(cur, d, late) {
-  if (!cur || !cur.pending || d.status !== 'open' || late || cur.size == null) return '';
-  const big = cur.typical ? cur.size / cur.typical : 1;
-  const word = big >= 1.3 ? 'bigger than usual' : big <= 0.75 ? 'smaller than usual' : 'about usual';
-  return `${showLeans ? '' : `<div class="m">${cur.at} to ${addMin(cur.at, 10)}</div>`}
-    <div class="big" style="font-size:22px">±${cur.size} pts <span style="font-size:14px;font-weight:500" class="m">expected size, ${word}${cur.typical ? ` (usual ±${cur.typical})` : ''}</span></div>
-    <div class="m" style="font-size:13px;margin-bottom:8px">Size, not direction. An at-the-money option needs about 7.4 points the right way to cover a round trip's costs.
-    Tested 2017-2026: 10% closer than the usual size at that time of day, in every year.</div>`;
+
+function leansTable(s, d, realRs) {
+  return `<table class="k-tbl"><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
+    + s.slice().reverse().map(x => {
+      const v = realRs[x.at + x.lean] ?? x.rs;
+      return `<tr><td class="k-t1">${x.at}${x.confident ? ' ' + starIco : ''}</td>
+        <td class="${ud(x.lean === 'up' ? 1 : -1)}">${ico(x.lean)} ${sign(x.pts)}${x.size != null ? ` <span class="m">±${x.size}</span>` : ''}</td>`
+        + (x.pending ? `<td class="n"><span class="k-pill m">${ico('clock')}${d.status === 'open' ? 'pending' : 'not scored'}</span></td><td></td>`
+          : x.paused ? '<td class="n"><span class="k-pill m">feed paused</span></td><td></td>'
+          : `<td class="n"><span class="k-pill ${x.right ? 'up' : 'down'}">${ico(x.right ? 'check' : 'x')}${x.move >= 0 ? '+' : '−'}${Math.abs(x.move).toFixed(1)}</span></td>
+             <td class="n ${ud(v)}"><b>${rs(v)}</b>${realRs[x.at + x.lean] != null ? '•' : ''}</td>`)
+        + '</tr>';
+    }).join('') + '</table>';
+}
+
+// Every lean, live and in the 9-year test, and the paper accounts on Kite's real option prices (paper_accounts.py)
+function recordSec(d) {
+  const r = d.live_record, t = d.day_record, p = paper;
+  if (!r && !t && !(p && p.totals && p.totals.leans)) return '';
+  const a = p && p.totals && p.totals.leans, st = p && p.totals && p.totals.leans_star, g = p && p.totals && p.totals.signal_lean;
+  const pday = p && (p.days || []).find(x => x.d === d.date), pt = pday && pday.accounts.leans, pts = pday && pday.accounts.leans_star;
+  const live = r ? `<div class="k-tiles">${tile(rs(r.rs), `every lean, 1 lot, since ${day(r.since)}`, ud(r.rs))}
+      ${tile(`${r.losing_days}/${r.days}`, 'days lost money')}${tile(`${pct(r.right, r.leans)}%`, `leans right (${r.right} of ${r.leans})`)}</div>` : '';
+  const test = t ? `<div class="k-note" style="margin-top:0">9-year test (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}): lost money on ${Math.round((1 - t.profit_share) * 10)} of 10 days, ${rs(t.avg_rs)} a day on average.</div>` : '';
+  const paperH = a ? `<div class="k-sub-h">On Kite's real option prices · ₹2 lakh paper from ${day(p.start)}</div>
+      <div class="k-tiles">${tile(rs(a.rs), `every lean, ${a.days} day${a.days > 1 ? 's' : ''}`, ud(a.rs))}
+        ${st ? tile(rs(st.rs), '★ leans only', ud(st.rs)) : ''}
+        ${g && g.days ? tile(rs(g.rs), `09:15 signal, right ${g.won} of ${g.days} days`, ud(g.rs)) : ''}</div>
+      <div class="k-note" style="margin-top:0">${pt ? `Today: every lean <b class="${ud(pt.rs)}">${rs(pt.rs)}</b> (${pt.won} of ${pt.trades} made money)${pts && pts.trades ? `, ★ <b class="${ud(pts.rs)}">${rs(pts.rs)}</b> (${pts.won} of ${pts.trades})` : ''}.` : 'Today is added after the close.'}</div>` : '';
+  return sec('record', ico('chart'), 'Track record', 'Every lean, live and in the 9-year test', r ? `<span class="${ud(r.rs)}">${rs(r.rs)}</span>` : '', live + test + paperH, true);
+}
+
+function aboutHTML(d) {
+  return `<div class="k-note" style="margin-top:0">
+    <p style="margin:0 0 6px"><b>Expected size</b>: tested 2017-2026, 10% closer than the usual size at that time of day, in every year. The direction is not tested to pay.</p>
+    <p style="margin:0 0 6px"><b>Arrows on the chart</b>: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).</p>
+    <p style="margin:0 0 6px"><b>₹ per lot</b>: with • on Kite's real option prices (bought at the at-the-money option's price when the lean was made, sold 10 minutes later), added after the close; without •, assuming the option moves half as much as NIFTY. A round trip costs about ₹120.</p>
+    ${d.paused_from ? `<p style="margin:0 0 6px">Yahoo's price feed paused from ${d.paused_from}; those candles are left out and their leans are not scored.</p>` : ''}
+    ${d.trained_until ? `<p style="margin:0">Model trained on candles to ${d.trained_until}.</p>` : ''}</div>`;
 }
 
 document.addEventListener('click', e => {
@@ -251,24 +300,6 @@ document.addEventListener('click', e => {
   try { sessionStorage.setItem('showLeans', showLeans ? '1' : '0'); } catch (err) {}
   if (data) draw(data);
 });
-
-// The 9-year record of trading every lean, day by day (nextcandle_study.day_record): most days lose, so a day's score
-// is shown with it, and after the close with where the day ranks among those days.
-function dayLine(money, d) {
-  const r = d.day_record;
-  if (!r) return '';
-  const y0 = r.from.slice(0, 4), y1 = r.to.slice(0, 4);
-  let txt = `In ${y0}-${y1} trading every lean lost money on <b>${Math.round((1 - r.profit_share) * 10)} of 10 days</b>
-    (${rs(r.avg_rs)} a day on average, ${r.days.toLocaleString('en-IN')} days).`;
-  if (d.status === 'closed') {
-    const q = Object.entries(r.quantiles).map(([k, v]) => [Number(k), v]).sort((a, b) => a[0] - b[0]);
-    let pct = money <= q[0][1] ? q[0][0] : money >= q[q.length - 1][1] ? q[q.length - 1][0] : null;
-    for (let i = 1; pct == null && i < q.length; i++)
-      if (money <= q[i][1]) pct = q[i - 1][0] + (q[i][0] - q[i - 1][0]) * (money - q[i - 1][1]) / (q[i][1] - q[i - 1][1]);
-    txt += pct < 50 ? ` Today was worse than ${Math.round(100 - pct)}% of those days.` : ` Today was better than ${Math.round(pct)}% of them.`;
-  }
-  return `<div class="m" style="margin-top:4px">${txt}</div>`;
-}
 
 function addMin(hm, m) { const [h, mm] = hm.split(':').map(Number), t = h * 60 + mm + m; return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`; }
 

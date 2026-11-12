@@ -53,6 +53,8 @@
   [hidden] { display:none !important; }
 </style>
 <script src="fresh.js"></script>
+<link rel="stylesheet" href="kit.css?v=1">
+<script src="ui.js?v=1"></script>
 </head>
 <body>
 <main>
@@ -141,22 +143,28 @@ const STATUS = { entering: 'buying', open: 'open · stop at the exchange', exiti
 function drawState(s) {
   state = s;
   const L = s.limits || {};
-  $('state').innerHTML = `<h2>Server</h2>`
-    + `<div class="row"><span>Kite login today</span><b>${s.kite ? '<span class="up">yes</span>' : '<a href="kite.html" class="warn">no: log in first</a>'}</b></div>`
-    + `<div class="row"><span>Automatic ★ picks</span><b>${s.auto === 'on' ? '<span class="warn">ON: every new ★ lean is bought by itself</span>'
-      : s.auto === 'practice' ? `PRACTICE: no real orders · today ${rs(s.practice_pnl || 0)}` : 'off'}</b></div>`
-    + `<div class="row"><span>Today's P&L (after charges)</span><b class="${cls(s.day_pnl)}">${rs(s.day_pnl)}</b></div>`
-    + `<div class="row"><span>Limits</span><b>${L.max_lots} lot${L.max_lots > 1 ? 's' : ''} a pick · ${L.max_open} open · stop at −₹${k0(L.max_loss_day)} a day</b></div>`
+  // 12 Nov 2026: chips for the switches, tiles for the numbers (kit.css, ui.js), as on Next 10
+  const { ico, tile } = UI;
+  $('state').innerHTML = `<h2>Server</h2><div class="k-chips">
+      <span class="k-chip ${s.kite ? 'up' : 'down'}">${ico(s.kite ? 'check' : 'x')}Kite login ${s.kite ? 'today' : 'missing'}</span>
+      <span class="k-chip">${ico('star')}${s.auto === 'on' ? 'Automatic ★ picks ON' : s.auto === 'practice' ? 'Practice: no real orders' : 'Automatic ★ picks off'}</span></div>
+    ${s.kite ? '' : UI.alert('<a href="kite.html">Log in to Kite</a> before placing picks.', 'bad', 'key')}
+    <div class="k-tiles" style="margin:10px 0 0">${tile(rs(s.day_pnl), "today's P&L after charges", cls(s.day_pnl))}
+      ${tile(`${L.max_lots} lot${L.max_lots > 1 ? 's' : ''}`, `a pick · ${L.max_open} open at most`)}${tile(`−₹${k0(L.max_loss_day)}`, 'stops for the day')}</div>
+    ${s.auto === 'on' ? UI.alert('<b>Every new ★ lean is bought by itself</b>: 1 lot, stop 10% under, out after 30 minutes.', '', 'star') : ''}
+    ${s.auto === 'practice' ? UI.alert(`Practice today: ${rs(s.practice_pnl || 0)} (paper, at Kite's live prices).`, 'ok', 'flask') : ''}`
     + (s.locked ? `<div class="err">No more picks today: ${esc(s.locked)}</div>` : '');
   $('when').textContent = `Server time ${(s.now || '').slice(11, 19)} IST · real money`;
   $('picks').innerHTML = (s.trades || []).length ? s.trades.slice().reverse().map(t => {
     // after charges: Kite's exact charges once closed, the estimate made when it was placed while open
     const pnl = t.net != null ? t.net : t.pnl != null ? t.pnl - (t.charges_est || 0)
       : t.avg_in && t.ltp && t.filled ? (t.ltp - t.avg_in) * t.filled - (t.charges_est || 0) : null;
-    return `<div class="pick"><div class="top"><b>${esc(t.symbol)}</b>${pnl != null ? `<b class="${cls(pnl)}">${rs(pnl)}</b>` : ''}</div>
-      <div class="m" style="font-size:13px">${t.auto ? `<span class="warn">${t.practice ? 'practice' : 'auto'} ${esc(t.auto)}</span> · ` : ''}${t.lots} lot${t.lots > 1 ? 's' : ''} · ${STATUS[t.status] || esc(t.status)}${t.why ? ` · ${esc(t.why)}` : ''}</div>
-      <div style="font-size:14px">${t.avg_in ? `bought ${t.avg_in}` : `buy ${t.limit ? 'at ' + t.limit : 'now'}`} · now ${t.ltp ?? '—'}${t.avg_out ? ` · sold ${t.avg_out}` : ''}
-        · stop ${t.stop}${t.target ? ` · target ${t.target}` : ''} · out by ${esc(t.exit_by)}</div>
+    const live = ['entering', 'open', 'exiting'].includes(t.status), c = pnl == null ? '' : cls(pnl);
+    return `<div class="pick"><div class="k-pick" style="border:0;padding:0"><span class="k-dot ${c}">${UI.ico(live ? 'clock' : pnl == null ? 'x' : pnl >= 0 ? 'check' : 'x')}</span>
+        <span class="k-what"><b style="color:var(--text)">${esc(t.symbol)}</b><small>${t.auto ? `${t.practice ? 'practice' : 'auto'} ${esc(t.auto)} · ` : ''}${t.lots} lot${t.lots > 1 ? 's' : ''} · ${STATUS[t.status] || esc(t.status)}${t.why ? ` · ${esc(t.why)}` : ''}</small></span>
+        ${pnl != null ? `<b class="${c}">${rs(pnl)}</b>` : ''}</div>
+      <div class="k-chips" style="margin-top:8px">${UI.pill(t.avg_in ? `bought ${t.avg_in}` : `buy ${t.limit ? 'at ' + t.limit : 'now'}`)}${UI.pill(`now ${t.ltp ?? '—'}`)}${t.avg_out ? UI.pill(`sold ${t.avg_out}`) : ''}
+        ${UI.pill(`stop ${t.stop}`, 'down')}${t.target ? UI.pill(`target ${t.target}`, 'up') : ''}${UI.pill(`out by ${esc(t.exit_by)}`, 'm', 'clock')}</div>
       ${['entering', 'open'].includes(t.status) ? `<button type="button" data-exit="${esc(t.id)}" style="margin-top:6px">${t.status === 'entering' ? 'Cancel' : 'Sell now'}</button>` : ''}
       <details><summary>What happened</summary><div>${(t.log || []).map(esc).join('<br>')}</div></details></div>`;
   }).join('') : '<div class="m">None yet.</div>';
