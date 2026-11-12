@@ -38,7 +38,29 @@ A passing change would make the automatic picks lose less (or win more) in the t
 kept leans also earn after costs (leanfilter_study.passes: 300+ trades, on average, both halves, since 2022, 7 of 10
 years). Either way the change goes to the owner first; nothing changes on the server by this study.
 
-Result: not run yet (this file is committed with its rules before the run).
+Result (run 12 Nov 2026 on the intraday-data, options-live and scoreboard branches; * leans 2017-01-02 to
+2026-11-12; pricing b 0.564, a -0.09 from 324 Kite quote pairs; the real picks' median premium was 0.801% of NIFTY,
+so PREM_PCT 0.8% held). Rs a lot a trade after costs.
+  Layer 1, Kite's real option candles (40 * picks, 4-11 Nov, 5 days): stop 10% +Rs13,334 in total (+Rs333 a trade,
+    19 won), 15% +Rs20,113, 20% +Rs19,745, 25% +Rs20,791, no stop +Rs21,172 (22 won). With the 10% stop: 09:25-09:55
+    -Rs1,210 (8 picks), 12:05-13:55 -Rs1,797 (11), 14:05-15:05 +Rs15,938 (11; most of it on 6 and 11 Nov).
+  Layer 2, nine years, as fixed (a stop sells at exactly the stop): 10% +Rs112 (8 of 10 years up), 15% +59, 20% +24,
+    25% +3, none -55 (1 of 10).
+  A. FAILS: every wider stop is worse than 10% in the nine-year layer (0 of 10 years better), though better on the 40
+     real picks. Keep 10%.
+  B. FAILS: the early * leans earn Rs24 less a trade than the others, but in only 4 of 10 years (halves -11 / +46).
+  C. Skip 12:05-13:55 FAILS (Rs8 worse a trade, 5 of 10 years). Only 14:05-15:05 PASSES as written: Rs138 a trade vs
+     Rs112 for all * leans, better in 8 of 10 years, both halves (+25 / +33), since 2022 (+34).
+  The check that undoes it (run after, not part of the fixed rule): layer 2's stop is sold at exactly the stop price,
+  but the price is only seen at 10-minute closes, so a loser that falls past the stop is still booked at -10%. That
+  is what turns -Rs55 (no stop) into +Rs112 (10% stop). Priced at the 10-minute close where the stop is first seen
+  instead, every variant loses: 10% stop -Rs46 a trade (1 of 10 years up), 15% -51, 20% -51, 25% -52, no stop -55;
+  09:25-09:55 -Rs77, 12:05-13:55 -30, 14:05-15:05 -35 (better than all * leans in only 6 of 10 years, up in 1 of 10).
+  So C's pass rests on the kind stop pricing, and the "earns after costs" lines in the output are that artefact too.
+  Real fills are between the two (a stop-limit order at the exchange, re-priced after 10 seconds): the true nine-year
+  numbers lie somewhere from -Rs46 to +Rs112 a trade, and only 5 real days say which.
+  Nothing changes on the order server. The real picks keep being recorded (the Next 10 report card and the Money page);
+  re-run this when options-live has about 30 trading days of candles, when layer 1 alone can say more.
 """
 import csv
 import glob
