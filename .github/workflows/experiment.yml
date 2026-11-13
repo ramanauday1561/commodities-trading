@@ -9,7 +9,7 @@ on:
         required: false
         default: "750"
       mode:
-        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute, options, shortopt, straddle2022, movesize, movesizekite, futures, leanfilters, starhold, starrules (see STUDIES.md); nextreplay (one day's next-candle leans replayed, test_days = the date); intradata (update the 5-minute history), dukafetch (the hourly overnight history) or optdata (NIFTY option prices); kitecheck (are the Kite secrets accepted), kitecompare (Kite vs Yahoo), kiteoptions (live option prices once), kiterepair (Kite's 5-minute candles in place of Yahoo's since 19 May 2026), kitepositions (can positions be read; counts only), kitefutures (NIFTY futures history from Kite), kitepaper (the paper straddle from saved option candles)"
+        description: "variants (expected close), risk, events, calendar, resultsrisk, dailyfill, commodity (gold/silver/crude); NIFTY studies: accuracy, improve, extreme, strategy, preopen, results, earnings, open, vix, history, longsignal, intrarules, nextcandle, minute, options, shortopt, straddle2022, movesize, movesizekite, futures, leanfilters, starhold, starrules, startarget (see STUDIES.md); nextreplay (one day's next-candle leans replayed, test_days = the date); intradata (update the 5-minute history), dukafetch (the hourly overnight history) or optdata (NIFTY option prices); kitecheck (are the Kite secrets accepted), kitecompare (Kite vs Yahoo), kiteoptions (live option prices once), kiterepair (Kite's 5-minute candles in place of Yahoo's since 19 May 2026), kitepositions (can positions be read; counts only), kitefutures (NIFTY futures history from Kite), kitepaper (the paper straddle from saved option candles)"
         required: false
         default: "variants"
 
@@ -128,7 +128,7 @@ jobs:
           python -u scripts/options_live.py backfill optlive
           bash scripts/store.sh push options-live optlive
       - name: 5-minute candle history (modes "intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options", "nextreplay"; intraday-data branch)
-        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options", "shortopt", "straddle2022", "movesize", "movesizekite", "nextreplay", "leanfilters", "starhold", "starrules"]'), github.event.inputs.mode) && matrix.key == 'nifty'
+        if: contains(fromJSON('["intradata", "intrarules", "history", "longsignal", "nextcandle", "minute", "options", "shortopt", "straddle2022", "movesize", "movesizekite", "nextreplay", "leanfilters", "starhold", "starrules", "startarget"]'), github.event.inputs.mode) && matrix.key == 'nifty'
         env:
           PYTHONPATH: scripts
           GH_TOKEN: ${{ github.token }}
@@ -137,7 +137,7 @@ jobs:
           python -u scripts/intraday_data.py update intra
           bash scripts/store.sh push intraday-data intra
       - name: Kite's saved option quotes for mode "leanfilters" (options-live branch; the real pricing of an option)
-        if: (github.event.inputs.mode == 'leanfilters' || github.event.inputs.mode == 'straddle2022' || github.event.inputs.mode == 'starhold' || github.event.inputs.mode == 'starrules') && matrix.key == 'nifty'
+        if: (github.event.inputs.mode == 'leanfilters' || github.event.inputs.mode == 'straddle2022' || github.event.inputs.mode == 'starhold' || github.event.inputs.mode == 'starrules' || github.event.inputs.mode == 'startarget') && matrix.key == 'nifty'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
