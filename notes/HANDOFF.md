@@ -251,4 +251,9 @@ From 5 Nov (this part of the session):
   stopped trade is priced at the 10-minute close it is seen at (every variant then loses about Rs50 a trade, 1 of 10
   years). Real option candles (40 picks, 5 days) favour a wider stop and the afternoon, too few to act on. No change
   on the server; re-run at about 30 days of options-live candles.
+- 13 Nov 2026: **study startarget** (owner: sell when in profit instead of holding 30 minutes). Targets of +10-30% cut
+  the big moves and lose more (nine years: -Rs132 to -258 a trade vs -81 for today's rule); trailing / breakeven stops
+  change about Rs1 a trade. None passes; the server's rule stays. 13 Nov also: the VPS ran the 10-minute updates all
+  day with Kite prices (token fixed with Contents: Read and write); the only * lean was 15:05, after the server's 15:00
+  last entry, so no order (correct by design).
 

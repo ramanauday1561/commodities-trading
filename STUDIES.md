@@ -389,3 +389,10 @@ skipping midday FAILS; only 14:05-15:05 PASSES as written (Rs138 vs Rs112 a trad
 layer books a stopped trade at exactly the stop although it only sees 10-minute closes; priced at the close where the
 stop is seen, every variant loses about Rs46-55 a trade (1 of 10 years up) and 14:05-15:05 is better in only 6 of 10
 years. Nothing changes on the order server; re-run with about 30 days of real option candles.
+
+Experiment mode "startarget" (13 Nov 2026, star_target_study.py, asked by the owner: take profit instead of holding 30
+minutes): the automatic * picks with a profit target (+10/15/20/30%), a 10% trailing stop or a breakeven stop after
++10%, vs today's rule (10% stop, 30 minutes); on Kite's real option candles (40 picks, 5 days) and nine years (stops
+booked at the 10-minute close they are seen at). NONE PASSES: every target loses more over nine years (-Rs132 to -258
+a trade vs -81, worse in 9-10 of 10 years) and on the real candles; the trailing and breakeven stops are within about
+Rs1 a trade of today's rule over nine years and disagree with the real days. Today's rule stays.

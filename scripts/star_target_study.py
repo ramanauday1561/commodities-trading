@@ -27,7 +27,19 @@ least 7 of the 10 years. Passing would make the automatic picks lose less (or wi
 they earn (that also needs leanfilter_study.passes on the variant's nine-year trades, reported). Nothing changes on the
 order server by this study; the owner decides.
 
-Result: not run yet (this file is committed with its rules before the run).
+Result (run 13 Nov 2026; real candles: 40 * picks on 4, 5, 6, 9 and 11 Nov; nine years: * leans 2017-01-02 to
+2026-11-12, pricing b 0.564, a -0.29 from 468 Kite quote pairs). Rs a lot after costs.
+                      real candles (40 picks)            nine years
+  today (10% stop)    +13,334 (+333 a pick, 19 won)      -81 a trade, 1 of 10 years up
+  T10                 +10,108 (24 won), 3 of 5 days      -258, worse in 10 of 10 years       FAILS
+  T15                 +11,484, 3 of 5 days               -203, worse in 10 of 10              FAILS
+  T20                 +12,591, 3 of 5 days               -170, worse in 10 of 10              FAILS
+  T30                 +12,854, 3 of 5 days               -132, worse in 9 of 10               FAILS
+  TRAIL10             +11,654, 3 of 5 days               -79 (+1.4 vs today, 7 of 10 years)   FAILS (real candles worse)
+  BE10                +15,464 (16 won), 4 of 5 days      -79 (+1.1, 5 of 10 years)            FAILS (nine years)
+  NONE PASSES. A target wins more often but cuts the big moves the * picks need: over nine years every target loses more
+  than today's rule, in nearly every year. The trailing stop and the breakeven stop change almost nothing over nine
+  years (about Rs1 a trade) and disagree with the 5 real days. Today's rule stays; every rule loses over nine years.
 """
 import csv
 import json
