@@ -199,19 +199,23 @@ async function health() {
   else if (open) row('bad', '10-minute updates', `The VPS has not updated since ${hhmm(vr && vr.at)}; GitHub runs them meanwhile (slower). On the VPS: <code>journalctl -u nifty-market -n 40</code>`);
   else row('off', '10-minute updates', `Market closed. Last VPS update ${vr && vr.at ? `${vr.at.slice(5, 10)} ${hhmm(vr.at)}` : 'unknown'}.`);
   // 2. the VPS saving to GitHub (the backup jobs and other pages read GitHub's copy)
+  // checked only while the VPS is updating: after the close the evening run replaces GitHub's copy (no runner.json)
   if (vr && vr.at && gr && gr.at === vr.at) row('ok', 'Saving to GitHub', `GitHub has the VPS's latest update (${hhmm(gr.at)}).`);
   else if (vr && vr.at && mins(vr.at) < 15 && (!gr || mins(gr.at) > mins(vr.at) + 12))
     row('bad', 'Saving to GitHub', 'The VPS cannot save to GitHub. Check the GitHub token: Contents: Read and write on commodities-trading.');
-  else row(vr && vr.at ? 'ok' : 'off', 'Saving to GitHub', gr && gr.at ? `Last saved update ${hhmm(gr.at)}.` : 'Nothing saved by the VPS yet.');
+  else if (vr && vr.at && mins(vr.at) < 15) row('ok', 'Saving to GitHub', `Last saved update ${hhmm(gr && gr.at)}.`);
+  else row('off', 'Saving to GitHub', 'Checked while the VPS is updating (market hours).');
   // 3. the Kite login
   const k = st && st.kite;
   if (k && k.logged_in) row('ok', 'Kite login', `Logged in, valid until ${hhmm(k.until)} tomorrow.`);
   else row('bad', 'Kite login', 'Not logged in today: open the <a href="kite.html">Kite login</a> page (prices fall back to Yahoo, no orders).');
   // 4. the AI notes (information only)
-  const p = (live && live.date === today ? live.preds || [] : []).slice(-3);
-  if (p.some(x => x.ai_close)) row('ok', 'AI notes', 'Answering.');
+  // judged on the latest updates only while the market is open: a key changed after the close shows at the next update
+  const all = live && live.date === today ? live.preds || [] : [], p = all.slice(-3), got = all.filter(x => x.ai_close).length;
+  if (!open) row('off', 'AI notes', all.length ? `Market closed. ${got} of ${all.length} updates today had an AI note; the next update (08:57) shows whether the key works.` : 'Starts with the first update of the day.');
+  else if (p.some(x => x.ai_close)) row('ok', 'AI notes', 'Answering.');
   else if (p.length && p.every(x => x.ai_asked)) row('bad', 'AI notes', 'The AI service refuses the key (no credits, or a mistyped key). Add credits at console.x.ai, or save a free Groq key on the VPS. Optional: nothing else depends on it.');
-  else row('off', 'AI notes', p.length ? 'No key on the VPS: off (optional).' : 'Starts with the first update of the day.');
+  else row('off', 'AI notes', 'No key on the VPS: off (optional).');
   // 5. the order server
   if (!os) row('off', 'Order server', 'Not connected on this phone (Orders page).');
   else if (os.error) row('bad', 'Order server', `The server ${os.error}. Check the VPS is running (hPanel), then the Orders page.`);
