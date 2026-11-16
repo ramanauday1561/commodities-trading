@@ -51,5 +51,28 @@
   const tile = (value, label, cls = '') => `<div class="k-tile"><b class="${cls}">${value}</b><span>${label}</span></div>`;
   const pill = (text, cls = 'm', icon) => `<span class="k-pill ${cls}">${icon ? ico(icon) : ''}${text}</span>`;
   const alertBox = (html, cls = '', icon = 'alert') => `<div class="k-alert ${cls}">${ico(icon)}<div>${html}</div></div>`;
-  window.UI = { ico, sec, tile, pill, alert: alertBox, star: `<svg class="k-ico k-star" viewBox="0 0 24 24" aria-label="star">${P.star}</svg>` };
+  // Today vs the backtest (16 Nov 2026): one day of automatic * picks read against nine years of the same rule
+  // (star-days.json from scripts/star_days.py: per number of picks, the day's Rs after costs, 20 quantiles)
+  let days = null;
+  const starDays = () => days || (days = fetch('star-days.json', { cache: 'no-cache' }).then(r => r.ok ? r.json() : null).catch(() => null));
+  const rsk = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(Math.round(x)).toLocaleString('en-IN')}`;
+  function dayVsBacktest(n, net, t, sofar) {
+    if (!t) return '';
+    if (!n) return `<div class="k-note">No automatic ★ pick today, so nothing to compare. Over nine years ★ picks came on ${Math.round(t.star_days_share * 100)}% of days.</div>`;
+    const b = t.by_picks[String(Math.min(n, 6))];
+    if (!b) return '';
+    const q = b.q;                                            // 21 quantiles, 0% .. 100%
+    let pct = 0;
+    if (net <= q[0]) pct = 0; else if (net >= q[20]) pct = 100;
+    else for (let i = 1; i <= 20; i++) if (net <= q[i]) { pct = 5 * (i - 1) + 5 * (net - q[i - 1]) / ((q[i] - q[i - 1]) || 1); break; }
+    pct = Math.round(pct);
+    const cls = v => v >= 0 ? 'up' : 'down';
+    return `<div class="k-tiles">${tile(rsk(net), `today, ${n} ★ pick${n > 1 ? 's' : ''}${sofar ? ' so far' : ''}`, cls(net))}
+        ${tile(rsk(b.p50), `typical day with ${n >= 6 ? '6+' : n} pick${n > 1 ? 's' : ''}`, cls(b.p50))}
+        ${tile(`${pct}%`, `of those days were worse than today`)}</div>
+      <div class="k-note">Nine years (${t.from.slice(0, 4)}-${t.to.slice(0, 4)}), the server's rule, after costs: 8 in 10 such days ended between
+        <b class="${cls(b.p10)}">${rsk(b.p10)}</b> and <b class="${cls(b.p90)}">${rsk(b.p90)}</b>; ${Math.round(b.up_share * 100)}% of them were up.
+        Over all ★ picks the average was <b class="${cls(t.per_trade)}">${rsk(t.per_trade)}</b> a pick: read one day against that, not on its own.</div>`;
+  }
+  window.UI = { ico, sec, tile, pill, alert: alertBox, starDays, dayVsBacktest, star: `<svg class="k-ico k-star" viewBox="0 0 24 24" aria-label="star">${P.star}</svg>` };
 })();

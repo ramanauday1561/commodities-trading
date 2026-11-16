@@ -205,7 +205,8 @@ function dayLine(money, d) {
 // Your real ★ picks (12 Nov 2026, asked by the owner): from your order server, with the address and passcode the
 // Orders page saved on this phone; never from GitHub (picks stay on the server and the phone). After charges, held
 // by the server's rule (up to 30 minutes, stop 10% under), so they differ from the 10-minute estimates.
-let real = null;
+let real = null, starTable = null;
+UI.starDays().then(t => { starTable = t; if (data) draw(data); });
 async function loadReal() {
   let u, c;
   try { u = localStorage.getItem('ordersUrl'); c = localStorage.getItem('ordersCode'); } catch (e) { return null; }
@@ -231,6 +232,7 @@ function picksSec() {
   return sec('picks', ico('rupee'), 'Your real ★ picks', 'Kite, after charges · up to 30 min, 10% stop',
     real.picks.length ? `<span class="${ud(net)}">${rs(net)}</span>` : '',
     (rows || '<div class="m">No ★ pick yet today.</div>')
+    + (starTable ? `<div class="k-subh">Today vs the backtest</div>${UI.dayVsBacktest(known.length, net, starTable, real.picks.some(p => !p.done))}` : '')
     + (real.total ? `<div class="k-note">Whole account since ${day(real.total.since)}: <b class="${ud(real.total.net)}">${rs(real.total.net)}</b> (as on the Money page).</div>` : ''));
 }
 
