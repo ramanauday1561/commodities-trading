@@ -107,6 +107,15 @@
   window.nextRun = (iso) => `<span class="nextrun" data-ts="${iso}">${nextText(iso)}</span>`;
   setInterval(() => document.querySelectorAll('.nextrun[data-ts]').forEach(el => { el.textContent = nextText(el.dataset.ts); }), 20000);
 
+  // 16 Nov 2026, for the Status page's Health card: the VPS's own copy only, and GitHub's site-data copy only
+  window.vpsJSON = async name => { try { const r = await get(VPS + name, 4000); return r.ok ? r.json() : null; } catch (e) { return null; } };
+  window.githubJSON = async name => {
+    const s = await latest();
+    for (const u of [...(s ? [RAW + s + '/' + name] : []), RAW + 'site-data/' + name]) {
+      try { const r = await fetch(u); if (r.ok) return r.json(); } catch (e) { /* next */ }
+    }
+    return null;
+  };
   window.siteFile = siteFile;
   window.siteJSON = async (name, opts) => { const r = await siteFile(name, opts); return r ? r.json() : null; };
 })();

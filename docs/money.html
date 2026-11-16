@@ -44,6 +44,7 @@
 <main>
   <header data-nav><div><b>Money</b><small id="when">From your Kite account</small></div></header>
   <section class="card" id="today"><div class="m">Loading…</div></section>
+  <div id="vs"></div>
   <div id="parts"></div>
   <div id="days"></div>
   <p class="note">Real money, from Kite through your order server. Charges are Kite's own calculation (brokerage, STT, exchange and
@@ -85,6 +86,21 @@ function draw(m) {
     ${h.slice().reverse().slice(0, 15).map(x => `<tr><td class="k-t1">${day(x.d)}</td><td class="n m">${x.orders || 0}</td><td class="n"><span class="k-pill ${cls(x.net) || 'm'}">${rs(x.net)}</span></td></tr>`).join('')}</table>`);
 }
 
+// Today vs the backtest (16 Nov 2026, asked by the owner): today's automatic * picks (from the order server, after
+// charges) read against nine years of the same rule (ui.js dayVsBacktest, star-days.json)
+async function vsBacktest() {
+  try {
+    const [r, t] = await Promise.all([fetch(srv.replace(/\/+$/, '') + '/api/state', { cache: 'no-store', headers: { Authorization: 'Bearer ' + code } }), UI.starDays()]);
+    const st = r.ok ? await r.json() : null;
+    if (!st || !t) return;
+    const picks = (st.trades || []).filter(x => x.auto && !x.practice && x.status !== 'not entered');
+    const val = x => x.net != null ? x.net : x.pnl != null ? x.pnl - (x.charges_est || 0) : 0;
+    const net = picks.reduce((a, x) => a + val(x), 0), open = picks.some(x => x.status !== 'closed');
+    $('vs').innerHTML = UI.sec('vs', 'chart', 'Today vs the backtest', 'Your ★ picks against nine years of the same rule',
+      picks.length ? `<span class="${cls(net)}">${rs(net)}</span>` : '', UI.dayVsBacktest(picks.length, net, t, open));
+  } catch (e) { /* the rest of the page stands without it */ }
+}
+
 async function load() {
   if (document.hidden) return;
   if (!srv || !code) {
@@ -97,6 +113,7 @@ async function load() {
     if (!r.ok) throw new Error(j.error || `server answered ${r.status}`);
     draw(j);
     $('when').textContent = `Updated ${(j.now || '').slice(11, 16)} IST · from Kite`;
+    vsBacktest();
   } catch (e) {
     $('today').innerHTML = `<div class="err">${String(e.message).replace(/[&<>]/g, '')}</div>
       <div class="note">${/Kite login/.test(e.message) ? 'Log in on the <a href="kite.html">Kite login</a> page; this page follows within a minute.' : 'Is the order server running? Check the Orders page.'}</div>`;

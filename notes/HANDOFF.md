@@ -256,4 +256,9 @@ From 5 Nov (this part of the session):
   change about Rs1 a trade. None passes; the server's rule stays. 13 Nov also: the VPS ran the 10-minute updates all
   day with Kite prices (token fixed with Contents: Read and write); the only * lean was 15:05, after the server's 15:00
   last entry, so no order (correct by design).
+- 16 Nov 2026: **Health card** (Status page: 10-minute updates on the VPS, saving to GitHub, Kite login, AI notes, order
+  server, data checks, each with a mark and the one thing to do; fresh.js vpsJSON / githubJSON) and **Today vs the
+  backtest** (Money page section and Next 10's real-picks section: today's automatic * picks after charges against nine
+  years of the same rule, from docs/star-days.json made by scripts/star_days.py). 16 Nov also: 6 * leans, 1 right; the
+  xAI key on the VPS is refused ("team has no credits"): credits at console.x.ai or a Groq key.
 
