@@ -61,21 +61,35 @@ const get = k => { try { return localStorage.getItem(k); } catch (e) { return nu
 const srv = get('ordersUrl'), code = get('ordersCode');
 
 // 12 Nov 2026: the result on top, then sections with icons (kit.css, ui.js), as on Next 10
+// 17 Nov 2026 (asked by the owner: the Kite wallet is shared with another app, "show only this app's money"): with
+// APP_CAPITAL set on the server, every figure here is this app's own (its capital, its picks, their charges, day by
+// day); Kite's whole-account figures are used only when the server has no APP_CAPITAL.
+function appView(m) {
+  const a = m.app_money, td = a.today;
+  const days = a.days.map(x => ({ d: x.d, net: x.net, orders: x.picks }));
+  if (td.picks && !days.some(x => x.d === m.day)) days.push({ d: m.day, net: td.net, orders: td.picks });
+  else days.forEach(x => { if (x.d === m.day) { x.net = td.net; x.orders = td.picks; } });
+  return { ...m, app: true, free_to_trade: a.free, history: days,
+           today: { start: a.start_today, net: td.net, pnl: td.net + td.charges, charges: td.charges, now: a.now, orders: td.picks } };
+}
+
 function draw(m) {
+  if (m.app_money) m = appView(m);
   const t = m.today, pct = t.start ? t.net / t.start * 100 : 0, { ico, sec, tile } = UI;
+  const unit = m.app ? 'pick' : 'order', free = m.app ? 'free for this app' : 'free to trade in Kite';
   $('today').innerHTML = `<div class="k-chips"><span class="k-chip">${ico('rupee')}Today, after charges</span>
       ${t.start ? `<span class="k-chip ${cls(t.net)}">${ico(t.net >= 0 ? 'up' : 'down')}${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>` : ''}</div>
     <div class="big ${cls(t.net)}" style="margin-top:8px">${rs(t.net)}</div>
     <div class="m">${t.start ? `of the ${k0(t.start)} you started with` : 'No opening balance from Kite yet'}</div>
-    <div class="k-tiles k-two" style="margin:12px 0 0">${tile(k0(t.now), `now · ${t.orders} order${t.orders === 1 ? '' : 's'} today`)}${tile(k0(m.free_to_trade), 'free to trade in Kite')}</div>
-    ${m.app_money ? `<div class="k-tiles k-two" style="margin:6px 0 0">${tile(k0(m.app_money.free), `this app's money left, of ${k0(m.app_money.capital)}`)}${tile(rs(m.app_money.realized), 'made or lost by this app since set', cls(m.app_money.realized))}</div>
-      <div class="note">The Kite figures above are the whole account, shared with your other app. This app trades only within its own money: ${k0(m.app_money.capital)} plus what its picks make or lose.</div>` : ''}`;
+    <div class="k-tiles k-two" style="margin:12px 0 0">${tile(k0(t.now), `now · ${t.orders} ${unit}${t.orders === 1 ? '' : 's'} today`)}${tile(k0(m.free_to_trade), free)}</div>
+    ${m.app ? `<div class="note">Only this app: its ${k0(m.app_money.capital)} plus what its own picks made or lost (${rs(m.app_money.realized)} so far, after charges). Your other app's money and trades are not counted.</div>` : ''}`;
   $('parts').innerHTML = sec('parts', 'list', 'How it adds up', 'Start, trades, charges, now', `<span class="${cls(t.net)}">${rs(t.net)}</span>`,
     `<div class="k-kv"><span>Started the day with</span><b>${k0(t.start)}</b></div>
-    <div class="k-kv"><span>Trades made or lost</span><b class="${cls(t.pnl)}">${rs(t.pnl)}</b></div>
-    <div class="k-kv"><span>Charges (${t.orders} order${t.orders === 1 ? '' : 's'})</span><b class="${t.charges ? 'down' : ''}">${rs(-t.charges)}</b></div>
+    <div class="k-kv"><span>${m.app ? 'Picks made or lost' : 'Trades made or lost'}</span><b class="${cls(t.pnl)}">${rs(t.pnl)}</b></div>
+    <div class="k-kv"><span>Charges (${t.orders} ${unit}${t.orders === 1 ? '' : 's'})</span><b class="${t.charges ? 'down' : ''}">${rs(-t.charges)}</b></div>
     <div class="k-kv"><span><b style="color:var(--text)">Now</b></span><b>${k0(t.now)}</b></div>
-    <div class="k-kv"><span>Free to trade in Kite</span><b>${k0(m.free_to_trade)}</b></div>
+    ${m.app ? `<div class="k-kv"><span>In open picks</span><b>${k0(m.app_money.in_use)}</b></div>` : ''}
+    <div class="k-kv"><span>${m.app ? 'Free for this app' : 'Free to trade in Kite'}</span><b>${k0(m.free_to_trade)}</b></div>
     ${m.charges && m.charges.source === 'estimate' ? UI.alert('Kite did not give the charges just now: about ₹120 a round trip is used.') : ''}`);
   const h = (m.history || []).filter(x => x.orders || x.d === m.day), tot = h.reduce((a, x) => a + x.net, 0);
   if (!h.length) { $('days').innerHTML = ''; return; }
@@ -84,7 +98,7 @@ function draw(m) {
     `<div class="k-tiles k-two">${tile(rs(tot), 'total after charges', cls(tot))}${tile(`${h.filter(x => x.net > 0).length} up · ${h.filter(x => x.net < 0).length} down`, 'days')}</div>
     <div class="bars" role="img" aria-label="Each day's result after charges">${h.slice(-30).map(x =>        // up days grow up from the middle line, down days down
       `<i title="${day(x.d)}: ${rs(x.net)}"><b style="height:${Math.max(2, Math.abs(x.net) / max * 50)}%;${x.net >= 0 ? 'bottom' : 'top'}:50%;background:var(--${x.net >= 0 ? 'up' : 'down'})"></b></i>`).join('')}</div>
-    <table class="k-tbl"><tr><th>Day</th><th class="n">Orders</th><th class="n">After charges</th></tr>
+    <table class="k-tbl"><tr><th>Day</th><th class="n">${m.app ? 'Picks' : 'Orders'}</th><th class="n">After charges</th></tr>
     ${h.slice().reverse().slice(0, 15).map(x => `<tr><td class="k-t1">${day(x.d)}</td><td class="n m">${x.orders || 0}</td><td class="n"><span class="k-pill ${cls(x.net) || 'm'}">${rs(x.net)}</span></td></tr>`).join('')}</table>`);
 }
 

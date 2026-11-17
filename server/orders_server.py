@@ -203,10 +203,21 @@ class Engine:
         a = self._app()
         if not a["base"]:
             return None
-        live = [t for t in self.state["trades"] if t["status"] in ("entering", "open", "exiting") and not t.get("practice")]
+        real = [t for t in self.state["trades"] if not t.get("practice") and t["status"] != "not entered"]
+        live = [t for t in real if t["status"] in ("entering", "open", "exiting")]
         in_use = sum((t.get("avg_in") or t["entry_price"]) * (t.get("filled") or t["qty"]) + t.get("charges_est", 0) for t in live)
+        days = a.get("days") or {}
+        today_closed = (days.get(self.state["day"]) or {}).get("net", 0.0)
+        open_pnl = sum(self._pnl(t) for t in live)
+        # 17 Nov 2026 (owner: "show only this app's money"): the Money page reads these instead of Kite's whole account
         return {"capital": a["base"], "realized": round(a["realized"], 2), "since": a["since"], "in_use": round(in_use, 2),
-                "free": round(a["base"] + a["realized"] - in_use, 2)}
+                "free": round(a["base"] + a["realized"] - in_use, 2),
+                "start_today": round(a["base"] + a["realized"] - today_closed, 2),
+                "today": {"net": round(today_closed + open_pnl, 2), "closed": round(today_closed, 2), "open": round(open_pnl, 2),
+                          "picks": len(real), "open_picks": len(live),
+                          "charges": round(sum(t.get("charges", t.get("charges_est", 0)) for t in real), 2)},
+                "now": round(a["base"] + a["realized"] + open_pnl, 2),
+                "days": [{"d": d, **v} for d, v in sorted(days.items())][-60:]}
 
     def save(self):
         tmp = self.path + ".tmp"
@@ -574,6 +585,8 @@ class Engine:
         if not t.get("practice"):                                     # this app's running total (APP_CAPITAL)
             a = self._app()
             a["realized"] = round(a["realized"] + t["net"], 2)
+            day = a.setdefault("days", {}).setdefault(self.state["day"], {"net": 0.0, "picks": 0})
+            day["net"], day["picks"] = round(day["net"] + t["net"], 2), day["picks"] + 1
         self.log(t, f"sold {t['filled']} at {avg_out}: {why}; charges Rs{c['total']:.2f}")
 
     def _pnl(self, t):

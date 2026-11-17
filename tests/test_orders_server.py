@@ -139,9 +139,12 @@ class Engine(unittest.TestCase):
         net = self.trade(tid)["net"]
         m = self.e.view()["app_money"]
         self.assertEqual((m["realized"], m["in_use"], m["free"]), (net, 0, round(7000 + net, 2)))
+        self.assertEqual((m["today"]["net"], m["today"]["picks"], m["start_today"], m["now"]), (net, 1, 7000.0, round(7000 + net, 2)))
+        self.assertEqual(m["days"], [{"d": "2026-11-06", "net": net, "picks": 1}])
         self.c.dt = self.c.dt.replace(day=9)                 # a new day keeps the running total
         self.e._new_day()
         self.assertEqual(self.e.view()["app_money"]["realized"], net)
+        self.assertEqual(self.e.view()["app_money"]["start_today"], round(7000 + net, 2))
         self.e.limits["capital"] = 9000.0                    # a new APP_CAPITAL starts again
         self.assertEqual(self.e.view()["app_money"]["realized"], 0.0)
 
