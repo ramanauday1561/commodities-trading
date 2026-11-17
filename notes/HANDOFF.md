@@ -265,4 +265,7 @@ From 5 Nov (this part of the session):
   wallet; this app may use only its Rs17,062.60). The server keeps this app's running total (its real picks' net after
   charges, kept across days in state.json "app") and refuses a pick whose cost goes past capital + total - money in open
   picks. Shown on the Orders and Money pages; the Money page's Kite figures are the whole shared account.
+- 17 Nov 2026 (evening): Money page today's numbers from today's own picks (a pick that closed before the per-day
+  record showed Rs0.00). **Study starsize**: no size filter or strike passes (25+ points: +Rs28 but 3 of 7 years).
+  **AUTO_STRIKE** switch on the server (otm1 / otm2), asked by the owner for cheaper strikes; off unless set.
 

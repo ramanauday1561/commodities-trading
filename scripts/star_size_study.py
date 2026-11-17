@@ -22,7 +22,21 @@ Nine combinations are tried, so that strict rule is the bar. If none passes, the
 strike makes the * leans pay; the owner decides what the server does either way (the cheaper strike is a separate
 switch on the server, AUTO_STRIKE).
 
-Result: not run yet (this file is committed with its rules before the run).
+Result (run 17 Nov 2026; nine years: * leans 2017-01-02 to 2026-11-12; strike numbers from 612 Kite quote pairs each:
+ATM b 0.554, a -0.21, premium 0.695% of NIFTY; OTM1 b 0.497, a -0.16, premium 0.598%). Rs a lot a trade after costs.
+                    nine years                                           real candles (4-16 Nov)
+  ATM  all          14,411 trades, -70, 1 of 10 years up                 46 picks, +11,741 (lot ~Rs11,431)
+  ATM  >=20 pts      3,428 trades, -40, 3 of 9                           27 picks, +14,670
+  ATM  >=25 pts      1,506 trades, +28, 3 of 7, halves -416 / +47        14 picks,  +7,369
+  ATM  >=30 pts        622 trades, +14, 3 of 6, halves +432 / -75         2 picks,  +6,686
+  OTM1 all          14,411 trades, -71, 1 of 10                          46 picks, +11,231 (lot ~Rs9,764)
+  OTM1 >=20 pts      3,428 trades, -44, 3 of 9                           27 picks, +13,698
+  OTM1 >=25 pts      1,506 trades, +17, 3 of 7, halves -384 / +35        14 picks,  +7,041
+  OTM1 >=30 pts        622 trades,  +9, 3 of 6, halves +380 / -72         2 picks,  +6,198
+  NONE PASSES. A big expected move (25+ points) turns the average slightly positive, but it is up in only 3 of 7 years
+  and the halves disagree: too few and too uneven to trust (the size model only predicts that big on a few days a year).
+  OTM1 does as well as ATM (within Rs10 a trade) but costs only ~Rs1,700 less a lot, so two picks still do not fit in
+  Rs17,062.60 (two OTM1 lots ~Rs19,500). Nothing changes by this study; AUTO_STRIKE on the server is the owner's switch.
 """
 import csv
 import glob

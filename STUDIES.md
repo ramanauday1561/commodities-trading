@@ -396,3 +396,9 @@ minutes): the automatic * picks with a profit target (+10/15/20/30%), a 10% trai
 booked at the 10-minute close they are seen at). NONE PASSES: every target loses more over nine years (-Rs132 to -258
 a trade vs -81, worse in 9-10 of 10 years) and on the real candles; the trailing and breakeven stops are within about
 Rs1 a trade of today's rule over nine years and disagree with the real days. Today's rule stays.
+
+Experiment mode "starsize" (17 Nov 2026, star_size_study.py, asked by the owner): * leans only when the expected
+10-minute move is 20 / 25 / 30+ points, at the money or one strike out of the money, server rule, nine years and real
+candles. NONE PASSES: 25+ points turns the average slightly positive (+Rs28 ATM, +Rs17 OTM1) but only 3 of 7 years are
+up and the halves disagree; OTM1 behaves like ATM and is only ~Rs1,700 a lot cheaper (two picks still do not fit in
+Rs17,062.60).
