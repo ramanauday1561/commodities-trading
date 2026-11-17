@@ -408,6 +408,17 @@ class AutoStar(unittest.TestCase):
             a.tick()
         self.assertEqual(len(self.e.state["trades"]), 1)                        # never twice
 
+    def test_auto_min_size_skips_small_expected_moves(self):
+        self.e.auto_min_size = 25
+        small = {**self.doc, "leans": [{**l, "size": 18.0} for l in self.doc["leans"]]}
+        osv.Auto(self.e, fetch=lambda: small, clock=self.c.clock).tick()
+        self.assertEqual(self.e.state["trades"], [])                           # 18 points: skipped, and not retried
+        self.assertTrue(self.e.state["auto_done"])
+        self.e.state["auto_done"] = []
+        big = {**self.doc, "leans": [{**l, "size": 26.5} for l in self.doc["leans"]]}
+        osv.Auto(self.e, fetch=lambda: big, clock=self.c.clock).tick()
+        self.assertEqual(len(self.e.state["trades"]), 1)                        # 26.5 points: bought
+
     def test_auto_strike_buys_one_strike_out_of_the_money(self):
         self.e.auto_strike = 1                                                 # AUTO_STRIKE=otm1: a PUT 50 points lower
         self.k.prices["NIFTY26N0924450PE"] = (60.0, 59.5, 60.5)

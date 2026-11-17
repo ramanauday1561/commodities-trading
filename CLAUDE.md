@@ -23,8 +23,9 @@ of every call. Prices come from Zerodha Kite Connect (market data only) after a 
   candle, same code and morning model; replayed 33 of 33 on 11 Nov), as well as reading GitHub's. It is off unless the owner turns it on; nothing
   else the app suggests (plain leans, the 09:15 signal, the straddle) becomes an order. ★ leans failed every backtest
   (-₹53 to -₹72 a lot a trade). Keep the server's limits (lots a pick, open picks, loss a day, and since 17 Nov 2026 `APP_CAPITAL`: the
-  Kite wallet is shared with another app, so this app trades only its own ₹17,062.60 plus its picks' results), the
-  passcode and LIMIT orders only.
+  Kite wallet is shared with another app, so this app trades only its own ₹17,062.60 plus its picks' results). Owner's
+  switches since 17 Nov 2026: `AUTO_MIN_SIZE` (only ★ leans with an expected move of that many points; study starsize did
+  not pass) and `AUTO_STRIKE` (otm1/otm2). Keep the passcode and LIMIT orders only.
 - **Secrets live only in GitHub secrets** (and, for the order server, in `/etc/nifty-orders.env` on the VPS; since
   11 Nov 2026 with the owner's OK also the market-update keys in `/etc/nifty-market.env`: a fine-grained GitHub token
   with Contents read/write on this repo, xAI, FRED, ntfy; all entered by the owner in `setup.sh`) (`KITE_API_KEY`, `KITE_API_SECRET`, `FRED_API_KEY`, `XAI_API_KEY`,

@@ -169,6 +169,7 @@ class Engine:
         self.kite, self.contracts, self.contracts_day = None, {}, None
         self.auto_mode = ""                     # "on": real orders, "practice": no orders, "": off (AUTO_STAR)
         self.auto_strike = 0                    # strikes out of the money for automatic picks (AUTO_STRIKE, 17 Nov 2026)
+        self.auto_min_size = 0.0                # only * leans whose expected move is this many points or more (AUTO_MIN_SIZE)
         self.state = {"day": None, "locked": None, "trades": []}
         try:
             self.state.update(json.load(open(state_path)))
@@ -708,6 +709,17 @@ class Auto:
             for l in todo:
                 done.append(l["id"])                         # before trying: never twice, even after a refusal
             e.save()
+        # AUTO_MIN_SIZE (17 Nov 2026, the owner's choice after study starsize: 25+ points was +Rs28 a trade over nine
+        # years but up in only 3 of 7 years, so it did not pass): a * lean is bought only when its expected 10-minute
+        # move is at least that many NIFTY points; without a size it is skipped
+        if e.auto_min_size:
+            keep = []
+            for l in todo:
+                if float(l.get("size") or 0) >= e.auto_min_size:
+                    keep.append(l)
+                else:
+                    print(f"auto: star {l['at']} {l['lean']} skipped: expected move {l.get('size', '?')} pts, under AUTO_MIN_SIZE {e.auto_min_size:g}", flush=True)
+            todo = keep
         for l in todo:
             try:
                 tid = e.auto_pick(l)
@@ -794,7 +806,7 @@ class LocalLeans:
         if not out:
             return None
         print(f"local lean {out['at']} {out['lean']}{' (star)' if out.get('confident') else ''}", flush=True)
-        return {"date": today, "leans": [{**{x: out[x] for x in ("at", "lean", "confident") if x in out}, "made": now.strftime("%H:%M")}]}
+        return {"date": today, "leans": [{**{x: out[x] for x in ("at", "lean", "confident", "size") if x in out}, "made": now.strftime("%H:%M")}]}
 
 
 def kite_login(request_token, store, key, secret, push=None):
@@ -954,6 +966,10 @@ def main():
     engine.auto_mode = "on" if mode == "1" else "practice" if mode in ("practice", "paper") else ""
     strike = os.environ.get("AUTO_STRIKE", "0").strip().lower().replace("otm", "") or "0"
     engine.auto_strike = int(strike) if strike in ("0", "1", "2") else 0
+    try:
+        engine.auto_min_size = max(0.0, float(os.environ.get("AUTO_MIN_SIZE", "0") or 0))
+    except ValueError:
+        engine.auto_min_size = 0.0
     auto = None
     if engine.auto_mode:
         local = None

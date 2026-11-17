@@ -159,6 +159,14 @@ run setup.sh again. To stop the updates here: `sudo systemctl disable --now nift
 within 15 minutes). Each run's log, during market hours: `journalctl -u nifty-market -n 40` (it ends with
 `market run done HH:MM:SS`).
 
+## Only big expected moves (AUTO_MIN_SIZE, 17 Nov 2026)
+
+`AUTO_MIN_SIZE=25` makes the server buy a * lean only when its expected 10-minute move (the size shown on Next 10) is
+25 NIFTY points or more; smaller * leans are logged as `skipped` and not retried. Owner's choice after study starsize:
+over nine years +Rs28 a trade at 25+ points, but up in only 3 of 7 years (it did not pass). On the real * leans of 4-17
+Nov: 14 of 48 would have been bought, +Rs7,369 on Kite's real option prices, almost all of it on 6 Nov (without that
+day -Rs4,533). Unset or 0: every * lean, as before.
+
 ## Cheaper strikes (AUTO_STRIKE, 17 Nov 2026)
 
 `AUTO_STRIKE=otm1` in `/etc/nifty-orders.env` makes each automatic pick buy the strike one step (50 points) out of the

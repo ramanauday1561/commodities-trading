@@ -268,4 +268,8 @@ From 5 Nov (this part of the session):
 - 17 Nov 2026 (evening): Money page today's numbers from today's own picks (a pick that closed before the per-day
   record showed Rs0.00). **Study starsize**: no size filter or strike passes (25+ points: +Rs28 but 3 of 7 years).
   **AUTO_STRIKE** switch on the server (otm1 / otm2), asked by the owner for cheaper strikes; off unless set.
+- 17 Nov 2026 (late): **AUTO_MIN_SIZE** on the server, the owner's choice (real money, no paper track): a * lean is
+  bought only when its expected move is at least that many points (LocalLeans now passes the size). Verified on the
+  published * leans 4-17 Nov with Kite's real candles: 14 of 48 at 25+ points, +Rs7,369 (6 won), +Rs11,902 of it on
+  6 Nov; all 48: +Rs11,227.
 
