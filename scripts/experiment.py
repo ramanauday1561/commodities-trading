@@ -207,6 +207,7 @@ STUDIES = {
     "starhold": ("star_hold_study", "main"),
     "starrules": ("star_rules_study", "main"),
     "startarget": ("star_target_study", "main"),
+    "starsize": ("star_size_study", "main"),
 }
 
 
