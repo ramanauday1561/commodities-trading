@@ -408,6 +408,12 @@ class AutoStar(unittest.TestCase):
             a.tick()
         self.assertEqual(len(self.e.state["trades"]), 1)                        # never twice
 
+    def test_auto_strike_buys_one_strike_out_of_the_money(self):
+        self.e.auto_strike = 1                                                 # AUTO_STRIKE=otm1: a PUT 50 points lower
+        self.k.prices["NIFTY26N0924450PE"] = (60.0, 59.5, 60.5)
+        osv.Auto(self.e, fetch=lambda: self.doc, clock=self.c.clock).tick()
+        self.assertEqual(self.e.state["trades"][0]["symbol"], "NIFTY26N0924450PE")
+
     def test_rate_limit_waits_for_the_reset(self):
         import email.message
         a = osv.Auto(self.e, clock=self.c.clock)

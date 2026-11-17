@@ -168,6 +168,7 @@ class Engine:
         self.lock = threading.RLock()
         self.kite, self.contracts, self.contracts_day = None, {}, None
         self.auto_mode = ""                     # "on": real orders, "practice": no orders, "": off (AUTO_STAR)
+        self.auto_strike = 0                    # strikes out of the money for automatic picks (AUTO_STRIKE, 17 Nov 2026)
         self.state = {"day": None, "locked": None, "trades": []}
         try:
             self.state.update(json.load(open(state_path)))
@@ -306,7 +307,8 @@ class Engine:
                 "history": [{"d": d, **v} for d, v in hist.items()]}
 
     def auto_pick(self, lean):
-        """A pick for one * lean (Auto): the at-the-money option of the next expiry after today on its side."""
+        """A pick for one * lean (Auto): the option of the next expiry after today on its side, at the money or, with
+        AUTO_STRIKE (17 Nov 2026, the owner chose cheaper strikes), that many 50-point strikes out of the money."""
         with self.lock:
             if not self.kite:
                 raise ValueError("no Kite login today")
@@ -316,7 +318,8 @@ class Engine:
             spot = self.kite.quote(["NSE:NIFTY 50"]).get("NSE:NIFTY 50", {}).get("last_price")
             if not exps or not spot:
                 raise ValueError("no expiry or no NIFTY price")
-            typ, k = ("CE" if lean["lean"] == "up" else "PE"), round(spot / 50) * 50
+            typ = "CE" if lean["lean"] == "up" else "PE"
+            k = round(spot / 50) * 50 + (1 if typ == "CE" else -1) * 50 * self.auto_strike
             sym = next((s for s, r in self.contracts.items() if r["expiry"] == exps[0] and r["instrument_type"] == typ
                         and float(r["strike"]) == k), None)
             if not sym:
@@ -949,6 +952,8 @@ def main():
     sess = Session(engine, key, secret, os.path.join(data, "kite"))
     mode = os.environ.get("AUTO_STAR", "0").strip().lower()
     engine.auto_mode = "on" if mode == "1" else "practice" if mode in ("practice", "paper") else ""
+    strike = os.environ.get("AUTO_STRIKE", "0").strip().lower().replace("otm", "") or "0"
+    engine.auto_strike = int(strike) if strike in ("0", "1", "2") else 0
     auto = None
     if engine.auto_mode:
         local = None

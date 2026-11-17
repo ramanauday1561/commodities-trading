@@ -159,6 +159,12 @@ run setup.sh again. To stop the updates here: `sudo systemctl disable --now nift
 within 15 minutes). Each run's log, during market hours: `journalctl -u nifty-market -n 40` (it ends with
 `market run done HH:MM:SS`).
 
+## Cheaper strikes (AUTO_STRIKE, 17 Nov 2026)
+
+`AUTO_STRIKE=otm1` in `/etc/nifty-orders.env` makes each automatic pick buy the strike one step (50 points) out of the
+money instead of at the money (`otm2`: two steps; unset or `0`: at the money). Study starsize: OTM1 does about as well as
+ATM and costs about Rs1,700 less a lot (two OTM1 lots still need about Rs19,500).
+
 ## This app's own money (APP_CAPITAL, 17 Nov 2026)
 
 The Kite wallet can be shared with another app. To keep this server to its own share, set in `/etc/nifty-orders.env`:
