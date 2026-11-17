@@ -109,6 +109,7 @@ const k0 = x => Number(x).toLocaleString('en-IN', { maximumFractionDigits: 0 });
 // rupees with paise, as Kite shows them (12 Nov 2026, asked by the owner)
 const rs = x => `${x > 0 ? '+' : x < 0 ? '−' : ''}₹${Math.abs(x).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const cls = x => x > 0 ? 'up' : x < 0 ? 'down' : '';
+const inr = x => '₹' + Number(x).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } },
                 set: (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) {} } };
@@ -152,6 +153,7 @@ function drawState(s) {
     ${s.kite ? '' : UI.alert('<a href="kite.html">Log in to Kite</a> before placing picks.', 'bad', 'key')}
     <div class="k-tiles" style="margin:10px 0 0">${tile(rs(s.day_pnl), "today's P&L after charges", cls(s.day_pnl))}
       ${tile(`${L.max_lots} lot${L.max_lots > 1 ? 's' : ''}`, `a pick · ${L.max_open} open at most`)}${tile(`−₹${k0(L.max_loss_day)}`, 'stops for the day')}</div>
+    ${s.app_money ? `<div class="k-tiles k-two" style="margin:8px 0 0">${tile(inr(s.app_money.free), `this app's money left, of ${inr(s.app_money.capital)}`)}${tile(rs(s.app_money.realized), 'made or lost since set', cls(s.app_money.realized))}</div>` : ''}
     ${s.auto === 'on' ? UI.alert('<b>Every new ★ lean is bought by itself</b>: 1 lot, stop 10% under, out after 30 minutes.', '', 'star') : ''}
     ${s.auto === 'practice' ? UI.alert(`Practice today: ${rs(s.practice_pnl || 0)} (paper, at Kite's live prices).`, 'ok', 'flask') : ''}`
     + (s.locked ? `<div class="err">No more picks today: ${esc(s.locked)}</div>` : '');

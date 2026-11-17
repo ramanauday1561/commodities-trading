@@ -261,4 +261,8 @@ From 5 Nov (this part of the session):
   backtest** (Money page section and Next 10's real-picks section: today's automatic * picks after charges against nine
   years of the same rule, from docs/star-days.json made by scripts/star_days.py). 16 Nov also: 6 * leans, 1 right; the
   xAI key on the VPS is refused ("team has no credits"): credits at console.x.ai or a Groq key.
+- 17 Nov 2026: **APP_CAPITAL** on the order server (owner: added Rs20,000 to Kite for another app that shares the
+  wallet; this app may use only its Rs17,062.60). The server keeps this app's running total (its real picks' net after
+  charges, kept across days in state.json "app") and refuses a pick whose cost goes past capital + total - money in open
+  picks. Shown on the Orders and Money pages; the Money page's Kite figures are the whole shared account.
 

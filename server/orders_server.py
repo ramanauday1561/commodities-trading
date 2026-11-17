@@ -182,8 +182,31 @@ class Engine:
             for t in self.state["trades"]:                    # MIS: Zerodha squared off anything left yesterday
                 if t["status"] in ("entering", "open", "exiting"):
                     print(f"pick {t['id']} was still {t['status']} at the end of {self.state.get('day')}: check Kite", flush=True)
-            self.state = {"day": today, "locked": None, "trades": []}
+            self.state = {"day": today, "locked": None, "trades": [], "app": self.state.get("app")}
             self.save()
+
+    # ------------------------------------------------------------------ this app's own money (APP_CAPITAL)
+    # 17 Nov 2026 (asked by the owner): the Kite wallet is shared with another app, so this server may use only its own
+    # money: APP_CAPITAL rupees (17,062.60 when set) plus what its real picks have made or lost since, after charges;
+    # a pick is refused when its cost would go past what is left. The running total survives new days; a new
+    # APP_CAPITAL starts it again from zero. 0 or unset: no cap (Kite's own funds are the only limit).
+    def _app(self):
+        cap = float(self.limits.get("capital") or 0)
+        a = self.state.get("app") or {}
+        if a.get("base") != cap:
+            a = {"base": cap, "realized": 0.0, "since": self.now().isoformat(timespec="seconds")}
+        self.state["app"] = a
+        return a
+
+    def _app_money(self):
+        """{"capital", "realized", "in_use", "free"} in rupees, or None with no cap."""
+        a = self._app()
+        if not a["base"]:
+            return None
+        live = [t for t in self.state["trades"] if t["status"] in ("entering", "open", "exiting") and not t.get("practice")]
+        in_use = sum((t.get("avg_in") or t["entry_price"]) * (t.get("filled") or t["qty"]) + t.get("charges_est", 0) for t in live)
+        return {"capital": a["base"], "realized": round(a["realized"], 2), "since": a["since"], "in_use": round(in_use, 2),
+                "free": round(a["base"] + a["realized"] - in_use, 2)}
 
     def save(self):
         tmp = self.path + ".tmp"
@@ -263,7 +286,7 @@ class Engine:
                     json.dump(hist, fh)
                 os.replace(tmp, history_path)
         return {"day": self.state["day"], "now": self.now().isoformat(timespec="seconds"), "today": day,
-                "charges": ch, "free_to_trade": round(float(f.get("net") or 0), 2),
+                "charges": ch, "free_to_trade": round(float(f.get("net") or 0), 2), "app_money": self._app_money(),
                 "history": [{"d": d, **v} for d, v in hist.items()]}
 
     def auto_pick(self, lean):
@@ -333,7 +356,7 @@ class Engine:
             practice = sum(self._pnl(t) for t in self.state["trades"] if t.get("practice"))
             return {"day": self.state["day"], "now": self.now().isoformat(timespec="seconds"), "kite": bool(self.kite),
                     "locked": self.state["locked"], "limits": self.limits, "auto": self.auto_mode, "day_pnl": round(open_loss, 2),
-                    "practice_pnl": round(practice, 2),
+                    "practice_pnl": round(practice, 2), "app_money": self._app_money(),
                     "trades": [{k: v for k, v in t.items() if k not in ("entry_id", "sl_id", "exit_id")} for t in self.state["trades"]]}
 
     def add(self, req):
@@ -382,6 +405,10 @@ class Engine:
             if risk > L["max_loss_day"] + self._pnl_today():
                 raise ValueError(f"this pick could lose about Rs{risk:,.0f}, more than what is left of today's limit")
             price = up(limit) if limit else up(ask * 1.01 if ask else ltp * 1.02)
+            m = self._app_money()
+            cost = price * qty + est["total"]
+            if m is not None and cost > m["free"]:
+                raise ValueError(f"this pick needs about Rs{cost:,.0f}, more than this app's money left (Rs{m['free']:,.0f} of APP_CAPITAL)")
             t = {"id": uuid.uuid4().hex[:8], "symbol": sym, "lots": lots, "qty": qty, "limit": limit, "stop": stop,
                  "target": target, "exit_by": exit_by, "status": "entering", "made": now.isoformat(timespec="seconds"),
                  "entry_price": price, "tries": 0, "since": self.clock(), "filled": 0, "avg_in": None, "avg_out": None,
@@ -544,6 +571,9 @@ class Engine:
         t["pnl"] = round((avg_out - t["avg_in"]) * t["filled"], 2)
         c = self._charges([(t["symbol"], "BUY", t["filled"], t["avg_in"]), (t["symbol"], "SELL", t["filled"], avg_out)], t["lots"])
         t["charges"], t["net"] = round(c["total"], 2), round(t["pnl"] - c["total"], 2)
+        if not t.get("practice"):                                     # this app's running total (APP_CAPITAL)
+            a = self._app()
+            a["realized"] = round(a["realized"] + t["net"], 2)
         self.log(t, f"sold {t['filled']} at {avg_out}: {why}; charges Rs{c['total']:.2f}")
 
     def _pnl(self, t):
@@ -887,7 +917,8 @@ def handler(engine, guard, origin, history_path=None, login=None):
 
 def limits_from_env():
     return {"max_lots": int(os.environ.get("MAX_LOTS", "1")), "max_open": int(os.environ.get("MAX_OPEN", "2")),
-            "max_loss_day": int(os.environ.get("MAX_LOSS_DAY", "3000"))}
+            "max_loss_day": int(os.environ.get("MAX_LOSS_DAY", "3000")),
+            "capital": float(os.environ.get("APP_CAPITAL", "0") or 0)}
 
 
 def main():

@@ -67,7 +67,9 @@ function draw(m) {
       ${t.start ? `<span class="k-chip ${cls(t.net)}">${ico(t.net >= 0 ? 'up' : 'down')}${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>` : ''}</div>
     <div class="big ${cls(t.net)}" style="margin-top:8px">${rs(t.net)}</div>
     <div class="m">${t.start ? `of the ${k0(t.start)} you started with` : 'No opening balance from Kite yet'}</div>
-    <div class="k-tiles k-two" style="margin:12px 0 0">${tile(k0(t.now), `now · ${t.orders} order${t.orders === 1 ? '' : 's'} today`)}${tile(k0(m.free_to_trade), 'free to trade in Kite')}</div>`;
+    <div class="k-tiles k-two" style="margin:12px 0 0">${tile(k0(t.now), `now · ${t.orders} order${t.orders === 1 ? '' : 's'} today`)}${tile(k0(m.free_to_trade), 'free to trade in Kite')}</div>
+    ${m.app_money ? `<div class="k-tiles k-two" style="margin:6px 0 0">${tile(k0(m.app_money.free), `this app's money left, of ${k0(m.app_money.capital)}`)}${tile(rs(m.app_money.realized), 'made or lost by this app since set', cls(m.app_money.realized))}</div>
+      <div class="note">The Kite figures above are the whole account, shared with your other app. This app trades only within its own money: ${k0(m.app_money.capital)} plus what its picks make or lose.</div>` : ''}`;
   $('parts').innerHTML = sec('parts', 'list', 'How it adds up', 'Start, trades, charges, now', `<span class="${cls(t.net)}">${rs(t.net)}</span>`,
     `<div class="k-kv"><span>Started the day with</span><b>${k0(t.start)}</b></div>
     <div class="k-kv"><span>Trades made or lost</span><b class="${cls(t.pnl)}">${rs(t.pnl)}</b></div>

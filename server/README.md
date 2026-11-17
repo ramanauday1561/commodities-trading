@@ -159,6 +159,17 @@ run setup.sh again. To stop the updates here: `sudo systemctl disable --now nift
 within 15 minutes). Each run's log, during market hours: `journalctl -u nifty-market -n 40` (it ends with
 `market run done HH:MM:SS`).
 
+## This app's own money (APP_CAPITAL, 17 Nov 2026)
+
+The Kite wallet can be shared with another app. To keep this server to its own share, set in `/etc/nifty-orders.env`:
+```
+APP_CAPITAL=17062.60
+```
+The server then uses only that much plus what its own real picks make or lose from then on (after charges; practice
+picks do not count). A pick whose cost would go past what is left is refused ("more than this app's money left"). The
+running total survives new days; changing APP_CAPITAL starts it again. The Orders and Money pages show "this app's money
+left". Without the line there is no cap.
+
 ## Every day
 
 1. Log in to Kite on the **Kite login** page before trading, as now. The server picks up the day's token within a

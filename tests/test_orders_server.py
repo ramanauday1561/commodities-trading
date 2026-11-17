@@ -126,6 +126,30 @@ class Engine(unittest.TestCase):
         saved = json.load(open(os.path.join(self.tmp.name, "state.json")))
         self.assertEqual(saved["trades"][0]["status"], "closed")
 
+    def test_app_capital_caps_picks_and_keeps_a_running_total(self):
+        self.e.limits["capital"] = 7000.0                    # one lot at ~101.5 costs ~Rs6,640 with charges
+        tid = self.pick()
+        self.assertEqual(self.e.view()["app_money"]["capital"], 7000.0)
+        with self.assertRaisesRegex(ValueError, "this app's money left"):
+            self.pick()                                      # a second lot would go past 7,000
+        self.k.fill("1", 100.0)
+        self.e.tick()
+        self.k.fill("2", 79.0)                               # stopped out: -21 x 65 less charges
+        self.e.tick()
+        net = self.trade(tid)["net"]
+        m = self.e.view()["app_money"]
+        self.assertEqual((m["realized"], m["in_use"], m["free"]), (net, 0, round(7000 + net, 2)))
+        self.c.dt = self.c.dt.replace(day=9)                 # a new day keeps the running total
+        self.e._new_day()
+        self.assertEqual(self.e.view()["app_money"]["realized"], net)
+        self.e.limits["capital"] = 9000.0                    # a new APP_CAPITAL starts again
+        self.assertEqual(self.e.view()["app_money"]["realized"], 0.0)
+
+    def test_no_app_capital_no_cap(self):
+        self.pick()
+        self.pick()
+        self.assertIsNone(self.e.view()["app_money"])
+
     def test_stopped_out_at_the_exchange(self):
         tid = self.pick()
         self.k.fill("1", 100.0)
