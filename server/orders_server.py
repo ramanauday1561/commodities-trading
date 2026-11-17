@@ -206,8 +206,13 @@ class Engine:
         real = [t for t in self.state["trades"] if not t.get("practice") and t["status"] != "not entered"]
         live = [t for t in real if t["status"] in ("entering", "open", "exiting")]
         in_use = sum((t.get("avg_in") or t["entry_price"]) * (t.get("filled") or t["qty"]) + t.get("charges_est", 0) for t in live)
-        days = a.get("days") or {}
-        today_closed = (days.get(self.state["day"]) or {}).get("net", 0.0)
+        # today from today's own picks (the state holds only today's): right even for a pick that closed before the
+        # per-day record existed (17 Nov 2026: the page showed Rs0.00 for a day with a -Rs248.47 pick)
+        closed = [t for t in real if t["status"] == "closed" and t.get("net") is not None]
+        today_closed = round(sum(t["net"] for t in closed), 2)
+        days = dict(a.get("days") or {})
+        if closed:
+            days[self.state["day"]] = {"net": today_closed, "picks": len(closed)}
         open_pnl = sum(self._pnl(t) for t in live)
         # 17 Nov 2026 (owner: "show only this app's money"): the Money page reads these instead of Kite's whole account
         return {"capital": a["base"], "realized": round(a["realized"], 2), "since": a["since"], "in_use": round(in_use, 2),

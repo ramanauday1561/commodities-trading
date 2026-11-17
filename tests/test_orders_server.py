@@ -141,6 +141,9 @@ class Engine(unittest.TestCase):
         self.assertEqual((m["realized"], m["in_use"], m["free"]), (net, 0, round(7000 + net, 2)))
         self.assertEqual((m["today"]["net"], m["today"]["picks"], m["start_today"], m["now"]), (net, 1, 7000.0, round(7000 + net, 2)))
         self.assertEqual(m["days"], [{"d": "2026-11-06", "net": net, "picks": 1}])
+        self.e.state["app"]["days"] = {}                     # a pick closed before the per-day record: still today's
+        m = self.e.view()["app_money"]
+        self.assertEqual((m["today"]["net"], m["start_today"], m["days"][-1]["net"]), (net, 7000.0, net))
         self.c.dt = self.c.dt.replace(day=9)                 # a new day keeps the running total
         self.e._new_day()
         self.assertEqual(self.e.view()["app_money"]["realized"], net)
