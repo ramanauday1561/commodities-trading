@@ -212,7 +212,13 @@ class Engine:
         # per-day record existed (17 Nov 2026: the page showed Rs0.00 for a day with a -Rs248.47 pick)
         closed = [t for t in real if t["status"] == "closed" and t.get("net") is not None]
         today_closed = round(sum(t["net"] for t in closed), 2)
-        days = dict(a.get("days") or {})
+        days = {d: dict(v) for d, v in (a.get("days") or {}).items()}
+        # 19 Nov 2026: a result booked before the per-day record existed (17 Nov's -Rs248.47) goes on the first day,
+        # so the days add up to the running total
+        gap = round(a["realized"] - sum(v["net"] for v in days.values()), 2)
+        if abs(gap) >= 0.01:
+            first = days.setdefault(a["since"][:10], {"net": 0.0, "picks": 0})
+            first["net"], first["picks"] = round(first["net"] + gap, 2), max(first["picks"], 1)
         if closed:
             days[self.state["day"]] = {"net": today_closed, "picks": len(closed)}
         open_pnl = sum(self._pnl(t) for t in live)

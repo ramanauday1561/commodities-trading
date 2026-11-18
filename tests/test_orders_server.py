@@ -148,6 +148,7 @@ class Engine(unittest.TestCase):
         self.e._new_day()
         self.assertEqual(self.e.view()["app_money"]["realized"], net)
         self.assertEqual(self.e.view()["app_money"]["start_today"], round(7000 + net, 2))
+        self.assertEqual(self.e.view()["app_money"]["days"], [{"d": "2026-11-06", "net": net, "picks": 1}])   # the first day kept
         self.e.limits["capital"] = 9000.0                    # a new APP_CAPITAL starts again
         self.assertEqual(self.e.view()["app_money"]["realized"], 0.0)
 
