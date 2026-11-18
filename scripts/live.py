@@ -184,13 +184,16 @@ def track_record(store_dir, keep=20):
     return rec
 
 
+BIG_STAR = 25          # points of expected move: the * leans the order server buys with AUTO_MIN_SIZE=25
+
+
 def next_day(st, last="15:15"):
     """One finished day of next-candle leans, scored like next.html: a lean wins when its candle closes on its side of
     the candle before; 1 lot of an at-the-money option (half NIFTY's move, about Rs120 a round trip)."""
     c = st.get("candles") or []
     idx = {datetime.fromtimestamp(x["time"], timezone.utc).strftime("%H:%M"): i for i, x in enumerate(c)}
-    right = n = sn = sright = 0
-    rs = spts = 0.0
+    right = n = sn = sright = bn = bright = 0
+    rs = spts = bpts = 0.0
     for l in st.get("leans") or []:
         i = idx.get(l["at"])
         if l["at"] > last or not i or c[i].get("paused"):      # the 15:25 stub was never tested; the first candle has
@@ -203,9 +206,15 @@ def next_day(st, last="15:15"):
             sn += 1
             sright += move * side > 0
             spts += side * move
+            if (l.get("size") or 0) >= BIG_STAR:            # 18 Nov 2026: the * leans the server buys (AUTO_MIN_SIZE)
+                bn += 1
+                bright += move * side > 0
+                bpts += side * move
     out = {"leans": n, "right": right, "rs": int(round(rs))}
     if sn:
         out["star"] = {"leans": sn, "right": sright, "pts": round(spts, 1)}
+    if bn:
+        out["star_big"] = {"leans": bn, "right": bright, "pts": round(bpts, 1)}
     return out if n else None
 
 
@@ -221,11 +230,15 @@ def next_record(store_dir, today):
     if not days:
         return None
     stars = [x["star"] for x in days if x.get("star")]
+    big = [x["star_big"] for x in days if x.get("star_big")]
     return {"since": days[0]["d"], "days": len(days), "leans": sum(x["leans"] for x in days),
             "right": sum(x["right"] for x in days), "rs": sum(x["rs"] for x in days),
             "losing_days": sum(x["rs"] < 0 for x in days), "by_day": days[-10:],
             "star": {"days": len(stars), "leans": sum(s["leans"] for s in stars), "right": sum(s["right"] for s in stars),
-                     "pts": round(sum(s["pts"] for s in stars), 1), "up_days": sum(s["pts"] > 0 for s in stars)} if stars else None}
+                     "pts": round(sum(s["pts"] for s in stars), 1), "up_days": sum(s["pts"] > 0 for s in stars)} if stars else None,
+            "star_big": {"min_size": BIG_STAR, "days": len(big), "leans": sum(s["leans"] for s in big),
+                         "right": sum(s["right"] for s in big), "pts": round(sum(s["pts"] for s in big), 1),
+                         "up_days": sum(s["pts"] > 0 for s in big)} if big else None}
 
 
 def morning_prompt(today, news, record):
