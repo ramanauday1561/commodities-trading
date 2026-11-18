@@ -82,7 +82,7 @@ function draw(m) {
     <div class="big ${cls(t.net)}" style="margin-top:8px">${rs(t.net)}</div>
     <div class="m">${t.start ? `of the ${k0(t.start)} you started with` : 'No opening balance from Kite yet'}</div>
     <div class="k-tiles k-two" style="margin:12px 0 0">${tile(k0(t.now), `now · ${t.orders} ${unit}${t.orders === 1 ? '' : 's'} today`)}${tile(k0(m.free_to_trade), free)}</div>
-    ${m.app ? `<div class="note">Only this app: its ${k0(m.app_money.capital)} plus what its own picks made or lost (${rs(m.app_money.realized)} so far, after charges). Your other app's money and trades are not counted.</div>` : ''}`;
+    ${m.app ? `<div class="note">This app's money today: <b>${k0(t.start)}</b>. It began at ${k0(m.app_money.capital)} on ${day(m.app_money.since.slice(0, 10))} and moves with each pick's result after charges (${rs(m.app_money.realized)} so far); the server carries it from day to day. Your other app's money and trades are not counted.</div>` : ''}`;
   $('parts').innerHTML = sec('parts', 'list', 'How it adds up', 'Start, trades, charges, now', `<span class="${cls(t.net)}">${rs(t.net)}</span>`,
     `<div class="k-kv"><span>Started the day with</span><b>${k0(t.start)}</b></div>
     <div class="k-kv"><span>${m.app ? 'Picks made or lost' : 'Trades made or lost'}</span><b class="${cls(t.pnl)}">${rs(t.pnl)}</b></div>
