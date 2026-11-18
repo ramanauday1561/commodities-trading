@@ -66,7 +66,11 @@ const srv = get('ordersUrl'), code = get('ordersCode');
 // day); Kite's whole-account figures are used only when the server has no APP_CAPITAL.
 function appView(m) {
   const a = m.app_money, td = a.today;
-  const days = a.days.map(x => ({ d: x.d, net: x.net, orders: x.picks }));
+  // 19 Nov 2026 (owner: "why not the other days?"): before this app's own money began (17 Nov) the Kite account was
+  // this app's alone, so those days come from the server's daily Kite totals (2 orders = 1 pick)
+  const since = a.since.slice(0, 10);
+  const before = (m.history || []).filter(x => x.d < since && x.orders).map(x => ({ d: x.d, net: x.net, orders: Math.max(1, Math.round(x.orders / 2)) }));
+  const days = before.concat(a.days.map(x => ({ d: x.d, net: x.net, orders: x.picks })));
   if (td.picks && !days.some(x => x.d === m.day)) days.push({ d: m.day, net: td.net, orders: td.picks });
   else days.forEach(x => { if (x.d === m.day) { x.net = td.net; x.orders = td.picks; } });
   return { ...m, app: true, free_to_trade: a.free, history: days,
