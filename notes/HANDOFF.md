@@ -277,3 +277,8 @@ From 5 Nov (this part of the session):
   passes (better on average, but in only 3-4 of 7 years). Next 10: the report card adds a row for the 25+ point * leans
   the server buys (live.next_record "star_big"), and the chart marks your real picks (Buy / Sold with the result) from
   the order server; the server now records when a pick was sold ("out_at").
+- 19 Nov 2026: **NIFTY 50 only** (owner): gold, silver and crude removed from scripts/instruments.json (the forecast
+  runs, the Forecast page's chips, the weekly note); predict.yml's prune step drops their data files on the next run.
+  Gold and crude stay as *inputs* to the NIFTY models (exo, todaycall), which are unchanged. Money page: "Every trading
+  day" shows the days before APP_CAPITAL (from the server's daily Kite totals; the account was this app's alone then) and
+  the server puts a result booked before its per-day record on the first day (17 Nov's -Rs248.47 was missing).

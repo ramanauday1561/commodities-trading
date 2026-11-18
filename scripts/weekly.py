@@ -1,7 +1,7 @@
 """The Saturday summary to the phone (31 Oct 2026, asked by the user): the week in one message.
 
 Usage: python scripts/weekly.py <data_dir> <store_dir>   (every forecast run; sends once a week, on Saturday or Sunday IST)
-What it says, all information (no trade signal): NIFTY, gold, silver and crude over the week; how the 08:57 calls did
+What it says, all information (no trade signal): NIFTY over the week; how the 08:57 calls did
 and any 09:15 trade; the track records (our model and the AI against "the price then", Grok's morning read); the
 week on real option prices (an at-the-money CALL and PUT bought at each open); GIFT Nifty's expected open; and next
 week's US releases, heavyweight results and the sessions the 09:15 signal stands aside on.
@@ -17,7 +17,7 @@ import status
 from calendars import next_sessions
 
 IST = ZoneInfo("Asia/Kolkata")
-NAMES = {"nifty": "NIFTY 50", "gold": "Gold", "silver": "Silver", "crude": "Crude"}
+NAMES = {"nifty": "NIFTY 50"}                  # 19 Nov 2026: NIFTY only (gold, silver and crude removed)
 US = {"fomc": "Fed decision", "cpi": "US inflation (CPI)", "jobs": "US jobs report"}
 
 

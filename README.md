@@ -1,6 +1,6 @@
-# Commodities & NIFTY forecasts
+# NIFTY 50 forecasts
 
-A static site (GitHub Pages, `docs/`) with forecasts for NIFTY 50, gold, silver and WTI crude, a NIFTY trade status
+A static site (GitHub Pages, `docs/`) with NIFTY 50 forecasts (gold, silver and crude were removed on 19 Nov 2026), a NIFTY trade status
 for the day, a live intraday chart and an honest record of how every call did. GitHub Actions does all the work; there
 is no server. Educational project, not financial advice.
 

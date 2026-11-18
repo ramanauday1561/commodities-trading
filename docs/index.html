@@ -16,7 +16,7 @@
   } catch (e) { /* storage blocked: stay here */ }
 </script>
 <title>Kronos Forecast</title>
-<meta name="description" content="Daily forecasts for NIFTY 50, gold, silver and crude oil, with today's NIFTY call.">
+<meta name="description" content="Daily NIFTY 50 forecasts, with today's NIFTY call.">
 <meta name="theme-color" content="#EDC9AF">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -176,7 +176,7 @@
   .runstatus { background:var(--glass2); border-radius:12px; padding:10px 14px; margin-bottom:10px; font-size:var(--s-small); }
   .runstatus a { color:var(--mute); }
   .modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:14px; z-index:50; }
-  .modal[hidden], .runstatus[hidden], .installhint[hidden] { display:none; }
+  .modal[hidden], .runstatus[hidden], .installhint[hidden], #chips[hidden] { display:none; }
   .modalcard { max-width:520px; width:100%; background:rgba(247,232,216,.97); max-height:90vh; overflow:auto; }
   .installhint { display:flex; gap:10px; align-items:center; padding:10px 10px 10px 14px; margin-bottom:10px; border-radius:14px; font-size:var(--s-small); }
   .installhint span { flex:1; }
@@ -586,7 +586,6 @@ function guideHTML(d) {
       <li><b>Tested and left out</b> (they made less money in backtests): India VIX, the put-call ratio, FII positions, Brent oil, an earlier 06:33 cutoff, 5 / 20 / 50 stocks for results days, profit targets, trading weaker days, hourly forecasts and entries after the open.</li></ul></details>
     <details><summary>Limits and risks</summary>
       <ul><li>Models only see past prices and market data. They know nothing about news, central-bank decisions, wars or weather (the news card shows whether headline tone has earned a small say in the best estimate).</li>
-      <li>Commodity prices here are <b>futures</b> contracts joined into one continuous line, so small jumps can appear when a contract expires and the next one takes over.</li>
       <li>Data comes from Yahoo Finance and may be delayed. Forecast days skip weekends and exchange holidays.</li>
       <li>This site is an educational experiment, not financial advice. Never risk money you cannot afford to lose.</li></ul></details>
   </div>`;
@@ -597,6 +596,7 @@ let chart = null, current = null, token = 0, manifest = [];
 const GROUPS = ['Index', 'Metals', 'Energy', 'Agri'];
 
 function renderChips() {
+  $('chips').hidden = manifest.length < 2;      // 19 Nov 2026: NIFTY 50 only (the owner removed gold, silver and crude)
   const order = GROUPS.flatMap(g => manifest.filter(m => m.group === g)).concat(manifest.filter(m => !GROUPS.includes(m.group)));
   $('chips').innerHTML = order.map(m =>
     // the chip shows the last completed day's move (what a market app shows); the forecast is in the card below
