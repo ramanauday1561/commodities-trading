@@ -402,3 +402,10 @@ Experiment mode "starsize" (17 Nov 2026, star_size_study.py, asked by the owner)
 candles. NONE PASSES: 25+ points turns the average slightly positive (+Rs28 ATM, +Rs17 OTM1) but only 3 of 7 years are
 up and the halves disagree; OTM1 behaves like ATM and is only ~Rs1,700 a lot cheaper (two picks still do not fit in
 Rs17,062.60).
+
+Experiment mode "starstreak" (18 Nov 2026, star_streak_study.py, asked by the owner after three * leans in a row): the
+server's rule with AUTO_MIN_SIZE 25 and one pick at a time, vs EXTEND (a new same-side 25+ * lean keeps the open pick
+30 more minutes), SKIP_EARLY (no pick from the 09:25 and 09:35 leans) and BOTH; Rs a lot a day, nine years, stops booked
+at the 10-minute close. NONE PASSES: all three are better on average (+Rs9, +16, +23 a day) and since 2022, but only in
+3-4 of the 7 years with picks (2024 carries it), and none earns (up in 3 of 10 years). Live days 4-18 Nov: today's
+rule -Rs7,040 (14 picks), SKIP_EARLY +Rs2,132 (the four 09:35 picks lost Rs9,173).

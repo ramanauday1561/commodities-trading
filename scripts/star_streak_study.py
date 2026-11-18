@@ -33,7 +33,22 @@ star_rules_study.compare). Passing would make the automatic picks lose less (or 
 picks earn at all is reported too (Rs a day above 0 on average, in both halves, since 2022 and in 7 of 10 years).
 Nothing changes on the order server by this study; the owner decides.
 
-Result: not run yet.
+Result (run 18 Nov 2026; * leans 2017-01-02 to 2026-11-18; pricing ATM b 0.548, a -0.18, premium 0.69% of NIFTY from
+684 Kite quote pairs). Rs a lot after costs. No * lean of 25+ points came in 2017-2019 (NIFTY was lower, so 25 points
+was rarely expected): those years have no picks and count as not better and not up.
+                 nine years                                                         live days (4-18 Nov)
+  today          1,028 picks, -Rs5 a pick, -Rs2 a day, up in 3 of 10 years          14 picks, -Rs7,040
+  EXTEND           828 picks, +22 a pick, +7 a day; vs today +9 a day, halves -1 / +21,  13 picks, -7,331
+                   since 2022 +20, better in 3 of 10 years                            (6 Nov 14:15-15:15 +4,556)
+  SKIP_EARLY       904 picks, +38 a pick, +14 a day; vs today +16, halves +2 / +33,    10 picks, +2,132
+                   since 2022 +31, better in 4 of 10 years
+  BOTH             712 picks, +71 a pick, +21 a day; vs today +23, halves -4 / +53,    9 picks, +1,841
+                   since 2022 +50, better in 3 of 10 years
+  NONE PASSES. All three are better on average and since 2022, but only in 3 or 4 of the 7 years that had picks
+  (2024 makes most of it: +Rs335 to +409 a day), and none earns on its own (up in 3 of 10 years). Skipping the 09:25 and
+  09:35 * leans is the closest: better in both halves, and on the live days it turns -Rs7,040 into +Rs2,132 (the
+  09:35 picks were 4 losers, -Rs9,173 together), but 4 of 10 years is far from 7. Nothing changes on the order server
+  by this study; the owner decides. Re-run when the live days add up to more (each run adds the newest days).
 """
 import glob
 import json
