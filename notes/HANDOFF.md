@@ -273,3 +273,7 @@ From 5 Nov (this part of the session):
   published * leans 4-17 Nov with Kite's real candles: 14 of 48 at 25+ points, +Rs7,369 (6 won), +Rs11,902 of it on
   6 Nov; all 48: +Rs11,227.
 
+- 18 Nov 2026: **Study starstreak** (keep a pick through a run of same-side * leans; skip the 09:25/09:35 leans): none
+  passes (better on average, but in only 3-4 of 7 years). Next 10: the report card adds a row for the 25+ point * leans
+  the server buys (live.next_record "star_big"), and the chart marks your real picks (Buy / Sold with the result) from
+  the order server; the server now records when a pick was sold ("out_at").
