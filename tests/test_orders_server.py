@@ -164,6 +164,7 @@ class Engine(unittest.TestCase):
         self.e.tick()
         t = self.trade(tid)
         self.assertEqual((t["status"], t["pnl"], t["why"]), ("closed", -21 * 65, "stopped out"))
+        self.assertEqual(t["out_at"], self.c.dt.isoformat(timespec="seconds"))     # the Next 10 chart marks the sale
 
     def test_triggered_stop_not_filled_is_repriced(self):
         self.pick()

@@ -588,6 +588,7 @@ class Engine:
 
     def _closed(self, t, avg_out, why):
         t["status"], t["avg_out"], t["why"] = "closed", avg_out, why
+        t["out_at"] = self.now().isoformat(timespec="seconds")       # 18 Nov 2026: the Next 10 chart marks the sale
         t["pnl"] = round((avg_out - t["avg_in"]) * t["filled"], 2)
         c = self._charges([(t["symbol"], "BUY", t["filled"], t["avg_in"]), (t["symbol"], "SELL", t["filled"], avg_out)], t["lots"])
         t["charges"], t["net"] = round(c["total"], 2), round(t["pnl"] - c["total"], 2)
