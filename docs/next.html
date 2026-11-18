@@ -111,9 +111,9 @@ function draw(d) {
   $('msg').textContent = c.length ? '' : "Today's candles start after the 09:15 open.";
   candles.setData(c);
   chart.priceScale('right').applyOptions({ autoScale: true });
-  candles.setMarkers(!showLeans ? [] : s.map(x => ({ time: x.t, position: x.lean === 'up' ? 'belowBar' : 'aboveBar',
+  candles.setMarkers((!showLeans ? [] : s.map(x => ({ time: x.t, position: x.lean === 'up' ? 'belowBar' : 'aboveBar',
     shape: x.lean === 'up' ? 'arrowUp' : 'arrowDown', color: x.pending || x.paused ? '#57532F' : x.right ? '#185C3B' : '#A3261F',
-    text: x.confident ? '★' : '' })).sort((a, b) => a.time - b.time));
+    text: x.confident ? '★' : '' }))).concat(pickMarks(d, c)).sort((a, b) => a.time - b.time));
   if (first && c.length) { chart.timeScale().fitContent(); first = false; }
   $('when').innerHTML = `Updated ${(d.updated || '').slice(11, 16)} IST · ${d.status === 'open' ? `${freshTag(d.updated, true)} · ${nextRun(d.updated)}${d.feed === 'kite' ? ' · Kite prices' : ''}` : d.status === 'closed' ? 'market closed' : 'before the open'}`;
   const nowIST = Date.now() / 1000 + 19800, late = cur && d.status === 'open' && nowIST >= cur.t + 600 + 120;
@@ -138,6 +138,28 @@ function draw(d) {
         done.length ? `${right} of ${done.length}` : '', leansTable(s, d, realRs)) : '')
     + recordSec(d)
     + sec('about', ico('info'), 'About these numbers', 'How each one is worked out', '', aboutHTML(d), true);
+}
+
+// Your real picks on the chart (18 Nov 2026, asked by the owner): a blue "Buy" dot on the candle the server bought in
+// and a square with the result (+₹2.6k) on the candle it sold in, from the order server (loadReal), on every chart, leans
+// shown or not. Older servers do not record the time of the sale: then only the buy is marked.
+function pickMarks(d, c) {
+  if (!real || !c.length) return [];
+  const bar = iso => {                                       // "2026-11-18T09:45:12+05:30" -> that 10-minute candle's time
+    if (!iso || iso.slice(0, 10) !== d.date) return null;
+    const m = Number(iso.slice(11, 13)) * 60 + Number(iso.slice(14, 16));
+    const t = Date.UTC(+d.date.slice(0, 4), +d.date.slice(5, 7) - 1, +d.date.slice(8, 10)) / 1000 + (555 + Math.floor((m - 555) / 10) * 10) * 60;
+    return c.some(x => x.time === t) ? t : null;
+  };
+  const short = x => `${x >= 0 ? '+' : '−'}₹${Math.abs(x) >= 1000 ? (Math.abs(x) / 1000).toFixed(1) + 'k' : Math.round(Math.abs(x))}`;
+  const out = [];
+  for (const p of real.picks) {
+    const tb = bar(p.made), ts = bar(p.out_at), up = /\bup\b/.test(p.at || '');
+    if (tb) out.push({ time: tb, position: up ? 'belowBar' : 'aboveBar', shape: 'circle', color: '#24529C', text: 'Buy' });
+    if (ts && p.net != null) out.push({ time: ts, position: up ? 'aboveBar' : 'belowBar', shape: 'square',
+      color: p.net >= 0 ? '#185C3B' : '#A3261F', text: short(p.net) });
+  }
+  return out;
 }
 
 // the card on top: the time, then the expected size (always) or the lean (when shown), and the warning with the switch
@@ -216,7 +238,8 @@ async function loadReal() {
   const [st, m] = await Promise.all([get('/api/state'), get('/api/money')]);
   if (!st) return null;
   const picks = (st.trades || []).filter(t => t.auto && !t.practice && t.status !== 'not entered').map(t => ({
-    at: t.auto, net: t.net != null ? t.net : t.pnl != null ? t.pnl - (t.charges_est || 0) : null, done: t.status === 'closed', why: t.why }));
+    at: t.auto, net: t.net != null ? t.net : t.pnl != null ? t.pnl - (t.charges_est || 0) : null, done: t.status === 'closed', why: t.why,
+    made: t.made, out_at: t.out_at }));
   const h = ((m && m.history) || []).filter(x => x.orders);
   return { picks, total: h.length ? { since: h[0].d, net: h.reduce((a, x) => a + x.net, 0) } : null };
 }
@@ -249,9 +272,14 @@ function starSec(d) {
       <td class="n"><span class="k-pill ${ud(x.star.pts)}">${sign(x.star.pts)}</span></td>
       <td class="n ${p ? ud(p.rs) : 'm'}">${p ? `<b>${rs(p.rs)}</b>` : '—'}</td></tr>`;
   }).join('');
+  const b = r.star_big;      // 18 Nov 2026: the ★ leans the server buys (expected move 25+ pts, AUTO_MIN_SIZE)
+  const bigH = b ? `<div class="k-sub-h">Only ★ leans of ${b.min_size}+ pts · the ones the server buys</div>
+     <div class="k-tiles">${tile(`${b.right}/${b.leans}`, `right (${pct(b.right, b.leans)}%)`)}${tile(sign(b.pts), 'pts the right way', ud(b.pts))}${tile(`${b.up_days}/${b.days}`, 'days up')}</div>` : '';
   return sec('star', starIco, 'Report card', `★ leans since ${day(r.since)}`, `${pct(s.right, s.leans)}% right`,
-    `<div class="k-tiles">${tile(`${s.right}/${s.leans}`, `right (${pct(s.right, s.leans)}%)`)}${tile(sign(s.pts), 'pts the right way', ud(s.pts))}${tile(`${s.up_days}/${s.days}`, 'days up')}</div>
+    `<div class="k-sub-h" style="margin-top:0">Every ★ lean</div>
+     <div class="k-tiles">${tile(`${s.right}/${s.leans}`, `right (${pct(s.right, s.leans)}%)`)}${tile(sign(s.pts), 'pts the right way', ud(s.pts))}${tile(`${s.up_days}/${s.days}`, 'days up')}</div>${bigH}
      <table class="k-tbl"><tr><th>Day</th><th>★ right</th><th class="n">Pts</th><th class="n">₹ real prices</th></tr>${rows}</table>
+     ${b ? `<div class="k-note">Points are the lean's own 10-minute candle; a real pick is held up to 30 minutes, so its ₹ can differ.</div>` : ''}
      <div class="k-note">The 9-year test: right 53%, −₹72 a lot a trade after costs. A good run reads against that.</div>`);
 }
 
@@ -290,6 +318,7 @@ function aboutHTML(d) {
   return `<div class="k-note" style="margin-top:0">
     <p style="margin:0 0 6px"><b>Expected size</b>: tested 2017-2026, 10% closer than the usual size at that time of day, in every year. The direction is not tested to pay.</p>
     <p style="margin:0 0 6px"><b>Arrows on the chart</b>: the lean for that candle (green right, red wrong, grey pending; ★ a top-20% call).</p>
+    <p style="margin:0 0 6px"><b>Buy and Sold on the chart</b>: your real ★ picks from the order server (a blue "Buy" dot when bought, a square with the result after charges when sold).</p>
     <p style="margin:0 0 6px"><b>₹ per lot</b>: with • on Kite's real option prices (bought at the at-the-money option's price when the lean was made, sold 10 minutes later), added after the close; without •, assuming the option moves half as much as NIFTY. A round trip costs about ₹120.</p>
     ${d.paused_from ? `<p style="margin:0 0 6px">Yahoo's price feed paused from ${d.paused_from}; those candles are left out and their leans are not scored.</p>` : ''}
     ${d.trained_until ? `<p style="margin:0">Model trained on candles to ${d.trained_until}.</p>` : ''}</div>`;
