@@ -239,7 +239,7 @@ async function loadReal() {
   if (!st) return null;
   const picks = (st.trades || []).filter(t => t.auto && !t.practice && t.status !== 'not entered').map(t => ({
     at: t.auto, net: t.net != null ? t.net : t.pnl != null ? t.pnl - (t.charges_est || 0) : null, done: t.status === 'closed', why: t.why,
-    made: t.made, out_at: t.out_at }));
+    made: t.made, out_at: t.out_at, li: t.lean_info }));
   const h = ((m && m.history) || []).filter(x => x.orders);
   return { picks, total: h.length ? { since: h[0].d, net: h.reduce((a, x) => a + x.net, 0) } : null };
 }
@@ -249,7 +249,7 @@ function picksSec() {
   const rows = real.picks.map(p => {
     const m = /(\d\d:\d\d)\s+(up|down)/.exec(p.at || ''), cls = p.net == null ? 'm' : ud(p.net);
     return `<div class="k-pick"><span class="k-dot ${cls}">${ico(p.net == null ? 'clock' : p.net >= 0 ? 'check' : 'x')}</span>
-      <span class="k-what">${m ? `${m[1]} · ${m[2] === 'up' ? 'CALL' : 'PUT'} ${ico(m[2])}` : esc(p.at)}<small>${p.done ? 'closed' : 'open'}${p.why ? ` · ${esc(p.why)}` : ''}</small></span>
+      <span class="k-what">${m ? `${m[1]} · ${m[2] === 'up' ? 'CALL' : 'PUT'} ${ico(m[2])}` : esc(p.at)}<small>${p.done ? 'closed' : 'open'}${p.why ? ` · ${esc(p.why)}` : ''}${p.li && p.li.size != null ? ` · ±${p.li.size} pts expected${p.li.from === 'server' ? ' (lean made on the server)' : ''}` : ''}</small></span>
       <b class="${cls}">${p.net == null ? '…' : rs(p.net)}${p.done || p.net == null ? '' : '<span class="m" style="font-weight:400"> so far</span>'}</b></div>`;
   }).join('');
   return sec('picks', ico('rupee'), 'Your real ★ picks', 'Kite, after charges · up to 30 min, 10% stop',
