@@ -282,3 +282,7 @@ From 5 Nov (this part of the session):
   Gold and crude stay as *inputs* to the NIFTY models (exo, todaycall), which are unchanged. Money page: "Every trading
   day" shows the days before APP_CAPITAL (from the server's daily Kite totals; the account was this app's alone then) and
   the server puts a result booked before its per-day record on the first day (17 Nov's -Rs248.47 was missing).
+- 19 Nov 2026: a real pick (+Rs1,255.86) came on a day whose published * leans were all under 25 points: it came from
+  the server's own lean (LocalLeans), which can differ from the published one. Each automatic pick now records the lean
+  it was bought on (`lean_info`: expected and usual move, made on the server or GitHub) and the server log says it;
+  Next 10 shows the expected move per pick. **Study starrel** (move vs the usual one; the 15:05 lean): none passes.
