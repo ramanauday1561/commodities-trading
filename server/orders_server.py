@@ -341,7 +341,8 @@ class Engine:
             tid = self.add({"symbol": sym, "lots": 1, "stop": down(ref * (1 - AUTO_STOP)), "exit_by": out})
             t = next(x for x in self.state["trades"] if x["id"] == tid)
             t["auto"] = f"\u2605 {lean['at']} {lean['lean']}"
-            self.log(t, f"placed by itself for the \u2605 lean {lean['at']} {lean['lean']}")
+            t["lean_info"] = lean_info(lean)
+            self.log(t, f"placed by itself for the \u2605 lean {lean['at']} {lean['lean']} ({lean_text(lean)})")
             self.save()
             return tid
 
@@ -356,7 +357,7 @@ class Engine:
         t = {"id": uuid.uuid4().hex[:8], "symbol": sym, "lots": 1, "qty": qty, "limit": None, "stop": stop, "target": None,
              "exit_by": exit_by, "status": "practice", "made": now.isoformat(timespec="seconds"), "filled": qty,
              "avg_in": ref, "avg_out": None, "ltp": ltp, "why": None, "practice": True,
-             "auto": f"\u2605 {lean['at']} {lean['lean']}"}
+             "auto": f"\u2605 {lean['at']} {lean['lean']}", "lean_info": lean_info(lean)}
         self.log(t, f"practice: would buy {qty} at {ref} for the \u2605 lean {lean['at']} {lean['lean']} (no order sent)")
         self.state["trades"].append(t)
         self.save()
@@ -635,6 +636,18 @@ class Engine:
                                  "ltp": q.get(f"NFO:{r['tradingsymbol']}", {}).get("last_price")} for r in pick]}
 
 
+def lean_info(lean):
+    """What an automatic pick was bought on (19 Nov 2026: a pick came on a day whose published * leans were all under
+    25 points, and nothing showed which lean it was): the expected and usual move and where the lean was made."""
+    return {k: lean.get(k) for k in ("size", "typical", "from") if lean.get(k) is not None}
+
+
+def lean_text(lean):
+    i = lean_info(lean)
+    return (f"expected {i['size']} pts" if "size" in i else "no size") + (f", usual {i['typical']}" if "typical" in i else "") \
+        + f", made {'on this server' if i.get('from') == 'server' else 'on GitHub/the VPS run'}"
+
+
 def auto_leans(doc, now, done):
     """The * leans to act on now: today's, confident, made at most AUTO_MAX_AGE seconds ago (the page records the minute
     it was made, so up to a minute more), and not tried before (done: the ids already tried today)."""
@@ -651,7 +664,7 @@ def auto_leans(doc, now, done):
         except (KeyError, ValueError):
             continue
         if 0 <= (now - made).total_seconds() <= AUTO_MAX_AGE + 60:
-            out.append({**l, "id": lid})
+            out.append({"from": "github", **l, "id": lid})            # 19 Nov 2026: which lean made the pick
     return out
 
 
@@ -730,7 +743,7 @@ class Auto:
         for l in todo:
             try:
                 tid = e.auto_pick(l)
-                print(f"auto: star {l['at']} {l['lean']}: {'practice ' if e.auto_mode == 'practice' else ''}pick {tid}", flush=True)
+                print(f"auto: star {l['at']} {l['lean']}: {'practice ' if e.auto_mode == 'practice' else ''}pick {tid} ({lean_text(l)})", flush=True)
             except (ValueError, KiteError) as err:
                 print(f"auto: star {l['at']} {l['lean']} not placed: {err}", flush=True)
 
@@ -812,8 +825,9 @@ class LocalLeans:
         out = self.lean(self.dir, now, get=self._get(now))
         if not out:
             return None
-        print(f"local lean {out['at']} {out['lean']}{' (star)' if out.get('confident') else ''}", flush=True)
-        return {"date": today, "leans": [{**{x: out[x] for x in ("at", "lean", "confident", "size") if x in out}, "made": now.strftime("%H:%M")}]}
+        print(f"local lean {out['at']} {out['lean']}{' (star)' if out.get('confident') else ''}, expected {out.get('size', '?')} pts", flush=True)
+        return {"date": today, "leans": [{**{x: out[x] for x in ("at", "lean", "confident", "size", "typical") if x in out},
+                                          "made": now.strftime("%H:%M"), "from": "server"}]}
 
 
 def kite_login(request_token, store, key, secret, push=None):

@@ -405,6 +405,7 @@ class AutoStar(unittest.TestCase):
         self.assertEqual((t["symbol"], t["lots"], t["exit_by"]), ("NIFTY26N0924500PE", 1, "10:30"))   # ATM PUT, next expiry
         self.assertEqual(t["stop"], osv.down(80.5 * 0.9))
         self.assertIn("10:05 down", t["auto"])
+        self.assertEqual(t["lean_info"]["from"], "github")                     # which lean made the pick
         for _ in range(2):
             self.c.t += osv.AUTO_EVERY
             a.tick()
@@ -515,7 +516,7 @@ class Local(unittest.TestCase):
 
     def lean(self, model_dir, now, get):
         self.seen.append(get("^NSEI"))
-        return {"at": now.strftime("%H:%M"), "lean": "down", "confident": True, "pts": -2.0}
+        return {"at": now.strftime("%H:%M"), "lean": "down", "confident": True, "pts": -2.0, "size": 26.4, "typical": 21.0}
 
     def test_boundaries(self):
         b = osv.LocalLeans.boundary
@@ -539,6 +540,7 @@ class Local(unittest.TestCase):
         a.tick()                                                                 # same boundary again: nothing new
         self.assertEqual(len(self.e.state["trades"]), 1)
         self.assertEqual(self.e.state["trades"][0]["auto"], "\u2605 10:05 down")
+        self.assertEqual(self.e.state["trades"][0]["lean_info"], {"size": 26.4, "typical": 21.0, "from": "server"})
         bars = self.seen[0][self.c.dt.date()]
         self.assertEqual([str(i)[11:16] for i in bars.index], ["09:55", "10:00"])     # the forming 10:05 bar is left out
 
