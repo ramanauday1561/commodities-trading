@@ -409,3 +409,9 @@ server's rule with AUTO_MIN_SIZE 25 and one pick at a time, vs EXTEND (a new sam
 at the 10-minute close. NONE PASSES: all three are better on average (+Rs9, +16, +23 a day) and since 2022, but only in
 3-4 of the 7 years with picks (2024 carries it), and none earns (up in 3 of 10 years). Live days 4-18 Nov: today's
 rule -Rs7,040 (14 picks), SKIP_EARLY +Rs2,132 (the four 09:35 picks lost Rs9,173).
+
+Experiment mode "starrel" (19 Nov 2026, star_rel_study.py, asked by the owner): buy a * lean when its expected move is
+1.0 / 1.2 / 1.4 times the usual move at that time of day instead of 25+ points, or also the 15:05 lean (LATE). NONE
+PASSES: the ratio filters buy 3-6 times as many leans and lose Rs68-188 a day over nine years (worse than 25 points in
+8-10 of 10 years), though R1.0 / R1.2 looked better on the 12 live days; LATE loses Rs6 a day more. The fixed 25 points
+stays the best of the filters tested (still not earning: -Rs3 a day, 3 of 10 years up).

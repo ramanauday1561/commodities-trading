@@ -26,7 +26,19 @@ with nothing to compare). Several variants are tried, so all four conditions are
 is reported too. Nothing changes on the order server by this study: a passing variant becomes a switch the owner turns
 on (AUTO_MIN_RATIO); a failing one does not.
 
-Result: not run yet.
+Result (run 19 Nov 2026; * leans 2017-01-02 to 2026-11-18; ATM pricing b 0.551, a -0.16, premium 0.67% of NIFTY from
+756 Kite quote pairs). Rs a lot a trading day after costs, nine years; live days 4-19 Nov in Rs.
+  today (25+ pts)  1,031 picks, -Rs3 a day, up in 3 of 10 years                         14 picks, -7,020
+  R1.0             6,645 picks, -188 a day; vs today -185, better in 1 of 10 years       23 picks, +3,196
+  R1.2             4,647 picks, -122 a day; vs today -119, better in 2 of 10             16 picks, +909
+  R1.4             3,042 picks, -68 a day;  vs today -65, better in 0 of 10              6 picks, -3,039
+  LATE             1,083 picks, -9 a day;   vs today -6, halves +2 / -14, 2 of 7 years    15 picks, -7,147
+  NONE PASSES. Judging the move against the usual one at that time of day buys many more * leans and loses far more
+  over nine years (in 8-10 of 10 years), though it looked better on the 12 live days: the fixed 25 points is the best
+  of these filters. The 15:05 lean (10 minutes, then out) adds a little loss. On 19 Nov none of these rules buys a
+  published * lean (the three were 16-24 points, 0.76-0.95 of the usual move): the real pick that day came from a lean
+  the server made itself (LocalLeans) that the published file does not show, which the server now records on each pick.
+  Nothing changes on the order server.
 """
 import json
 import os
