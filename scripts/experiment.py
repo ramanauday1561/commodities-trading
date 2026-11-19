@@ -209,6 +209,7 @@ STUDIES = {
     "startarget": ("star_target_study", "main"),
     "starsize": ("star_size_study", "main"),
     "starstreak": ("star_streak_study", "main"),
+    "starrel": ("star_rel_study", "main"),
 }
 
 

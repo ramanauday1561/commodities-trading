@@ -68,15 +68,25 @@ VARIANTS = {"today": {}, "EXTEND": {"extend": True}, "SKIP_EARLY": {"skip_early"
             "BOTH": {"extend": True, "skip_early": True}}
 
 
+def big(row, rule):
+    """A * lean the server would buy: 25+ points expected (AUTO_MIN_SIZE), or with rule "min_ratio" (study starrel)
+    an expected move at least that many times the usual one at that time of day (row[5], the usual size in points)."""
+    if not row[0]:
+        return False
+    if rule.get("min_ratio"):
+        return len(row) > 5 and bool(row[5]) and row[1] >= rule["min_ratio"] * row[5]
+    return row[1] >= rule.get("min_size", MIN_SIZE)
+
+
 def day_picks(rows, rule, b, a, prem_pct):
-    """One day. rows: {k: (star, size, side, y)} with y NIFTY's return over candle k (the lean's candle) and price the
+    """One day. rows: {k: (star, size, side, y, price[, usual size])} with y NIFTY's return over candle k (the lean's candle) and price the
     close before it. Returns the day's picks: [(entry k, exit k, Rs a lot after costs)]."""
     ks = sorted(rows)
     out, i = [], 0
     while i < len(ks):
         k = ks[i]
-        star, size, side, _y, price = rows[k]
-        if not (star and size >= MIN_SIZE and k <= LAST_ENTRY_K) or (rule.get("skip_early") and k <= EARLY_K):
+        star, size, side, _y, price = rows[k][:5]
+        if not (big(rows[k], rule) and k <= rule.get("last_entry_k", LAST_ENTRY_K)) or (rule.get("skip_early") and k <= EARLY_K):
             i += 1
             continue
         prem, end, level, val, j = prem_pct * price, k + HOLD, 1.0, None, k
@@ -86,9 +96,8 @@ def day_picks(rows, rule, b, a, prem_pct):
             if val <= -STOP * prem:
                 break
             j += 1
-            if rule.get("extend") and j in rows and j <= LAST_ENTRY_K:
-                s2, z2, d2 = rows[j][0], rows[j][1], rows[j][2]
-                if s2 and z2 >= MIN_SIZE and d2 == side:
+            if rule.get("extend") and j in rows and j <= rule.get("last_entry_k", LAST_ENTRY_K):
+                if big(rows[j], rule) and rows[j][2] == side:
                     end = max(end, j + HOLD)
         else:
             j -= 1
@@ -116,8 +125,8 @@ def nine_year_days(t):
     t = t[~((t["d"] >= sh.CAS_FROM) & (t["k"] >= sh.CAS_K))].sort_values(["d", "k"])
     days = {}
     for d, g in t.groupby("d"):
-        days[d] = {int(k): (bool(s), float(z), int(np.sign(p)), float(y), float(pr))
-                   for k, s, z, p, y, pr in zip(g["k"], g["star"], g["size_pts"], g["pred"], g["y"], g["price"])}
+        days[d] = {int(k): (bool(s), float(z), int(np.sign(p)), float(y), float(pr), float(u))
+                   for k, s, z, p, y, pr, u in zip(g["k"], g["star"], g["size_pts"], g["pred"], g["y"], g["price"], g["typical_pts"])}
     return days
 
 
@@ -165,7 +174,7 @@ def live_days(store_dir, since="2026-11-04"):
                 continue
             x = leans.get(at) or {}
             rows[k] = (bool(x.get("confident")), float(x.get("size") or 0), 1 if x.get("lean") == "up" else -1,
-                       closes[at] / closes[before] - 1, closes[before])
+                       closes[at] / closes[before] - 1, closes[before], float(x.get("typical") or 0))
         if rows:
             days[day] = rows
     return days
