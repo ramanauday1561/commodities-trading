@@ -34,6 +34,21 @@ Rule, fixed before the run (as starrules A): a wider stop (or none) replaces 10%
       years.
 If several pass, the one with the best layer-2 average. A passing stop is still a loss-reducing change, not a proven
 edge: whether the picks earn after costs is reported (leanfilter_study.passes) and does not change the verdict.
+
+Result (run 20 Nov 2026 on the intraday-data, options-live and scoreboard branches; walk-forward * leans 2017-01-02 to
+2026-11-20; pricing b 0.549, a -0.18 from 828 Kite quote pairs; premium 0.705% of NIFTY, the median of layer 1's picks).
+Rs a lot a trade after costs.
+  Layer 1, Kite's real option candles (19 published * leans of 25+ points, 4-20 Nov): 10% +Rs4,498 in total (8 won),
+    15% +Rs4,989, 20% +Rs3,293, 25% +Rs4,445, none +Rs5,256. Today's 09:35 pick: 10% -Rs935, 15% or wider +Rs1,287.
+  Layer 2, nine years (1,524 * leans of 25+ points; the size model only predicts 25+ in busy years, so 2020-2026):
+    10% +Rs6 a trade (3 of 7 years up), 15% +49, 20% +65, 25% +66, none +62.
+    Against 10%: 15% better by Rs43 (halves -100 / +52, since 2022 +57, better in 3 of 7 years), 20% +59 (-189 / +61,
+    4 of 7), 25% +60 (-126 / +48, 4 of 7), none +56 (-397 / +2, 3 of 7).
+  NO STOP PASSES. Wider stops are better on average and since 2022, but they lose much more in the wild years (2020:
+  10% -Rs730 a trade, 20% -1,339, none -2,099) and are worse in 2021, 2025 and 2026, so they beat 10% in only 3-4 of
+  the 7 years; on the real candles 20% was worse than 10%. None of the rules earns after costs (3 of 7 years up). The
+  10% stop stays. Days like 20 Nov (a right lean shaken out inside the first 5 minutes) are the price of the 10% stop;
+  the wild days it saves are the price of a wider one. Re-run when options-live has about 30 more trading days.
 """
 import csv
 import glob

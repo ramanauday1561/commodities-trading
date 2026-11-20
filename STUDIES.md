@@ -415,3 +415,12 @@ Experiment mode "starrel" (19 Nov 2026, star_rel_study.py, asked by the owner): 
 PASSES: the ratio filters buy 3-6 times as many leans and lose Rs68-188 a day over nine years (worse than 25 points in
 8-10 of 10 years), though R1.0 / R1.2 looked better on the 12 live days; LATE loses Rs6 a day more. The fixed 25 points
 stays the best of the filters tested (still not earning: -Rs3 a day, 3 of 10 years up).
+
+Experiment mode "starstop" (20 Nov 2026, star_stop_study.py, asked by the owner after the 20 Nov 09:35 pick: a right
+lean whose CALL dipped 12.5% inside the first 5 minutes, was stopped at 10% (-Rs810) and then ran +34%): the automatic
+* picks' stop (10% / 15% / 20% / 25% / none) with the stop priced INSIDE each 5-minute candle (the stored highs and lows),
+which study starrules could not do; server rule (25+ points, ATM, 30 minutes). Real option candles (19 picks, 4-20 Nov):
+10% +Rs4,498, 15% +4,989, 20% +3,293, 25% +4,445, none +5,256. Nine years (1,524 trades, 2020-2026): 10% +Rs6 a trade,
+15% +49, 20% +65, 25% +66, none +62, but wider stops lose far more in wild years (2020: 10% -730, none -2,099) and beat
+10% in only 3-4 of 7 years. NONE PASSES; the 10% stop stays.
+

@@ -286,3 +286,9 @@ From 5 Nov (this part of the session):
   the server's own lean (LocalLeans), which can differ from the published one. Each automatic pick now records the lean
   it was bought on (`lean_info`: expected and usual move, made on the server or GitHub) and the server log says it;
   Next 10 shows the expected move per pick. **Study starrel** (move vs the usual one; the 15:05 lean): none passes.
+- 20 Nov 2026: the 09:35 * pick (up, 27.6 points expected) was right but its CALL dipped 12.5% inside the first 5 minutes
+  and the 10% stop sold it (-Rs810.23 after charges; held 30 minutes about +Rs1,287). **Study starstop** priced the stop
+  inside each 5-minute candle (stored highs and lows): no wider stop passes (better on average, but far worse in wild
+  years like 2020; 3-4 of 7 years); the 10% stop stays, the server is unchanged. Next 10's "1 lot" column now says
+  "1 lot, 10 min" and marks estimates with ≈ (real prices with •), with a note that real picks (30 minutes, a stop) can
+  differ. Day: gap down to 25,368, close 25,800.6; * leans 9 of 10 right on direction; paper * leans +Rs1,937.
