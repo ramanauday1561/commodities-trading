@@ -237,19 +237,19 @@
 "legs": {
 "CE": {
 "sold": 140,
-"now": 166.95,
+"now": 166.3,
 "stopped": false,
-"pts": -26.95
+"pts": -26.3
 },
 "PE": {
 "sold": 116.1,
-"now": 115,
+"now": 115.8,
 "stopped": false,
-"pts": 1.1
+"pts": 0.3
 }
 },
-"pts": -29.55,
-"rs": -1921,
+"pts": -29.7,
+"rs": -1930,
 "final": false
 }
 ]
