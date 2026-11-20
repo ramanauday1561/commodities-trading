@@ -284,7 +284,10 @@ function starSec(d) {
 }
 
 function leansTable(s, d, realRs) {
-  return `<table class="k-tbl"><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot</th></tr>`
+  // 20 Nov 2026 (owner: "why the values are mismatching"): this column is one 10-minute candle, estimated until the
+  // close (≈) and on Kite's real prices after it (•); a real pick (above, and on Money) is held up to 30 minutes with a
+  // 10% stop, so its result can differ even when the lean was right
+  return `<table class="k-tbl"><tr><th>Candle</th><th>Lean</th><th class="n">Actual</th><th class="n">1 lot, 10 min</th></tr>`
     + s.slice().reverse().map(x => {
       const v = realRs[x.at + x.lean] ?? x.rs;
       return `<tr><td class="k-t1">${x.at}${x.confident ? ' ' + starIco : ''}</td>
@@ -292,9 +295,10 @@ function leansTable(s, d, realRs) {
         + (x.pending ? `<td class="n"><span class="k-pill m">${ico('clock')}${d.status === 'open' ? 'pending' : 'not scored'}</span></td><td></td>`
           : x.paused ? '<td class="n"><span class="k-pill m">feed paused</span></td><td></td>'
           : `<td class="n"><span class="k-pill ${x.right ? 'up' : 'down'}">${ico(x.right ? 'check' : 'x')}${x.move >= 0 ? '+' : '−'}${Math.abs(x.move).toFixed(1)}</span></td>
-             <td class="n ${ud(v)}"><b>${rs(v)}</b>${realRs[x.at + x.lean] != null ? '•' : ''}</td>`)
+             <td class="n ${ud(v)}"><b>${realRs[x.at + x.lean] != null ? rs(v) + '•' : '≈' + rs(v)}</b></td>`)
         + '</tr>';
-    }).join('') + '</table>';
+    }).join('') + '</table>'
+    + `<div class="k-note">≈ an estimate for that one candle (half of NIFTY's move, ₹120 costs); • Kite's real option prices, added after the close. Your real picks are held up to 30 minutes with a stop, so their ₹ (Money) can differ.</div>`;
 }
 
 // Every lean, live and in the 9-year test, and the paper accounts on Kite's real option prices (paper_accounts.py)
