@@ -424,3 +424,10 @@ which study starrules could not do; server rule (25+ points, ATM, 30 minutes). R
 15% +49, 20% +65, 25% +66, none +62, but wider stops lose far more in wild years (2020: 10% -730, none -2,099) and beat
 10% in only 3-4 of 7 years. NONE PASSES; the 10% stop stays.
 
+Experiment mode "startrend" (23 Nov 2026, star_trend_study.py, asked by the owner after 23 Nov, a gap up that fell
+1.7% all day while 17 of 21 big * leans said "up"): skip a * lean that bets against a trending day (30+ minutes in,
+NIFTY's move since the open at least 40% of the distance travelled, the lean on the other side). Real option candles
+(39 picks, 4-23 Nov): the skipped 18 lost Rs16,804, the kept 21 made Rs10,059 (23 Nov: skipped -17,640). Nine years
+(1,539 trades): kept +Rs47 a trade vs all +37, skipped -63, both halves and since 2022 better, but in only 3 of 7 years
+(need 5; 2023 carries it), and with 20 Nov's premium (0.705%) it was 6 of 7: not steady. DOES NOT PASS; the server
+is unchanged. Worth re-running when more live days are stored.

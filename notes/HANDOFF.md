@@ -299,4 +299,7 @@ From 5 Nov (this part of the session):
   that day). The server now keeps each * lean it did not buy with the reason (`auto_skipped` in the day's state and in
   /api/state: "refused" with the server's message, "small" under AUTO_MIN_SIZE), and the Money page shows them above
   "Today vs the backtest".
-
+  **Study startrend** (skip a * lean that bets against a trending day): the real days say yes (4-23 Nov, the 18 skipped
+  picks lost Rs16,804; 23 Nov alone -17,640), nine years say not steadily (better in 3 of 7 years, need 5): does not
+  pass; the server is unchanged. On 23 Nov's real candles every * lean bought on its own would have lost: ATM -Rs11,243,
+  otm1 -10,788, otm2 -9,800 (20 leans): the day, not the strike, was the problem.

@@ -25,6 +25,16 @@ leans (layer 2, 10% stop): on average, in both halves of the years, since 2022, 
 have trades (the 25-point leans come only in busy years); AND on layer 1 the leans it skips lost money in total (so
 skipping them would have helped on the real days). Whether the kept leans earn after costs is reported
 (leanfilter_study.passes) and does not change the verdict. A pass goes to the owner before the server changes.
+
+RESULT (run 23 Nov 2026 with that day's candles, locally on the data branches): DOES NOT PASS.
+  Layer 1 (real option candles, 4-23 Nov, 39 picks at the money): all -Rs6,745; kept 21 picks +Rs10,059; skipped 18
+  picks -Rs16,804 (3 won). 23 Nov alone: all -Rs11,243, kept +Rs6,397, skipped -Rs17,640. This half passes.
+  Layer 2 (nine years, 1,539 trades, premium 1.007% of NIFTY, b 0.545, a -0.17): all +Rs37 a trade, kept +Rs47,
+  skipped -Rs63; better by 9.8 on average, halves +3.9 / +20.2, since 2022 +10.2, but better in only 3 of 7 years
+  (need 5): kept minus all by year 2020 0, 2021 +13, 2022 -1, 2023 +69, 2024 -8, 2025 -3, 2026 +22 (2023 carries it).
+  The kept leans do not earn after costs (3 of 7 years up). A run the same morning without 23 Nov's candles (premium
+  0.705%) had 6 of 7 years better, so the nine-year answer also moves with the premium assumed: not steady enough.
+  The server is unchanged.
 """
 import json
 import math
