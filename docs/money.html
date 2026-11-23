@@ -112,13 +112,30 @@ async function vsBacktest() {
   try {
     const [r, t] = await Promise.all([fetch(srv.replace(/\/+$/, '') + '/api/state', { cache: 'no-store', headers: { Authorization: 'Bearer ' + code } }), UI.starDays()]);
     const st = r.ok ? await r.json() : null;
-    if (!st || !t) return;
+    if (!st) return;
+    if (!t) { $('vs').innerHTML = skippedNote(st.auto_skipped || []); return; }
     const picks = (st.trades || []).filter(x => x.auto && !x.practice && x.status !== 'not entered');
     const val = x => x.net != null ? x.net : x.pnl != null ? x.pnl - (x.charges_est || 0) : 0;
     const net = picks.reduce((a, x) => a + val(x), 0), open = picks.some(x => x.status !== 'closed');
-    $('vs').innerHTML = UI.sec('vs', 'chart', 'Today vs the backtest', 'Your ★ picks against nine years of the same rule',
+    $('vs').innerHTML = skippedNote(st.auto_skipped || [])
+      + UI.sec('vs', 'chart', 'Today vs the backtest', 'Your ★ picks against nine years of the same rule',
       picks.length ? `<span class="${cls(net)}">${rs(net)}</span>` : '', UI.dayVsBacktest(picks.length, net, t, open));
   } catch (e) { /* the rest of the page stands without it */ }
+}
+
+// ★ leans the server did not buy today (23 Nov 2026, owner: the page showed 0 picks on a day of ten * leans, each
+// refused for costing more than this app's money): refused ones with the server's reason, and the ones under
+// AUTO_MIN_SIZE (skipped by design) as a count
+function skippedNote(sk) {
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const refused = sk.filter(x => x.kind === 'refused'), small = sk.filter(x => x.kind === 'small');
+  if (!refused.length && !small.length) return '';
+  const why = refused.length ? esc(refused[refused.length - 1].why).replace(/Rs ?/g, '₹') : '';
+  const times = refused.map(x => x.at).join(', ');
+  return refused.length
+    ? UI.alert(`<b>${refused.length} ★ pick${refused.length > 1 ? 's' : ''} not bought today</b> (${times}). The server said: ${why}.`
+        + (small.length ? ` ${small.length} more had an expected move under the minimum (skipped by design).` : ''), 'bad')
+    : UI.alert(`${small.length} ★ lean${small.length > 1 ? 's' : ''} today had an expected move under the minimum, so the server skipped ${small.length > 1 ? 'them' : 'it'} (by design).`, '', 'star');
 }
 
 async function load() {
