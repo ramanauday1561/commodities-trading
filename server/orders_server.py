@@ -384,6 +384,7 @@ class Engine:
             return {"day": self.state["day"], "now": self.now().isoformat(timespec="seconds"), "kite": bool(self.kite),
                     "locked": self.state["locked"], "limits": self.limits, "auto": self.auto_mode, "day_pnl": round(open_loss, 2),
                     "practice_pnl": round(practice, 2), "app_money": self._app_money(),
+                    "auto_skipped": self.state.get("auto_skipped", []),
                     "trades": [{k: v for k, v in t.items() if k not in ("entry_id", "sl_id", "exit_id")} for t in self.state["trades"]]}
 
     def add(self, req):
@@ -739,6 +740,7 @@ class Auto:
                     keep.append(l)
                 else:
                     print(f"auto: star {l['at']} {l['lean']} skipped: expected move {l.get('size', '?')} pts, under AUTO_MIN_SIZE {e.auto_min_size:g}", flush=True)
+                    self._skipped(l, "small", f"expected move {l.get('size', '?')} pts, under {e.auto_min_size:g}")
             todo = keep
         for l in todo:
             try:
@@ -746,6 +748,18 @@ class Auto:
                 print(f"auto: star {l['at']} {l['lean']}: {'practice ' if e.auto_mode == 'practice' else ''}pick {tid} ({lean_text(l)})", flush=True)
             except (ValueError, KiteError) as err:
                 print(f"auto: star {l['at']} {l['lean']} not placed: {err}", flush=True)
+                self._skipped(l, "refused", str(err))
+
+    def _skipped(self, lean, kind, why):
+        """23 Nov 2026 (owner: the Money page showed 0 picks on a day of ten * leans, each refused for costing more than
+        this app's money): every * lean not bought is kept with the day's state, so the Orders and Money pages can say
+        why. kind "small": under AUTO_MIN_SIZE (by design); "refused": the order or a limit said no."""
+        e = self.engine
+        with e.lock:
+            e.state.setdefault("auto_skipped", []).append(
+                {"at": lean["at"], "lean": lean["lean"], "size": lean.get("size"), "kind": kind, "why": why,
+                 "when": e.now().isoformat(timespec="seconds")})
+            e.save()
 
 
 MODEL_URL = "https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/"

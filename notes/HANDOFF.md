@@ -292,3 +292,11 @@ From 5 Nov (this part of the session):
   years like 2020; 3-4 of 7 years); the 10% stop stays, the server is unchanged. Next 10's "1 lot" column now says
   "1 lot, 10 min" and marks estimates with ≈ (real prices with •), with a note that real picks (30 minutes, a stop) can
   differ. Day: gap down to 25,368, close 25,800.6; * leans 9 of 10 right on direction; paper * leans +Rs1,937.
+- 23 Nov 2026: **ten * leans (25-63 points expected), no pick.** 24 Nov is a holiday, so the weekly options expired on
+  23 Nov; the server never buys an option expiring that day, took the 1 Dec contract, and one ATM lot cost
+  Rs17,600-18,600, more than this app's money (Rs16,798.70): every pick was refused by the APP_CAPITAL check. The Money
+  page said only "0 picks". Owner's choice: **AUTO_STRIKE=otm2** on the VPS (two strikes out of the money: Rs14,700-15,400
+  that day). The server now keeps each * lean it did not buy with the reason (`auto_skipped` in the day's state and in
+  /api/state: "refused" with the server's message, "small" under AUTO_MIN_SIZE), and the Money page shows them above
+  "Today vs the backtest".
+
