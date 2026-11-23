@@ -422,6 +422,25 @@ class AutoStar(unittest.TestCase):
         osv.Auto(self.e, fetch=lambda: big, clock=self.c.clock).tick()
         self.assertEqual(len(self.e.state["trades"]), 1)                        # 26.5 points: bought
 
+    def test_skipped_stars_are_kept_with_the_reason(self):
+        """23 Nov 2026: ten * leans, each refused for costing more than this app's money, and the Money page said
+        only '0 picks'. Refused and too-small leans are now kept for the day with the reason."""
+        self.e.limits["capital"] = 1000.0                                      # one lot (~Rs5,200) cannot fit
+        osv.Auto(self.e, fetch=lambda: self.doc, clock=self.c.clock).tick()
+        self.assertEqual(self.e.state["trades"], [])
+        sk = self.e.view()["auto_skipped"]
+        self.assertEqual([(x["at"], x["lean"], x["kind"]) for x in sk], [("10:05", "down", "refused")])
+        self.assertIn("more than this app's money", sk[0]["why"])
+        self.e.limits["capital"] = 0
+        self.e.auto_min_size = 25
+        self.e.state["auto_done"] = []
+        small = {**self.doc, "leans": [{**l, "size": 18.0} for l in self.doc["leans"]]}
+        osv.Auto(self.e, fetch=lambda: small, clock=self.c.clock).tick()
+        self.assertEqual([x["kind"] for x in self.e.view()["auto_skipped"]], ["refused", "small"])
+        self.c.dt = self.c.dt.replace(day=self.c.dt.day + 3)                     # Monday: a new day starts clean
+        self.e._new_day()
+        self.assertEqual(self.e.view()["auto_skipped"], [])
+
     def test_auto_strike_buys_one_strike_out_of_the_money(self):
         self.e.auto_strike = 1                                                 # AUTO_STRIKE=otm1: a PUT 50 points lower
         self.k.prices["NIFTY26N0924450PE"] = (60.0, 59.5, 60.5)
