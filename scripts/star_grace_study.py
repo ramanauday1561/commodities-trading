@@ -29,6 +29,19 @@ Pass rule, fixed before the run. A rule passes only if it beats 10%-from-the-sta
       years that have trades.
 If several pass, the one with the best layer-2 average. Whether the picks earn after costs is reported
 (leanfilter_study.passes) and does not change the verdict. A pass goes to the owner before the server changes.
+
+RESULT (run 25 Nov 2026 with that day's candles, locally on the data branches; walk-forward * leans 2017-01-02 to
+2026-11-25; b 0.547, a -0.15; premium 0.941% of NIFTY, the median of layer 1's at-the-money picks): NONE PASSES.
+  Layer 1, real option candles (48 published * leans of 25+ points, 4-25 Nov), Rs in total after costs:
+    at the money:  10% -7,101 (18 won), G5 -7,228, G5c25 -7,228, G10c25 -6,223 (19 won)
+    two strikes out: 10% -5,751 (17 won), G5 -5,990, G5c25 -5,990, G10c25 -5,521 (18 won)
+    (25 Nov alone: the same for every rule, at the money -356, two out -84: its stops came after the first minutes)
+  Layer 2, nine years (1,554 trades), Rs a lot a trade: 10% +39, G5 +50, G5c25 +52, G10c25 +82 (each up in 3 of 7
+    years, none earns after costs). Against 10%: G5 better by 11.0 (halves -158 / +8, since 2022 +14, better in 2 of 7
+    years), G5c25 +12.6 (-87 / +9, +15, 2 of 7), G10c25 +43.1 (-125 / +32, +54, 3 of 7; 2020 -561, 2022 +223).
+  G5 and G5c25 also lose on the real candles; G10c25 wins there (+Rs1,000 / +230) but loses badly in wild years
+  (2020) and is better in only 3 of 7 years. As in study starstop: a looser start helps calm years and costs wild ones.
+  The 10% stop from the start stays; the server is unchanged.
 """
 import csv
 import json
