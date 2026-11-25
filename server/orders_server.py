@@ -669,27 +669,6 @@ def auto_leans(doc, now, done):
     return out
 
 
-def late_leans(doc, now, done, since):
-    """25 Nov 2026 (four * leans were neither bought nor listed as refused): today's * leans that reached the server
-    only after AUTO_MAX_AGE, though they were still fresh at some moment after it started (since), and not tried."""
-    today = now.date().isoformat()
-    if not doc or doc.get("date") != today or since is None:
-        return []
-    out = []
-    for l in doc.get("leans") or []:
-        lid = f"{today} {l.get('at')}"
-        if not l.get("confident") or lid in done or l.get("lean") not in ("up", "down"):
-            continue
-        try:
-            made = datetime.strptime(f"{today} {l.get('made') or l['at']}", "%Y-%m-%d %H:%M").replace(tzinfo=now.tzinfo)
-        except (KeyError, ValueError):
-            continue
-        age, fresh_until = (now - made).total_seconds(), made + timedelta(seconds=AUTO_MAX_AGE + 60)
-        if age > AUTO_MAX_AGE + 60 and fresh_until >= since:
-            out.append({**l, "id": lid, "late_min": int(age // 60)})
-    return out
-
-
 class Auto:
     """AUTO_STAR=1 (11 Nov 2026, asked by the owner: "make it place orders automatically"): each new * lean becomes a
     pick by itself. The at-the-money option of the next expiry after today on the lean's side (CALL up, PUT down),
@@ -701,7 +680,6 @@ class Auto:
         self.engine, self.clock, self.etag, self.checked = engine, clock, None, 0.0
         self.fetch = fetch or self._fetch
         self.local = local                                   # LocalLeans: the lean made here, seconds after each candle
-        self.started = None                                  # first tick: leans older than this are not "late"
 
     def _fetch(self):
         """next-nifty.json from the site-data branch through GitHub's API (no CDN delay); None when unchanged
@@ -727,8 +705,6 @@ class Auto:
             raise
 
     def tick(self):
-        if self.started is None:
-            self.started = self.engine.now()
         docs = []
         if self.local:
             try:
@@ -751,14 +727,9 @@ class Auto:
             e._new_day()
             done = e.state.setdefault("auto_done", [])
             todo = auto_leans(doc, e.now(), set(done))
-            late = late_leans(doc, e.now(), set(done), self.started)
-            for l in todo + late:
+            for l in todo:
                 done.append(l["id"])                         # before trying: never twice, even after a refusal
             e.save()
-        for l in late:
-            print(f"auto: star {l['at']} {l['lean']} not bought: reached the server {l['late_min']} min after it was made", flush=True)
-            self._skipped(l, "late", f"the lean reached the server {l['late_min']} minutes after it was made "
-                                     f"(picks are bought only in the first {(AUTO_MAX_AGE + 60) // 60} minutes)")
         # AUTO_MIN_SIZE (17 Nov 2026, the owner's choice after study starsize: 25+ points was +Rs28 a trade over nine
         # years but up in only 3 of 7 years, so it did not pass): a * lean is bought only when its expected 10-minute
         # move is at least that many NIFTY points; without a size it is skipped
@@ -782,8 +753,7 @@ class Auto:
     def _skipped(self, lean, kind, why):
         """23 Nov 2026 (owner: the Money page showed 0 picks on a day of ten * leans, each refused for costing more than
         this app's money): every * lean not bought is kept with the day's state, so the Orders and Money pages can say
-        why. kind "small": under AUTO_MIN_SIZE (by design); "refused": the order or a limit said no; "late" (25 Nov 2026):
-        the lean reached the server too late to buy."""
+        why. kind "small": under AUTO_MIN_SIZE (by design); "refused": the order or a limit said no."""
         e = self.engine
         with e.lock:
             e.state.setdefault("auto_skipped", []).append(
