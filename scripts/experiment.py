@@ -206,6 +206,7 @@ STUDIES = {
     "leanfilters": ("leanfilter_study", "main"),
     "starstop": ("star_stop_study", "main"),
     "startrend": ("star_trend_study", "main"),
+    "stargrace": ("star_grace_study", "main"),
     "starhold": ("star_hold_study", "main"),
     "starrules": ("star_rules_study", "main"),
     "startarget": ("star_target_study", "main"),
