@@ -377,6 +377,14 @@ class Engine:
                 self._closed(t, bid or ltp or t["avg_in"], "exit time (practice)")
 
     # ------------------------------------------------------------------ the phone's requests
+    def skip_note(self, lean, kind, why):
+        """Keep a * lean that was not bought, with the reason, in the day's state (auto_skipped)."""
+        with self.lock:
+            self.state.setdefault("auto_skipped", []).append(
+                {"at": lean["at"], "lean": lean["lean"], "size": lean.get("size"), "kind": kind, "why": why,
+                 "when": self.now().isoformat(timespec="seconds")})
+            self.save()
+
     def view(self):
         with self.lock:
             open_loss = sum(self._pnl(t) for t in self.state["trades"] if not t.get("practice"))
@@ -505,6 +513,10 @@ class Engine:
                 t["filled"], t["avg_in"] = filled, float(o["average_price"])
                 return self._protect(t)
             t["status"], t["why"] = "not entered", o.get("status_message") or st.lower()
+            if t.get("auto"):                                       # 25 Nov 2026: Kite refused three * picks for margin
+                _, at, side = (t["auto"].split() + ["", "", ""])[:3]
+                self.skip_note({"at": at, "lean": side, "size": (t.get("lean_info") or {}).get("size")}, "refused",
+                               f"Kite rejected the order: {t['why']}")
             return self.log(t, f"entry {st.lower()}: {t['why']}")
         if hm(self.now()) >= t["exit_by"]:
             return self._exit(t, "exit time reached before the entry filled")
@@ -753,13 +765,9 @@ class Auto:
     def _skipped(self, lean, kind, why):
         """23 Nov 2026 (owner: the Money page showed 0 picks on a day of ten * leans, each refused for costing more than
         this app's money): every * lean not bought is kept with the day's state, so the Orders and Money pages can say
-        why. kind "small": under AUTO_MIN_SIZE (by design); "refused": the order or a limit said no."""
-        e = self.engine
-        with e.lock:
-            e.state.setdefault("auto_skipped", []).append(
-                {"at": lean["at"], "lean": lean["lean"], "size": lean.get("size"), "kind": kind, "why": why,
-                 "when": e.now().isoformat(timespec="seconds")})
-            e.save()
+        why. kind "small": under AUTO_MIN_SIZE (by design); "refused": the order or a limit said no (since 25 Nov 2026
+        also an order Kite took and then rejected, e.g. for the shared account's margin)."""
+        self.engine.skip_note(lean, kind, why)
 
 
 MODEL_URL = "https://raw.githubusercontent.com/ramanauday1561/commodities-trading/site-data/"
