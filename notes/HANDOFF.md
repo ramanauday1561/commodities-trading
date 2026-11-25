@@ -303,3 +303,11 @@ From 5 Nov (this part of the session):
   picks lost Rs16,804; 23 Nov alone -17,640), nine years say not steadily (better in 3 of 7 years, need 5): does not
   pass; the server is unchanged. On 23 Nov's real candles every * lean bought on its own would have lost: ATM -Rs11,243,
   otm1 -10,788, otm2 -9,800 (20 leans): the day, not the strike, was the problem.
+- 25 Nov 2026: five real picks at two strikes out (otm2), before charges: 09:35 +Rs1,596 (held 30 min), 10:15 -1,134,
+  10:55 -1,086 and 13:05 -1,076 (each sold by the 10% stop within 4-26 minutes), 11:05 +94: about -Rs1,606. The 10:55
+  and 11:05 leans expected only 21 and 24 points: AUTO_MIN_SIZE is not in /etc/nifty-orders.env (24 Nov it held only
+  AUTO_STAR=1, then AUTO_STRIKE=otm2 was added). Four published * leans (12:15, 12:45, 12:55, 13:45) were neither
+  bought nor listed as refused, while nothing was open; the server dropped them silently. The likely cause is a lean
+  that reached the server after AUTO_MAX_AGE (3 minutes + 1). The server now lists such leans as "late" (`late_leans`,
+  only for leans still fresh after the server started) and Money shows them in the red box. **Study stargrace** (a
+  grace before the 10% stop): none passes; the stop is unchanged.

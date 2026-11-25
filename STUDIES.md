@@ -431,3 +431,10 @@ NIFTY's move since the open at least 40% of the distance travelled, the lean on 
 (1,539 trades): kept +Rs47 a trade vs all +37, skipped -63, both halves and since 2022 better, but in only 3 of 7 years
 (need 5; 2023 carries it), and with 20 Nov's premium (0.705%) it was 6 of 7: not steady. DOES NOT PASS; the server
 is unchanged. Worth re-running when more live days are stored.
+
+Experiment mode "stargrace" (25 Nov 2026, star_grace_study.py, asked by the owner after 25 Nov, when three of five real
+picks were sold by the 10% stop within minutes): give each * pick a grace before its 10% stop starts (G5: no stop in the
+first 5-minute candle; G5c25: 25% in the first candle; G10c25: 25% in the first two). Real option candles (48 leans of
+25+ points, 4-25 Nov): G5 and G5c25 slightly worse than 10%, G10c25 better (+Rs1,000 at the money, +230 two strikes
+out). Nine years (1,554 trades): all better on average (+11 to +43 a trade) but worse in the first half and better in
+only 2-3 of 7 years (2020 much worse). NONE PASSES; the 10% stop from the start stays.
