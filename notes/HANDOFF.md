@@ -306,8 +306,9 @@ From 5 Nov (this part of the session):
 - 25 Nov 2026: five real picks at two strikes out (otm2), before charges: 09:35 +Rs1,596 (held 30 min), 10:15 -1,134,
   10:55 -1,086 and 13:05 -1,076 (each sold by the 10% stop within 4-26 minutes), 11:05 +94: about -Rs1,606. The 10:55
   and 11:05 leans expected only 21 and 24 points: AUTO_MIN_SIZE is not in /etc/nifty-orders.env (24 Nov it held only
-  AUTO_STAR=1, then AUTO_STRIKE=otm2 was added). Four published * leans (12:15, 12:45, 12:55, 13:45) were neither
-  bought nor listed as refused, while nothing was open; the server dropped them silently. The likely cause is a lean
-  that reached the server after AUTO_MAX_AGE (3 minutes + 1). The server now lists such leans as "late" (`late_leans`,
-  only for leans still fresh after the server started) and Money shows them in the red box. **Study stargrace** (a
+  AUTO_STAR=1, then AUTO_STRIKE=otm2 was added). Kite REJECTED the 12:15, 12:45 and 12:55 * orders ("Insufficient
+  funds": margin needed ~Rs33,100-34,400, available Rs32,698), because the owner's other app's trades were using the
+  shared Kite account's margin; APP_CAPITAL cannot see that. The server marked them "not entered" but the pages
+  showed nothing; now a rejected automatic pick goes into `auto_skipped` with Kite's message and Money's red box
+  shows it. 13:15 was refused for this app's money (13:05 open), 13:45 by MAX_LOSS_DAY (3000). **Study stargrace** (a
   grace before the 10% stop): none passes; the stop is unchanged.
