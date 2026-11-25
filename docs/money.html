@@ -128,14 +128,15 @@ async function vsBacktest() {
 // AUTO_MIN_SIZE (skipped by design) as a count
 function skippedNote(sk) {
   const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
-  const refused = sk.filter(x => x.kind === 'refused'), small = sk.filter(x => x.kind === 'small');
-  if (!refused.length && !small.length) return '';
-  const why = refused.length ? esc(refused[refused.length - 1].why).replace(/Rs ?/g, '₹') : '';
-  const times = refused.map(x => x.at).join(', ');
-  return refused.length
-    ? UI.alert(`<b>${refused.length} ★ pick${refused.length > 1 ? 's' : ''} not bought today</b> (${times}). The server said: ${why}.`
-        + (small.length ? ` ${small.length} more had an expected move under the minimum (skipped by design).` : ''), 'bad')
-    : UI.alert(`${small.length} ★ lean${small.length > 1 ? 's' : ''} today had an expected move under the minimum, so the server skipped ${small.length > 1 ? 'them' : 'it'} (by design).`, '', 'star');
+  const refused = sk.filter(x => x.kind === 'refused'), small = sk.filter(x => x.kind === 'small'), late = sk.filter(x => x.kind === 'late');
+  const missed = refused.length + late.length;
+  if (!missed && !small.length) return '';
+  const smallTxt = small.length ? ` ${small.length} more had an expected move under the minimum (skipped by design).` : '';
+  if (!missed)
+    return UI.alert(`${small.length} ★ lean${small.length > 1 ? 's' : ''} today had an expected move under the minimum, so the server skipped ${small.length > 1 ? 'them' : 'it'} (by design).`, '', 'star');
+  const why = refused.length ? ` The server said: ${esc(refused[refused.length - 1].why).replace(/Rs ?/g, '₹')} (${refused.map(x => x.at).join(', ')}).` : '';
+  const lateTxt = late.length ? ` Reached the server too late to buy (${late.map(x => x.at).join(', ')}): ${esc(late[late.length - 1].why)}.` : '';
+  return UI.alert(`<b>${missed} ★ pick${missed > 1 ? 's' : ''} not bought today</b>.${why}${lateTxt}${smallTxt}`, 'bad');
 }
 
 async function load() {

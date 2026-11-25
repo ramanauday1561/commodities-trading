@@ -441,6 +441,23 @@ class AutoStar(unittest.TestCase):
         self.e._new_day()
         self.assertEqual(self.e.view()["auto_skipped"], [])
 
+    def test_late_stars_are_kept_with_the_reason(self):
+        """25 Nov 2026: four * leans were neither bought nor listed. A * lean that reaches the server after
+        AUTO_MAX_AGE is now listed as "late", but only if it was still fresh at some moment after the server started."""
+        a = osv.Auto(self.e, fetch=lambda: {"date": "2026-11-06", "leans": []}, clock=self.c.clock)
+        a.tick()                                                               # started at 10:00
+        self.c.t += 600
+        self.c.dt = self.c.dt.replace(minute=10)                               # 10:10: the 10:05 star arrives late
+        a.fetch = lambda: self.doc
+        self.c.t += osv.AUTO_EVERY
+        a.tick()
+        sk = self.e.view()["auto_skipped"]
+        self.assertEqual([(x["at"], x["kind"]) for x in sk], [("10:05", "late")])  # 09:45 was stale before the start
+        self.assertIn("11 minutes after it was made", sk[0]["why"])
+        self.assertEqual(self.e.state["trades"], [])
+        a.tick()                                                               # listed once only
+        self.assertEqual(len(self.e.view()["auto_skipped"]), 1)
+
     def test_auto_strike_buys_one_strike_out_of_the_money(self):
         self.e.auto_strike = 1                                                 # AUTO_STRIKE=otm1: a PUT 50 points lower
         self.k.prices["NIFTY26N0924450PE"] = (60.0, 59.5, 60.5)
