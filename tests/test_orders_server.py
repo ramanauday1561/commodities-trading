@@ -458,6 +458,18 @@ class AutoStar(unittest.TestCase):
         a.tick()                                                               # listed once only
         self.assertEqual(len(self.e.view()["auto_skipped"]), 1)
 
+    def test_kite_rejected_star_is_kept_with_the_reason(self):
+        """25 Nov 2026: Kite took three * orders, then rejected them for the shared account's margin; the pages showed
+        nothing. Such a pick is now listed with Kite's message."""
+        osv.Auto(self.e, fetch=lambda: self.doc, clock=self.c.clock).tick()
+        oid = self.e.state["trades"][0]["entry_id"]
+        self.k.book[oid].update(status="REJECTED", status_message="Insufficient funds. Margin required: 33360.14.")
+        self.e.tick()
+        self.assertEqual(self.e.state["trades"][0]["status"], "not entered")
+        sk = self.e.view()["auto_skipped"]
+        self.assertEqual([(x["at"], x["lean"], x["kind"]) for x in sk], [("10:05", "down", "refused")])
+        self.assertEqual(sk[0]["why"], "Kite rejected the order: Insufficient funds. Margin required: 33360.14.")
+
     def test_auto_strike_buys_one_strike_out_of_the_money(self):
         self.e.auto_strike = 1                                                 # AUTO_STRIKE=otm1: a PUT 50 points lower
         self.k.prices["NIFTY26N0924450PE"] = (60.0, 59.5, 60.5)
