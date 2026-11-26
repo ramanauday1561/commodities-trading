@@ -320,3 +320,8 @@ From 5 Nov (this part of the session):
   10:35 lean (22.8 points) was skipped by AUTO_MIN_SIZE; on the real candles it would have made about +Rs1,330.
   Fills came 2-7 option points above the 5-minute candle's open (the order goes ~15 s after the candle starts).
   **Study starlate** (no new pick from 14:45): does not pass; the server is unchanged.
+- 26 Nov 2026: the owner asked about github.com/Jakeschincariol/day-trader-skill (11 Claude skills for US-stock day
+  trading, Yahoo data, Alpaca orders). Not installed: US shares only, Yahoo (blocked in cloud sessions), its own order
+  path (orders stay with the order server), unaudited Python. Its one untested idea for us, the opening-range
+  breakout, became **study orb**: loses over 12 years (-Rs158 to -218 a trade, up in 0-2 of 12 years) though it made
+  money on November 2026's 13 real days. Nothing changes.

@@ -443,3 +443,9 @@ Experiment mode "starlate" (26 Nov 2026, star_late_study.py, asked by the owner 
 into the 15:15 exit lost Rs494): no new * pick from the 14:45 lean on. Real option candles (4-26 Nov): the 5 late picks
 made +Rs632 in total (one +3,403). Nine years (1,561 trades): the late leans lose Rs31 a trade and the kept ones are
 better by Rs14 a trade, but not in the first half and in only 4 of 7 years. DOES NOT PASS; entries stay until 14:55.
+
+Experiment mode "orb" (26 Nov 2026, orb_study.py, asked by the owner after reading a US day-trading skill set): an
+opening-range breakout on NIFTY (range = the first 15 minutes; buy a CALL / PUT on the first 5-minute close outside
+it; stop at the range middle; target 1R, or no target; out at 15:15), priced as an at-the-money option. Twelve years
+(2,889 trades): 1R -Rs218 a trade (up in 0 of 12 years), stop only -Rs158 (2 of 12). Kite's real option candles (13
+trades, 5-26 Nov 2026): +Rs8,692 and +Rs37,851, a run of trending days. NEITHER PASSES; nothing changes.
