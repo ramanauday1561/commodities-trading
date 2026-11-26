@@ -313,3 +313,10 @@ From 5 Nov (this part of the session):
   13:15 was refused for this app's money (13:05 open), 13:45 by MAX_LOSS_DAY (3000). Merged first (#148), on a wrong
   guess: leans reaching the server after AUTO_MAX_AGE are listed as "late" (kept as a guard). **Study stargrace** (a
   grace before the 10% stop): none passes; the stop is unchanged.
+- 26 Nov 2026: first day with APP_CAPITAL 20,000 (reset; the owner added money to Kite) and AUTO_MIN_SIZE 25. NIFTY
+  25,873 open, 25,975 high, 25,884 close; five * leans, all "up". Four real picks (two strikes out), all CALLs, none
+  stopped: 10:15 +Rs4,131, 14:05 +2,119, 14:25 +1,433, 14:45 -494 (held into the 15:15 exit): +Rs7,189 before charges
+  (Kite's m2m). Two picks were open at once (14:05 and 14:25), which the new 20,000 allowed. No Kite rejections. The
+  10:35 lean (22.8 points) was skipped by AUTO_MIN_SIZE; on the real candles it would have made about +Rs1,330.
+  Fills came 2-7 option points above the 5-minute candle's open (the order goes ~15 s after the candle starts).
+  **Study starlate** (no new pick from 14:45): does not pass; the server is unchanged.

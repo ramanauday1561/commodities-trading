@@ -438,3 +438,8 @@ first 5-minute candle; G5c25: 25% in the first candle; G10c25: 25% in the first 
 25+ points, 4-25 Nov): G5 and G5c25 slightly worse than 10%, G10c25 better (+Rs1,000 at the money, +230 two strikes
 out). Nine years (1,554 trades): all better on average (+11 to +43 a trade) but worse in the first half and better in
 only 2-3 of 7 years (2020 much worse). NONE PASSES; the 10% stop from the start stays.
+
+Experiment mode "starlate" (26 Nov 2026, star_late_study.py, asked by the owner after 26 Nov, when the 14:45 pick held
+into the 15:15 exit lost Rs494): no new * pick from the 14:45 lean on. Real option candles (4-26 Nov): the 5 late picks
+made +Rs632 in total (one +3,403). Nine years (1,561 trades): the late leans lose Rs31 a trade and the kept ones are
+better by Rs14 a trade, but not in the first half and in only 4 of 7 years. DOES NOT PASS; entries stay until 14:55.
