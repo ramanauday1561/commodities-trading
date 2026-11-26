@@ -208,6 +208,7 @@ STUDIES = {
     "startrend": ("star_trend_study", "main"),
     "stargrace": ("star_grace_study", "main"),
     "starlate": ("star_late_study", "main"),
+    "orb": ("orb_study", "main"),
     "starhold": ("star_hold_study", "main"),
     "starrules": ("star_rules_study", "main"),
     "startarget": ("star_target_study", "main"),
