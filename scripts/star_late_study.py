@@ -20,6 +20,15 @@ Pass rule, fixed before the run. The cut passes only if the * leans it KEEPS ear
 * leans (layer 2): on average, in both halves of the years, since 2022, and in at least 70% of the years with trades;
 AND on layer 1 the leans it skips lost money in total. Whether the kept leans earn after costs is reported and does
 not change the verdict. A pass goes to the owner before the server changes.
+
+RESULT (run 26 Nov 2026 with that day's candles, locally on the data branches; walk-forward * leans 2017-01-02 to
+2026-11-26; b 0.549, a -0.16; premium 0.878% of NIFTY): DOES NOT PASS.
+  Layer 1 (real option candles, 52 picks at the money, 4-26 Nov): all +Rs2,329; kept 47 +Rs1,697; the 5 late picks
+  skipped made +Rs632 (6 Nov 14:55 +3,403, 20 Nov 14:55 +124, 23 Nov 14:45 -1,888 and 14:55 -640, 26 Nov 14:45 -367).
+  Layer 2 (nine years, 1,561 trades): all +Rs31 a trade, kept +Rs45, skipped -Rs31; better by 14.1 on average, since
+  2022 +18.0, but the first half -5.9 / second +24.9 and better in only 4 of 7 years (need 5): 2020 +3, 2021 -46,
+  2022 +26, 2023 +50, 2024 +66, 2025 -13, 2026 -3. The kept leans do not earn after costs (3 of 7 years up).
+  The late leans lose a little on average but not steadily; the server keeps entering until the 14:55 lean.
 """
 import csv
 import json
