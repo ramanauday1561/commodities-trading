@@ -24,6 +24,17 @@ Pass rule, fixed before the run. A variant passes only if, in Rs a lot a trade a
 average, in both halves of the years, since 2022, and in at least 70% of the years, over 300 or more trades
 (as leanfilter_study.passes, with 70% of the years); AND it made money in total on layer 1's real option candles.
 If both pass, the one with the higher layer-2 average. A pass is information for the owner; nothing becomes an order.
+
+RESULT (run 26 Nov 2026 locally on the intraday-data and options-live branches; 2,932 days, 2015-01-09 to
+2026-11-26; b 0.549, a -0.16 from Kite's quotes): NEITHER VARIANT PASSES.
+  Layer 2 (12 years, 2,889 trades: NIFTY breaks its first 15 minutes almost every day), Rs a lot a trade after costs:
+    1R         -218 (halves -219 / -219, since 2022 -218, up in 0 of 12 years; right 49.2%; 1,404 stops, 1,339 targets)
+    stop only  -158 (halves -179 / -136, since 2022 -147, up in 2 of 12 years: 2022 0, 2024 +165; right 34.0%)
+  Layer 1 (Kite's real option candles, 13 trades, 5-26 Nov 2026): 1R +Rs8,692 (8 won), stop only +Rs37,851 (6 won;
+    6 Nov +21,145, 19 Nov +11,157, 20 Nov +12,461). November 2026 was a run of trending days; over 12 years the same
+    rule loses in nearly every year. Layer 2 prices the option as a straight line in NIFTY (no curvature), which
+    undersells the biggest all-day winners of "stop only", but not by enough to turn -Rs158 a trade in 10 of 12
+    years. The 13 real days are a warning about small samples, not evidence. Nothing changes in the app.
 """
 import csv
 import json
