@@ -7524,6 +7524,15 @@
 "rs": 3656,
 "trades": 1,
 "won": 1
+},
+"signal_lean": {
+"rs": -5447,
+"trades": 1,
+"won": 0,
+"side": "PE",
+"strike": 25850,
+"entry": 223.15,
+"exit": 141.2
 }
 },
 "leans": [
@@ -13263,14 +13272,14 @@
 "name": "Paper short straddle (50% stops)"
 },
 "signal_lean": {
-"rs": -32120,
-"days": 13,
+"rs": -37567,
+"days": 14,
 "up_days": 4,
-"trades": 13,
+"trades": 14,
 "won": 4,
-"balance": 167880,
+"balance": 162433,
 "name": "09:15 signal's lean, every day"
 }
 },
-"updated": "2026-11-26T16:04+05:30"
+"updated": "2026-11-26T16:27+05:30"
 }
