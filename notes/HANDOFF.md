@@ -325,3 +325,9 @@ From 5 Nov (this part of the session):
   path (orders stay with the order server), unaudited Python. Its one untested idea for us, the opening-range
   breakout, became **study orb**: loses over 12 years (-Rs158 to -218 a trade, up in 0-2 of 12 years) though it made
   money on November 2026's 13 real days. Nothing changes.
+- 27 Nov 2026: NIFTY 25,839 open, 25,909 high, 25,607 close (-1.1%). Five * leans, none of 25+ points before 15:00
+  (09:45 21.4, 10:35 19.4, 10:55 20.6, 11:15 18.8; 15:05 26.7 is after the last entry): no pick, as AUTO_MIN_SIZE
+  25 intends. Bought on their own at two strikes out they would have lost about Rs881 (on Kite's real candles). The
+  owner asked why there were stars but Rs0: the Money box says they were under the minimum. Check on the real candles
+  (4-27 Nov, every published * lean up to 14:55, otm2, 10% stop, 30 min): 25+ points 52 picks +Rs2,220 (+43 a pick),
+  under 25 56 picks +Rs2,031 (+36 a pick): no real difference live; nine years (study starsize) favour 25+. Kept.
